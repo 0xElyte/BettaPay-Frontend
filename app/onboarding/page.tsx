@@ -48,8 +48,18 @@ export default function OnboardingPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Trim string inputs upfront so state always reflects the cleaned value.
+  // This keeps the validation logic in sync with what is actually sent to
+  // the API at submit time (and prevents inputs like "  Acme  " from being
+  // stored as-is and validated against the trimmed length in isolation).
   const updateData = (changes: Partial<OnboardingData>) => {
-    setData((current) => ({ ...current, ...changes }));
+    const cleaned = Object.fromEntries(
+      Object.entries(changes).map(([k, v]) => [
+        k,
+        typeof v === 'string' ? v.trim() : v,
+      ]),
+    ) as Partial<OnboardingData>;
+    setData((current) => ({ ...current, ...cleaned }));
     setErrors({});
   };
 
@@ -61,7 +71,9 @@ export default function OnboardingPage() {
     }
     if (targetStep === 1 && !data.settlementCurrency) nextErrors.settlementCurrency = "Choose a settlement currency.";
     if (targetStep === 2 && !data.preferredAnchor) nextErrors.preferredAnchor = "Choose a preferred anchor.";
-    if (targetStep === 3 && data.webhookUrl) {
+    // webhookUrl is optional — skip URL validation entirely when it is
+    // empty so a blank input never triggers a runtime exception from new URL().
+    if (targetStep === 3 && data.webhookUrl.trim()) {
       try { new URL(data.webhookUrl); } catch { nextErrors.webhookUrl = "Enter a valid URL, including https://."; }
     }
     setErrors(nextErrors);

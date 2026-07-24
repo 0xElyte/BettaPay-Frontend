@@ -16,6 +16,7 @@ import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { usePayments, type ApiPayment } from '@/lib/api/hooks';
 import { formatDate } from '@/lib/utils/format';
 import { sanitizeSearchQuery } from '@/lib/utils/sanitize';
+import { buildCsv, escapeCsvField } from '@/lib/utils/csv';
 import { Search, Download, SearchX, ExternalLink } from 'lucide-react';
 import { getStellarExplorerTxUrl } from '@/lib/utils/explorer';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -135,11 +136,25 @@ export default function TransactionsPage() {
       notify.error("No transactions to export");
       return;
     }
+    // CSV field escaping follows RFC 4180: wrap text in double quotes and
+    // double any embedded `"` so embedded quotes cannot break parsing.
+    // Numeric columns stay unquoted so spreadsheets preserve their type.
     const headers = "Date,Payer,TxHash,Source,AmountUSDC,AmountNGN,Status\n";
     const rows = filteredTransactions.map(tx =>
-      `"${tx.createdAt}","${tx.payerAddress ?? ''}","${tx.txHash ?? ''}","${tx.source ?? ''}",${tx.amountUsdc},${tx.amountNgn ?? 0},"${tx.status}"`
-    ).join("\n");
-    const blob = new Blob([headers + rows], { type: "text/csv" });
+      [
+        escapeCsvField(tx.createdAt),
+        escapeCsvField(tx.payerAddress),
+        escapeCsvField(tx.txHash),
+        escapeCsvField(tx.source),
+        tx.amountUsdc,
+        tx.amountNgn ?? 0,
+        escapeCsvField(tx.status),
+      ].join(",")
+    );
+    // The BOM in buildCsv() makes Excel recognise the file as UTF-8 so the
+    // ₦ glyph in NGN amounts renders without manual encoding selection.
+    const csv = buildCsv(headers, rows);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
