@@ -132,33 +132,6 @@ export default function SettlementPage() {
           value={<CurrencyDisplay amount={totalSettled} />}
           trend={{ icon: CheckCircle2, label: 'All completed', color: 'text-emerald-600' }}
         />
-        <Card className="border border-border border-t-2 border-t-amber-200 bg-card shadow-sm">
-          <CardHeader className="pb-2 relative">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Available to Settle</CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 sm:p-4 relative">
-            <p className="text-xl sm:text-2xl font-bold text-foreground"><CurrencyDisplay amount={available} /></p>
-            <p className="text-xs text-muted-foreground mt-1">≈ ₦{availableNgn.toLocaleString()}</p>
-          </CardContent>
-        </Card>
-        <Card className="border border-border bg-card shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pending Settlement</CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 sm:p-4">
-            <p className="text-xl sm:text-2xl font-bold text-foreground"><CurrencyDisplay amount={pending} /></p>
-            <p className="text-xs text-primary mt-1 flex items-center gap-1"><Clock className="w-3 h-3" /> Processing</p>
-          </CardContent>
-        </Card>
-        <Card className="border border-border bg-card shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Settled (30d)</CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 sm:p-4">
-            <p className="text-xl sm:text-2xl font-bold text-foreground"><CurrencyDisplay amount={totalSettled} /></p>
-            <p className="text-xs text-success mt-1 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> All completed</p>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Settlement history */}
