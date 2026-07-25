@@ -21,29 +21,18 @@ import {
   BarChart3,
   ArrowRight,
 } from 'lucide-react';
-import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-} from 'recharts';
+import dynamic from 'next/dynamic';
+
+const RevenueChart = dynamic(() => import('@/components/charts/RevenueChart'), {
+  ssr: false,
+  loading: () => <div className="h-[260px] bg-slate-50 animate-pulse rounded-xl w-full" />
+});
 import { useAuthStore } from '@/lib/store/authStore';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-const mockChartData = [
-  { name: 'Mon', total: 1200, volume: 8400 },
-  { name: 'Tue', total: 2100, volume: 14700 },
-  { name: 'Wed', total: 1800, volume: 12600 },
-  { name: 'Thu', total: 3200, volume: 22400 },
-  { name: 'Fri', total: 2800, volume: 19600 },
-  { name: 'Sat', total: 4100, volume: 28700 },
-  { name: 'Sun', total: 3800, volume: 26600 },
-];
+
 
 const mockTransactions = [
   { id: 'tx_01', label: 'Consulting Retainer', address: 'GBX1...3F9A', amount: 750, status: 'completed', time: '2m ago' },
@@ -62,19 +51,7 @@ const mockPaymentLinks = [
 const PERIOD_OPTIONS = ['7D', '30D', '90D'] as const;
 type Period = typeof PERIOD_OPTIONS[number];
 
-// Custom Tooltip for recharts
-interface TooltipProps { active?: boolean; payload?: { value: number }[]; label?: string; }
-const ChartTooltip = ({ active, payload, label }: TooltipProps) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-lg text-sm">
-        <p className="font-semibold text-slate-700 mb-1">{label}</p>
-        <p className="text-amber-600 font-bold">${payload[0]?.value?.toLocaleString()}</p>
-      </div>
-    );
-  }
-  return null;
-};
+
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
@@ -228,46 +205,7 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="pt-0">
-            <div className="h-[260px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={mockChartData} margin={{ top: 4, right: 4, bottom: 0, left: -16 }}>
-                  <defs>
-                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#F0A500" stopOpacity={0.25} />
-                      <stop offset="95%" stopColor="#F0A500" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
-                  <XAxis
-                    dataKey="name"
-                    stroke="#CBD5E1"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fill: '#94A3B8' }}
-                  />
-                  <YAxis
-                    stroke="#CBD5E1"
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(v) => `$${v}`}
-                    tick={{ fill: '#94A3B8' }}
-                  />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Area
-                    type="monotone"
-                    dataKey="total"
-                    stroke="#F0A500"
-                    strokeWidth={2.5}
-                    fillOpacity={1}
-                    fill="url(#colorRevenue)"
-                    dot={false}
-                    activeDot={{ r: 5, fill: '#F0A500', stroke: '#fff', strokeWidth: 2 }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+            <RevenueChart height={260} />
             {/* Summary row */}
             <div className="flex items-center gap-6 pt-4 border-t border-slate-100 mt-2">
               <div>
