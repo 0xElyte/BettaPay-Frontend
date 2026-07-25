@@ -6,9 +6,15 @@ import dynamic from 'next/dynamic';
 
 import { Button } from '@/components/ui';
 import { WalletModalFallback } from '@/components/wallet/WalletModalFallback';
+import { NetworkTooltip } from '@/components/ui/network-tooltip';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAppTranslation } from '@/lib/i18n/useAppTranslation';
 import { useLogin } from '@/lib/hooks/useLogin';
+
+// Module-level sentinel: fires the dev-mode missing-config warning at most
+// once across the lifetime of the JS bundle. Avoids the Strict Mode effect
+// double-fire that would otherwise spam `console.warn`.
+let hasWarnedMissingGoogleClientId = false;
 
 const WalletModal = dynamic(() => import('@/components/wallet/WalletModal').then(m => m.WalletModal), { ssr: false });
 
@@ -20,7 +26,7 @@ const benefits = [
 
 export default function LoginPage() {
   const { t } = useAppTranslation();
-  
+
   const {
     isWalletLoading,
     walletModalOpen,
@@ -29,6 +35,24 @@ export default function LoginPage() {
     onWalletConnected,
     error
   } = useLogin();
+
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const googleConfigured = Boolean(googleClientId);
+
+  // Surface the missing-config situation to developers exactly once. We
+  // dedupe with a module-level flag because React 18 Strict Mode mounts
+  // useEffects twice in dev, and we don't want to spam the console.
+  if (
+    !googleConfigured &&
+    !hasWarnedMissingGoogleClientId &&
+    process.env.NODE_ENV !== 'production'
+  ) {
+    hasWarnedMissingGoogleClientId = true;
+    // eslint-disable-next-line no-console
+    console.warn(
+      '[BettaPay] Google login is not configured. Set NEXT_PUBLIC_GOOGLE_CLIENT_ID to enable Google sign-in.',
+    );
+  }
 
   return (
     <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -46,16 +70,34 @@ export default function LoginPage() {
 
       {/* Auth buttons */}
       <div className="space-y-3">
-        <div className="flex justify-center [&>div]:w-full rounded-xl overflow-hidden border border-border">
-          <GoogleLogin
-            onSuccess={onGoogleSuccess}
-            onError={() => error('Google login failed')}
-            shape="rectangular"
-            theme="outline"
-            size="large"
-            width="400"
-          />
-        </div>
+        {googleConfigured ? (
+          <div className="flex justify-center [&>div]:w-full rounded-xl overflow-hidden border border-border">
+            <GoogleLogin
+              onSuccess={onGoogleSuccess}
+              onError={() => error('Google login failed')}
+              shape="rectangular"
+              theme="outline"
+              size="large"
+              width="400"
+            />
+          </div>
+        ) : (
+          <NetworkTooltip
+            show
+            id="google-login-missing-config"
+            message="Google login not configured — set NEXT_PUBLIC_GOOGLE_CLIENT_ID"
+          >
+            <Button
+              variant="outline"
+              disabled
+              aria-describedby="google-login-missing-config"
+              className="w-full h-12 border-border bg-card text-muted-foreground cursor-not-allowed"
+              title="Google login not configured — set NEXT_PUBLIC_GOOGLE_CLIENT_ID"
+            >
+              <span className="opacity-60">Continue with Google</span>
+            </Button>
+          </NetworkTooltip>
+        )}
 
         <div className="relative flex items-center py-1">
           <div className="flex-1 h-px bg-border" />

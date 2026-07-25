@@ -18,6 +18,13 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+
+  // Pass the clientId straight to GoogleOAuthProvider only when configured;
+  // otherwise pass an empty placeholder so the provider target render does
+  // not blow up if a GoogleLogin button somehow ends up rendered. The login
+  // page is responsible for showing a disabled fallback when the ID is
+  // missing so users still get an explanatory UI instead of a silent failure.
   return (
     <html lang="en" className={cn("font-sans antialiased")}>
       <body className="min-h-screen bg-background text-foreground">
@@ -27,7 +34,7 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''}>
+        <GoogleOAuthProvider clientId={googleClientId ?? ''}>
           <I18nProvider>
             <Providers>
               {children}
