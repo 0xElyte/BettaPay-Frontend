@@ -7,6 +7,10 @@ import userEvent from '@testing-library/user-event';
 // Establish fetch mock before any module that calls fetch on import/init
 global.fetch = jest.fn();
 
+// Same env-var fix as login.test.tsx: ensure the happy-path GoogleLogin
+// branch is exercised; the missing-config branch is covered separately.
+process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID = 'mock-client-id-for-tests';
+
 // Mock useRouter
 const mockPush = jest.fn();
 jest.mock('next/navigation', () => ({
