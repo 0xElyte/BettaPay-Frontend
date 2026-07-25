@@ -1,5 +1,15 @@
 "use client";
 
+import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { RefreshCcw, TrendingUp, TrendingDown, Info } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+const FxRateChart = dynamic(() => import('@/components/charts/FxRateChart'), {
+  ssr: false,
+  loading: () => <div className="h-[240px] bg-slate-50 animate-pulse rounded-xl w-full" />
+});
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui';
@@ -18,27 +28,29 @@ import {
 } from "@/components/ui/select";
 import { Input } from '@/components/ui';
 import { useRates } from '@/lib/api/hooks';
+import { useRateAlertStore } from '@/lib/store/rateAlertStore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui';
+
+
+
+const pairs = [
+  { from: 'USDC', to: 'NGN', rate: '₦1,550', change: +1.6, trend: 'up' },
+  { from: 'XLM', to: 'NGN', rate: '₦324.5', change: -0.8, trend: 'down' },
+  { from: 'USDC', to: 'XLM', rate: '4.78 XLM', change: +2.3, trend: 'up' },
+];
+
 
 const FxRateChart = dynamic(() => import('@/components/charts/FxRateChart'), {
   ssr: false,
   loading: () => <Skeleton className="h-[240px] w-full rounded-xl" />,
 });
 
-interface RateAlert {
-  id: string;
-  pair: string;
-  condition: 'above' | 'below';
-  target: number;
-  enabled: boolean;
-}
-
 export default function FxRatesPage() {
   const { data: pairs, primaryRate, isLoading: ratesLoading, error: ratesError, refetch } = useRates();
   const [lastRefresh] = useState('Just now');
   const [fxError, setFxError] = useState(false);
-  const [alerts, setAlerts] = useState<RateAlert[]>([]);
   const notify = useNotify();
+  const { alerts, addAlert, toggleAlert, deleteAlert } = useRateAlertStore();
 
   // Conversion calculator state
   const [convertAmount, setConvertAmount] = useState('100');
@@ -57,23 +69,6 @@ export default function FxRatesPage() {
   const feeUsdc = rawInput * (feePercent / 100);
   const netUsdc = Math.max(0, rawInput - feeUsdc);
   const estimatedOutputNgn = netUsdc * currentRate;
-
-  // Load alerts from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem('bettapay_rate_alerts');
-    if (saved) {
-      try {
-        setAlerts(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to parse alerts', e);
-      }
-    }
-  }, []);
-
-  // Save alerts to localStorage
-  useEffect(() => {
-    localStorage.setItem('bettapay_rate_alerts', JSON.stringify(alerts));
-  }, [alerts]);
 
   const handleExecuteConversion = () => {
     if (rawInput <= 0) {
@@ -94,26 +89,13 @@ export default function FxRatesPage() {
       return;
     }
 
-    const alert: RateAlert = {
-      id: Math.random().toString(36).substr(2, 9),
+    addAlert({
       pair: newPair,
       condition: newCondition,
       target: Number(newTarget),
-      enabled: true,
-    };
-
-    setAlerts([...alerts, alert]);
+    });
     setNewTarget('');
     notify.success('Rate alert created');
-  };
-
-  const toggleAlert = (id: string) => {
-    setAlerts(alerts.map(a => a.id === id ? { ...a, enabled: !a.enabled } : a));
-  };
-
-  const deleteAlert = (id: string) => {
-    setAlerts(alerts.filter(a => a.id !== id));
-    notify.info('Alert removed');
   };
 
   return (
@@ -283,6 +265,8 @@ export default function FxRatesPage() {
               <Bell className="w-4 h-4 text-primary" /> Create Rate Alert
             </CardTitle>
           </CardHeader>
+          <CardContent>
+            <FxRateChart height={240} />
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -299,7 +283,7 @@ export default function FxRatesPage() {
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-foreground">Condition</label>
-                <Select value={newCondition} onValueChange={(value) => value && setNewCondition(value as RateAlert['condition'])}>
+                <Select value={newCondition} onValueChange={(value) => value && setNewCondition(value as 'above' | 'below')}>
                   <SelectTrigger className="h-10 border-border rounded-xl bg-muted">
                     <SelectValue />
                   </SelectTrigger>
@@ -391,7 +375,7 @@ export default function FxRatesPage() {
                         size="icon"
                         aria-label="Delete alert"
                         className="min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => deleteAlert(alert.id)}
+                        onClick={() => { deleteAlert(alert.id); notify.info('Alert removed'); }}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>

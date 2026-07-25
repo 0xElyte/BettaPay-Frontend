@@ -46,6 +46,13 @@ jest.mock('framer-motion', () => ({
   AnimatePresence: ({ children }: any) => <>{children}</>,
 }));
 
+// The login page also consults NEXT_PUBLIC_GOOGLE_CLIENT_ID to decide
+// whether to mount the real <GoogleLogin> or render a disabled fallback.
+// Make the env var present so the happy-path render is covered here; the
+// missing-config path is covered by a dedicated test in
+// googleLoginFallback.test.tsx.
+process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID = 'mock-client-id-for-tests';
+
 // Mock Google Login (requires GoogleOAuthProvider wrapper in real app)
 jest.mock('@react-oauth/google', () => ({
   GoogleLogin: () => <button data-testid="mock-google-login">Continue with Google</button>,
