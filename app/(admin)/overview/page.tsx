@@ -5,6 +5,14 @@ import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { CurrencyDisplay } from '@/components/shared';
 import { Users, AlertTriangle, ArrowUpRight, Activity, DollarSign } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+const PlatformVolumeChart = dynamic(() => import('@/components/charts/PlatformVolumeChart'), {
+  ssr: false,
+  loading: () => <div className="h-[300px] bg-slate-50 animate-pulse rounded-xl w-full" />
+});
+
+
 import { Skeleton } from '@/components/ui';
 import { StatCard } from '@/components/shared';
 
@@ -126,6 +134,16 @@ export default function AdminOverviewPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-7">
+        <Card className="col-span-4 bg-card border shadow-sm">
+          <CardHeader>
+            <CardTitle>Platform Volume vs Fees</CardTitle>
+          </CardHeader>
+          <CardContent className="pl-2">
+            <div className="mt-4">
+              <PlatformVolumeChart height={300} />
+            </div>
+          </CardContent>
+        </Card>
         {/* Chart section is memoised */}
         <AdminChartSection />
 

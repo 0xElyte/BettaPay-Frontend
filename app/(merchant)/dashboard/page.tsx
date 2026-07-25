@@ -20,16 +20,40 @@ import {
   ExternalLink,
   ArrowRight,
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+const RevenueChart = dynamic(() => import('@/components/charts/RevenueChart'), {
+  ssr: false,
+  loading: () => <div className="h-[260px] bg-slate-50 animate-pulse rounded-xl w-full" />
+});
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
 import { usePayments, useSettlements } from '@/lib/api/hooks';
 import { useAuthStore } from '@/lib/store/authStore';
 import Link from 'next/link';
 import { useNotify } from '@/lib/hooks/useNotify';
 import { cn } from '@/lib/utils';
+
+
+
+const mockTransactions = [
+  { id: 'tx_01', label: 'Consulting Retainer', address: 'GBX1...3F9A', amount: 750, status: 'completed', time: '2m ago' },
+  { id: 'tx_02', label: 'E-commerce Payment', address: 'GDR2...7K1B', amount: 45.5, status: 'completed', time: '18m ago' },
+  { id: 'tx_03', label: 'Invoice #1042', address: 'GBN3...2P8C', amount: 1200, status: 'pending', time: '1h ago' },
+  { id: 'tx_04', label: 'Subscription Fee', address: 'GCH4...9M4D', amount: 29, status: 'completed', time: '3h ago' },
+  { id: 'tx_05', label: 'Freelance Project', address: 'GDX5...1N5E', amount: 3500, status: 'failed', time: '5h ago' },
+];
+
+const mockPaymentLinks = [
+  { id: 'link_01', label: 'Consulting Retainer Q3', url: 'betta.pay/pay/link_01', clicks: 24, converted: 8 },
+  { id: 'link_02', label: 'E-commerce Checkout', url: 'betta.pay/pay/link_02', clicks: 112, converted: 47 },
+  { id: 'link_03', label: 'Donation Campaign', url: 'betta.pay/pay/link_03', clicks: 58, converted: 19 },
+];
 import RevenueChart from '@/components/charts/RevenueChart';
 
 const PERIOD_OPTIONS = ['7D', '30D', '90D'] as const;
 type Period = typeof PERIOD_OPTIONS[number];
+
+
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
@@ -178,6 +202,7 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="pt-0">
+            <RevenueChart height={260} />
             {chartError ? (
               <div className="h-[260px] flex items-center justify-center">
                 <ErrorDisplay
