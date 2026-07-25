@@ -26,6 +26,21 @@ import { useNotify } from '@/lib/hooks/useNotify';
 
 type Transaction = ApiPayment;
 
+function isTransaction(value: unknown): value is Transaction {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'id' in value &&
+    'amountUsdc' in value &&
+    'status' in value &&
+    'createdAt' in value &&
+    typeof (value as Transaction).id === 'string' &&
+    typeof (value as Transaction).amountUsdc === 'number' &&
+    typeof (value as Transaction).status === 'string' &&
+    typeof (value as Transaction).createdAt === 'string'
+  );
+}
+
 interface TransactionCardProps {
   tx: Transaction;
   onClick: (tx: Transaction) => void;
@@ -395,7 +410,7 @@ export default function TransactionsPage() {
       )}
 
       <TransactionDrawer
-        transaction={selectedTx}
+        transaction={selectedTx && isTransaction(selectedTx) ? selectedTx : null}
         isOpen={!!selectedTx}
         onClose={() => setSelectedTx(null)}
       />
