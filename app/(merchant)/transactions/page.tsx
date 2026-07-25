@@ -1,5 +1,17 @@
 "use client";
 
+import { useState } from 'react';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { StatusBadge } from '@/components/shared/StatusBadge';
+import { CopyAddress } from '@/components/shared/CopyAddress';
+import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay';
+import { mockTransactions, Transaction } from '@/lib/mock/transactions';
+import { formatDate } from '@/lib/utils/format';
+import { Search, Download, Filter } from 'lucide-react';
+import { generateCSV, CSVColumn } from '@/lib/utils/csv';
 import { useState, memo, useMemo, useRef } from 'react';
 import { useDebounceValue } from 'usehooks-ts';
 import { Card, CardContent } from '@/components/ui';
@@ -47,6 +59,34 @@ interface TransactionCardProps {
   onClick: (tx: Transaction) => void;
 }
 
+  const handleExportCSV = () => {
+    const columns: CSVColumn<Transaction>[] = [
+      { header: 'Date', key: (tx) => formatDate(tx.timestamp) },
+      { header: 'Payer', key: 'payerAddress' },
+      { header: 'Tx Hash', key: 'txHash' },
+      { header: 'Source', key: 'source' },
+      { header: 'Amount (USDC)', key: 'amountUsdc' },
+      { header: 'Amount (NGN)', key: 'amountNgn' },
+      { header: 'FX Rate', key: 'fxRate' },
+      { header: 'Status', key: 'status' }
+    ];
+
+    const csvContent = generateCSV(filteredTransactions, columns);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    
+    // Format date as YYYY-MM-DD
+    const dateStr = new Date().toISOString().split('T')[0];
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `bettapay-transactions-${dateStr}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
 const TransactionCard = memo(function TransactionCard({ tx, onClick }: TransactionCardProps) {
   return (
     <div
@@ -62,6 +102,15 @@ const TransactionCard = memo(function TransactionCard({ tx, onClick }: Transacti
           <span className="text-xs text-muted-foreground">Payer</span>
           <CopyAddress address={tx.payerAddress ?? ''} />
         </div>
+        <div className="flex gap-2">
+          <Button variant="outline" className="border-border/50 bg-brand-surface">
+            <Filter className="w-4 h-4 mr-2" />
+            Filter
+          </Button>
+          <Button onClick={handleExportCSV} variant="outline" className="border-border/50 bg-brand-surface">
+            <Download className="w-4 h-4 mr-2" />
+            Export CSV
+          </Button>
         <div className="flex items-center justify-between">
           <span className="text-xs text-muted-foreground">Tx Hash</span>
           <div className="flex items-center gap-2">
