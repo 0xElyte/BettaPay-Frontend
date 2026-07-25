@@ -8,9 +8,10 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { CopyAddress } from '@/components/shared/CopyAddress';
 import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay';
-import { mockTransactions } from '@/lib/mock/transactions';
+import { mockTransactions, Transaction } from '@/lib/mock/transactions';
 import { formatDate } from '@/lib/utils/format';
 import { Search, Download, Filter } from 'lucide-react';
+import { generateCSV, CSVColumn } from '@/lib/utils/csv';
 
 export default function TransactionsPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -19,6 +20,34 @@ export default function TransactionsPage() {
     tx.txHash.toLowerCase().includes(searchTerm.toLowerCase()) ||
     tx.payerAddress.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleExportCSV = () => {
+    const columns: CSVColumn<Transaction>[] = [
+      { header: 'Date', key: (tx) => formatDate(tx.timestamp) },
+      { header: 'Payer', key: 'payerAddress' },
+      { header: 'Tx Hash', key: 'txHash' },
+      { header: 'Source', key: 'source' },
+      { header: 'Amount (USDC)', key: 'amountUsdc' },
+      { header: 'Amount (NGN)', key: 'amountNgn' },
+      { header: 'FX Rate', key: 'fxRate' },
+      { header: 'Status', key: 'status' }
+    ];
+
+    const csvContent = generateCSV(filteredTransactions, columns);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    
+    // Format date as YYYY-MM-DD
+    const dateStr = new Date().toISOString().split('T')[0];
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `bettapay-transactions-${dateStr}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className="space-y-6">
@@ -34,7 +63,7 @@ export default function TransactionsPage() {
             <Filter className="w-4 h-4 mr-2" />
             Filter
           </Button>
-          <Button variant="outline" className="border-border/50 bg-brand-surface">
+          <Button onClick={handleExportCSV} variant="outline" className="border-border/50 bg-brand-surface">
             <Download className="w-4 h-4 mr-2" />
             Export CSV
           </Button>
