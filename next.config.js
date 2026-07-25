@@ -1,4 +1,17 @@
 /** @type {import('next').NextConfig} */
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+});
+
+// Next.js dev mode (React Refresh / webpack HMR) evaluates JavaScript at
+// runtime, which a CSP without 'unsafe-eval' blocks — that stops React from
+// hydrating and leaves the app non-interactive locally. Allow it in development
+// only; the production CSP stays strict.
+const isDev = process.env.NODE_ENV === 'development';
+const scriptSrc = isDev
+  ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:"
+  : "script-src 'self' 'unsafe-inline' https:";
+
 const nextConfig = {
   reactStrictMode: true,
   async headers() {
@@ -13,7 +26,7 @@ const nextConfig = {
           { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data:; connect-src 'self' https: wss:; font-src 'self' data:;",
+            value: `default-src 'self'; ${scriptSrc}; style-src 'self' 'unsafe-inline' https:; img-src 'self' data:; connect-src 'self' https: wss:; font-src 'self' data:;`,
           },
         ],
       },
@@ -21,4 +34,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+module.exports = withBundleAnalyzer(nextConfig);

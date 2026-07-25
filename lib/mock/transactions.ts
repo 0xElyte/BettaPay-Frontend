@@ -12,6 +12,7 @@ export interface Transaction {
   status: PaymentStatus;
   source: 'QR Code' | 'Payment Link' | 'API';
   timestamp: string;
+  stellarOpId?: string;
 }
 
 const now = new Date();
