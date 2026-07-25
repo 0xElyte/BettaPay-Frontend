@@ -4,22 +4,36 @@ import type { NextRequest } from 'next/server';
 export function middleware(request: NextRequest) {
   const token = request.cookies.get('auth_token')?.value;
   const role = request.cookies.get('user_role')?.value;
-  
+
   const isAuthPage = request.nextUrl.pathname.startsWith('/auth');
-  const isPublicPayPage = request.nextUrl.pathname.startsWith('/pay');
-  const isAdminRoute = request.nextUrl.pathname.startsWith('/admin') || 
+  // Public marketing/reference surfaces. The API documentation in particular
+  // must be readable by anonymous developers evaluating BettaPay.
+  const isPublicPage = request.nextUrl.pathname === '/' ||
+                       request.nextUrl.pathname.startsWith('/pay') ||
+                       request.nextUrl.pathname === '/contact' ||
+                       request.nextUrl.pathname.startsWith('/docs') ||
+                       request.nextUrl.pathname.startsWith('/privacy') ||
+                       request.nextUrl.pathname.startsWith('/terms') ||
+                       request.nextUrl.pathname.startsWith('/fiat-settlements') ||
+                       request.nextUrl.pathname.startsWith('/pricing') ||
+                       request.nextUrl.pathname.startsWith('/about') ||
+                       request.nextUrl.pathname.startsWith('/guides') ||
+                       request.nextUrl.pathname.startsWith('/sdks') ||
+                       request.nextUrl.pathname.startsWith('/status');
+  const isAdminRoute = request.nextUrl.pathname.startsWith('/admin') ||
                        request.nextUrl.pathname === '/overview' ||
                        request.nextUrl.pathname === '/merchants' ||
                        request.nextUrl.pathname === '/anchors' ||
                        request.nextUrl.pathname === '/fx-management' ||
                        request.nextUrl.pathname === '/compliance';
-  
-  // Allow public access to payment links
-  if (isPublicPayPage) {
+
+  // Allow public access to landing page and payment links
+  if (isPublicPage) {
     return NextResponse.next();
   }
 
   // If trying to access auth pages while logged in, redirect to dashboard
+  // Exception: 2FA page is always accessible after partial login
   if (isAuthPage) {
     if (token) {
       if (role === 'admin') {
@@ -39,17 +53,17 @@ export function middleware(request: NextRequest) {
   if (isAdminRoute && role !== 'admin') {
     return NextResponse.redirect(new URL('/dashboard', request.url)); // redirect merchants from admin
   }
-  
+
   // Protect merchant routes from admins
   const isMerchantRoute = request.nextUrl.pathname === '/dashboard' ||
-                          request.nextUrl.pathname === '/payments' ||
+                          request.nextUrl.pathname.startsWith('/payments') ||
                           request.nextUrl.pathname === '/transactions' ||
                           request.nextUrl.pathname === '/settlement' ||
                           request.nextUrl.pathname === '/wallet' ||
                           request.nextUrl.pathname === '/fx' ||
                           request.nextUrl.pathname === '/developers' ||
                           request.nextUrl.pathname === '/settings';
-                          
+
   if (isMerchantRoute && role === 'admin') {
     return NextResponse.redirect(new URL('/overview', request.url));
   }

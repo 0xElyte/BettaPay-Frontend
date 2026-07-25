@@ -10,11 +10,10 @@ import {
   Anchor, 
   RefreshCcw, 
   ShieldAlert, 
-  Settings,
-  ShieldCheck
+  Settings
 } from 'lucide-react';
 
-const navItems = [
+export const adminNavItems = [
   { href: '/overview', label: 'Platform Overview', icon: BarChart3 },
   { href: '/merchants', label: 'Merchants', icon: Users },
   { href: '/admin/transactions', label: 'Transactions', icon: ListOrdered },
@@ -24,22 +23,24 @@ const navItems = [
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 
+import Image from 'next/image';
+
 export const AdminSidebar = () => {
   const pathname = usePathname();
 
   return (
-    <div className="flex h-full w-64 flex-col bg-sidebar border-r border-sidebar-border hidden md:flex">
+    <aside className="flex h-full w-64 flex-col bg-sidebar border-r border-sidebar-border hidden md:flex" role="navigation" aria-label="Main navigation">
       <div className="p-6">
         <Link href="/overview" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded bg-primary flex items-center justify-center">
-            <ShieldCheck className="w-5 h-5 text-primary-foreground" />
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center p-1">
+            <Image src="/logo.png" alt="BettaPay Logo" width={24} height={24} className="w-full h-full object-contain" />
           </div>
           <span className="font-bold text-xl tracking-tight text-sidebar-foreground">BettaPay <span className="text-primary text-sm font-normal ml-1">ADMIN</span></span>
         </Link>
       </div>
 
       <nav className="flex-1 px-4 py-4 space-y-1">
-        {navItems.map((item) => {
+        {adminNavItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           const Icon = item.icon;
           
@@ -47,14 +48,23 @@ export const AdminSidebar = () => {
             <Link
               key={item.href}
               href={item.href}
+              aria-current={isActive ? 'page' : undefined}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors border-l-2",
+                "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all",
                 isActive 
-                  ? "border-primary bg-sidebar-accent/30 text-sidebar-foreground" 
-                  : "border-transparent text-muted-foreground hover:bg-sidebar-accent/20 hover:text-sidebar-foreground"
+                  ? "bg-primary/10 text-sidebar-foreground font-semibold border border-primary/30 shadow-sm" 
+                  : "text-muted-foreground hover:bg-sidebar-accent/20 hover:text-sidebar-foreground font-medium border border-transparent"
               )}
             >
-              <Icon className="w-5 h-5" />
+              <div className="relative flex items-center">
+                <Icon className={cn(
+                  "w-5 h-5 transition-colors",
+                  isActive ? "text-primary" : "text-muted-foreground group-hover:text-sidebar-foreground"
+                )} />
+                {isActive && (
+                  <span className="absolute -right-1 -top-1 w-2 h-2 rounded-full bg-primary" />
+                )}
+              </div>
               {item.label}
             </Link>
           );
@@ -74,6 +84,6 @@ export const AdminSidebar = () => {
           </div>
         </div>
       </div>
-    </div>
+    </aside>
   );
 };

@@ -1,45 +1,72 @@
 "use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { useWalletStore } from '@/lib/store/walletStore';
-import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay';
-import { ShieldCheck, ArrowRight, QrCode } from 'lucide-react';
-import { toast } from 'sonner';
-import { Contract, rpc, TransactionBuilder, Networks, nativeToScVal } from '@stellar/stellar-sdk';
-import { signWithFreighter } from '@/lib/stellar/freighter';
-import { apiClient } from '@/lib/api/axios';
-import dynamic from 'next/dynamic';
-const WalletModal = dynamic(() => import('@/components/wallet/WalletModal').then(m => m.WalletModal), { ssr: false });
+import { useState, Suspense } from "react";
+import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui";
+import { Input } from "@/components/ui";
+import { useWalletStore } from "@/lib/store/walletStore";
+import { CurrencyDisplay } from "@/components/shared";
+import { CurrencySelector } from "@/components/payments/CurrencySelector";
+import { ArrowRight, QrCode } from "lucide-react";
+import { useNotify } from "@/lib/hooks/useNotify";
+import Image from "next/image";
+import {
+  Contract,
+  rpc,
+  TransactionBuilder,
+  nativeToScVal,
+} from "@stellar/stellar-sdk";
+import { signWithFreighter } from "@/lib/stellar/freighter";
+import { apiClient } from "@/lib/api/axios";
+import { MULTI_CURRENCY_ASSETS, MOCK_RATES } from "@/lib/utils/constants";
+import { WalletModalFallback } from "@/components/wallet/WalletModalFallback";
+import { QRCodeModal } from "@/components/payments/QRCode";
+const WalletModal = dynamic(
+  () => import("@/components/wallet/WalletModal").then((m) => m.WalletModal),
+  { ssr: false },
+);
 
 export default function PaymentLinkPage() {
   const router = useRouter();
   const { isConnected, connect, address } = useWalletStore();
+  const { error: notifyError } = useNotify();
   const [walletModalOpen, setWalletModalOpen] = useState(false);
-  
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+
   // Mock data for this link
   const linkData = {
-    merchantName: 'Merchant Corp',
-    label: 'Consulting Retainer Q3',
-    type: 'open', // 'fixed' or 'open'
-    currency: 'USDC',
+    merchantName: "Merchant Corp",
+    label: "Consulting Retainer Q3",
+    type: "open" as "fixed" | "open",
+    currency: "USDC",
     fixedAmount: 0,
+    isMultiCurrency: true,
+    acceptedCurrencies: ["USDC", "XLM", "USDT"],
   };
 
-  const [amount, setAmount] = useState(linkData.type === 'fixed' ? linkData.fixedAmount.toString() : '');
+  const [selectedCurrency, setSelectedCurrency] = useState<string[]>([linkData.currency]);
+  const activeCurrency = selectedCurrency[0] ?? linkData.currency;
+
+  const [amount, setAmount] = useState(
+    linkData.type === "fixed" ? linkData.fixedAmount.toString() : "",
+  );
   const [isProcessing, setIsProcessing] = useState(false);
-  const [step, setStep] = useState<'details' | 'review'>('details');
+  const [step, setStep] = useState<"details" | "review">("details");
 
   const handleContinue = () => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-      toast.error('Please enter a valid amount');
+      notifyError("Please enter a valid amount");
       return;
     }
-    setStep('review');
+    setStep("review");
   };
 
   const handlePay = async () => {
@@ -52,59 +79,77 @@ export default function PaymentLinkPage() {
     if (!payerAddress) return;
 
     setIsProcessing(true);
-    
+
     try {
       // 1. Generate Payment Reference (32 bytes hex string)
       const referenceBytes = new Uint8Array(32);
       crypto.getRandomValues(referenceBytes);
-      const referenceHex = Array.from(referenceBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+      const referenceHex = Array.from(referenceBytes)
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
 
       // 2. Build Soroban Transaction
-      const server = new rpc.Server('https://soroban-testnet.stellar.org');
+      const rpcUrl = process.env.NEXT_PUBLIC_SOROBAN_RPC_URL;
+      if (!rpcUrl) throw new Error('NEXT_PUBLIC_SOROBAN_RPC_URL is not set');
+      const server = new rpc.Server(rpcUrl);
       const account = await server.getAccount(payerAddress);
-      
-      const contractId = process.env.NEXT_PUBLIC_SETTLEMENT_CONTRACT_ID || 'CBGBGKJSUY7XYB6HWW4CVAU6MW2KD25FSF45E5KCP53TKUK374MBZNFB';
-      // Use the seeded admin as the merchant for this demo
-      const merchantAddress = 'GCCHHKNI7GRA5QWC7RCTT3OHO7SKAUMKQA6IBWEQEO2SXI3GF376UHDD';
-      
-      // Amount in stroops (1 USDC = 10^7 stroops)
-      const stroopAmount = BigInt(Math.floor(Number(amount) * 10_000_000));
 
-      const tx = new TransactionBuilder(account, { fee: '10000', networkPassphrase: Networks.TESTNET })
+      const contractId =
+        process.env.NEXT_PUBLIC_SETTLEMENT_CONTRACT_ID ||
+        "CBGBGKJSUY7XYB6HWW4CVAU6MW2KD25FSF45E5KCP53TKUK374MBZNFB";
+      // Merchant address: read from env var so it can be set per-environment.
+      // In production this should be derived from the payment link data fetched
+      // via the linkId param rather than a global env var.
+      const merchantAddress = process.env.NEXT_PUBLIC_MERCHANT_ADDRESS;
+      if (!merchantAddress) {
+        throw new Error('NEXT_PUBLIC_MERCHANT_ADDRESS is not set');
+      }
+
+      // Calculate stroop amount based on selected asset decimals
+      const assetConfig = MULTI_CURRENCY_ASSETS[activeCurrency] ?? MULTI_CURRENCY_ASSETS.USDC;
+      const stroopAmount = BigInt(Math.floor(Number(amount) * assetConfig.stroopMultiplier));
+
+      const networkPassphrase = process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE;
+      if (!networkPassphrase) throw new Error('NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE is not set');
+
+      const tx = new TransactionBuilder(account, {
+        fee: "10000",
+        networkPassphrase,
+      })
         .addOperation(
           new Contract(contractId).call(
-            'store_payment_reference',
-            nativeToScVal(merchantAddress, { type: 'address' }),
-            nativeToScVal(Buffer.from(referenceHex, 'hex')),
-            nativeToScVal(stroopAmount, { type: 'i128' })
-          )
+            "store_payment_reference",
+            nativeToScVal(merchantAddress, { type: "address" }),
+            nativeToScVal(Buffer.from(referenceHex, "hex")),
+            nativeToScVal(stroopAmount, { type: "i128" }),
+          ),
         )
         .setTimeout(30)
         .build();
 
       const preparedTx = await server.prepareTransaction(tx);
-      
+
       // 3. Sign with Freighter
       const signedXdr = await signWithFreighter(preparedTx.toXDR());
       if (!signedXdr) {
-        throw new Error('User cancelled signing or Freighter error');
+        throw new Error("User cancelled signing or Freighter error");
       }
 
       // 4. Submit to Backend API (which will track it and indexer will pick it up)
-      const response = await apiClient.post('/api/payments', {
+      const response = await apiClient.post("/api/payments", {
         merchantId: merchantAddress,
         payerId: payerAddress,
         amount: Number(amount),
-        asset: linkData.currency,
+        asset: activeCurrency,
       });
 
       // Redirect to status page with the backend payment ID
       router.push(`/pay/status/${response.data.id}`);
-
-    } catch (error: unknown) {
-      console.error(error);
-      const errorMessage = error instanceof Error ? error.message : 'Payment failed';
-      toast.error(errorMessage);
+    } catch (paymentError: unknown) {
+      console.error(paymentError);
+      const errorMessage =
+        paymentError instanceof Error ? paymentError.message : "Payment failed";
+      notifyError(errorMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -112,20 +157,39 @@ export default function PaymentLinkPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md"> 
-        <WalletModal open={walletModalOpen} onOpenChange={setWalletModalOpen} />
-        
+      <div className="w-full max-w-md">
+        <Suspense
+          fallback={
+            <WalletModalFallback
+              open={walletModalOpen}
+              onOpenChange={setWalletModalOpen}
+            />
+          }
+        >
+          <WalletModal
+            open={walletModalOpen}
+            onOpenChange={setWalletModalOpen}
+          />
+        </Suspense>
+
         {/* Merchant Branding Header */}
         <div className="flex flex-col items-center mb-8">
           <div className="w-16 h-16 rounded-full bg-slate-900 flex items-center justify-center mb-4 overflow-hidden">
-            <img src="/logo.png" alt="BettaPay Logo" className="w-full h-full object-cover" />
+            <Image
+              src="/logo.png"
+              alt={`${linkData.merchantName} logo`}
+              width={64}
+              height={64}
+              priority={true}
+              className="w-full h-full object-cover"
+            />
           </div>
           <h1 className="text-xl font-semibold">{linkData.merchantName}</h1>
           <p className="text-muted-foreground text-sm">{linkData.label}</p>
         </div>
 
         <AnimatePresence mode="wait">
-          {step === 'details' && (
+          {step === "details" && (
             <motion.div
               key="details"
               initial={{ opacity: 0, x: -20 }}
@@ -134,39 +198,75 @@ export default function PaymentLinkPage() {
             >
               <Card className="border bg-card shadow-sm rounded-xl">
                 <CardHeader>
-                  <h2 className="text-lg font-medium text-center">Payment Details</h2>
+                  <h2 className="text-lg font-medium text-center">
+                    Payment Details
+                  </h2>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {linkData.type === 'fixed' ? (
+                  {linkData.isMultiCurrency && linkData.acceptedCurrencies.length > 1 && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Pay with
+                      </label>
+                      <CurrencySelector
+                        selectedCurrencies={selectedCurrency}
+                        onSelectionChange={(currencies) => setSelectedCurrency(currencies)}
+                        mode="single"
+                        showRates
+                      />
+                    </div>
+                  )}
+
+                  {linkData.type === "fixed" ? (
                     <div className="text-center py-6">
                       <div className="text-4xl font-bold text-foreground">
-                        <CurrencyDisplay amount={linkData.fixedAmount} currency={linkData.currency} />
+                        <CurrencyDisplay
+                          amount={linkData.fixedAmount}
+                          currency={activeCurrency}
+                        />
                       </div>
                       <p className="text-sm text-muted-foreground mt-2">
-                        ≈ ₦{(linkData.fixedAmount * 1550).toLocaleString()}
+                        {(MOCK_RATES[activeCurrency] ?? 1) !== 1 &&
+                          `≈ $${(linkData.fixedAmount * (MOCK_RATES[activeCurrency] ?? 1)).toFixed(2)} USD`}
                       </p>
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-muted-foreground">Amount ({linkData.currency})</label>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Amount ({activeCurrency})
+                      </label>
                       <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                        <Input 
-                          type="number" 
-                          placeholder="0.00" 
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+                          {MULTI_CURRENCY_ASSETS[activeCurrency]?.icon ?? '$'}
+                        </span>
+                        <Input
+                          type="number"
+                          placeholder="0.00"
                           className="pl-8 text-lg h-14 bg-transparent border-input focus-visible:ring-primary"
                           value={amount}
                           onChange={(e) => setAmount(e.target.value)}
                         />
                       </div>
+                      {amount && Number(amount) > 0 && (MOCK_RATES[activeCurrency] ?? 1) !== 1 && (
+                        <p className="text-xs text-muted-foreground text-right">
+                          ≈ ${(Number(amount) * (MOCK_RATES[activeCurrency] ?? 1)).toFixed(2)} USD
+                        </p>
+                      )}
                     </div>
                   )}
                 </CardContent>
                 <CardFooter className="flex flex-col gap-3">
-                  <Button className="w-full h-12 text-md font-medium" onClick={handleContinue}>
+                  <Button
+                    className="w-full h-12 text-md font-medium"
+                    onClick={handleContinue}
+                  >
                     Continue
                   </Button>
-                  <Button variant="ghost" className="w-full h-12 text-muted-foreground">
+                  <Button
+                    variant="ghost"
+                    className="w-full h-12 text-muted-foreground"
+                    onClick={() => setQrModalOpen(true)}
+                  >
                     <QrCode className="w-4 h-4 mr-2" />
                     Show QR Code
                   </Button>
@@ -175,7 +275,7 @@ export default function PaymentLinkPage() {
             </motion.div>
           )}
 
-          {step === 'review' && (
+          {step === "review" && (
             <motion.div
               key="review"
               initial={{ opacity: 0, x: -20 }}
@@ -184,13 +284,20 @@ export default function PaymentLinkPage() {
             >
               <Card className="border bg-card shadow-sm rounded-xl">
                 <CardHeader>
-                  <h2 className="text-lg font-medium text-center">Review Payment</h2>
+                  <h2 className="text-lg font-medium text-center">
+                    Review Payment
+                  </h2>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="bg-transparent rounded-xl p-4 space-y-3 border border-border">
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">Amount</span>
-                      <span className="font-semibold"><CurrencyDisplay amount={Number(amount)} currency={linkData.currency} /></span>
+                      <span className="font-semibold">
+                        <CurrencyDisplay
+                          amount={Number(amount)}
+                          currency={activeCurrency}
+                        />
+                      </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">Network Fee</span>
@@ -199,29 +306,44 @@ export default function PaymentLinkPage() {
                     <div className="h-px bg-border/50 w-full" />
                     <div className="flex justify-between items-center text-lg">
                       <span className="text-muted-foreground">Total</span>
-                      <span className="font-bold text-primary"><CurrencyDisplay amount={Number(amount)} currency={linkData.currency} /></span>
+                      <span className="font-bold text-primary">
+                        <CurrencyDisplay
+                          amount={Number(amount)}
+                          currency={activeCurrency}
+                        />
+                      </span>
                     </div>
                   </div>
 
                   {isConnected && address && (
                     <div className="text-sm text-center text-muted-foreground">
-                      Sending from: <span className="font-mono text-foreground">{address.substring(0, 6)}...{address.substring(address.length - 4)}</span>
+                      Sending from:{" "}
+                      <span className="font-mono text-foreground">
+                        {address.substring(0, 6)}...
+                        {address.substring(address.length - 4)}
+                      </span>
                     </div>
                   )}
                 </CardContent>
                 <CardFooter className="flex flex-col gap-3">
-                  <Button 
-                    className="w-full h-12 text-md font-medium group" 
+                  <Button
+                    className="w-full h-12 text-md font-medium group"
                     onClick={handlePay}
                     disabled={isProcessing}
                   >
-                    {isProcessing ? 'Processing...' : (isConnected ? 'Sign & Pay' : 'Connect Wallet to Pay')}
-                    {!isProcessing && <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />}
+                    {isProcessing
+                      ? "Processing..."
+                      : isConnected
+                        ? "Sign & Pay"
+                        : "Connect Wallet to Pay"}
+                    {!isProcessing && (
+                      <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                    )}
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    className="w-full text-muted-foreground" 
-                    onClick={() => setStep('details')}
+                  <Button
+                    variant="ghost"
+                    className="w-full text-muted-foreground"
+                    onClick={() => setStep("details")}
                     disabled={isProcessing}
                   >
                     Back
@@ -233,7 +355,15 @@ export default function PaymentLinkPage() {
         </AnimatePresence>
 
         <div className="mt-8 flex items-center justify-center gap-2 text-center text-xs text-muted-foreground">
-          Powered by <img src="/logo.png" alt="BettaPay Logo" className="w-4 h-4 object-contain rounded" /> <span className="font-semibold text-foreground">BettaPay</span>
+          Powered by{" "}
+          <Image
+            src="/logo.png"
+            alt=""
+            width={16}
+            height={16}
+            className="w-4 h-4 object-contain rounded"
+          />{" "}
+          <span className="font-semibold text-foreground">BettaPay</span>
         </div>
 
         {/* responsive footer */}
@@ -250,6 +380,15 @@ export default function PaymentLinkPage() {
             </div>
           </div>
         </footer>
+
+        <QRCodeModal
+          open={qrModalOpen}
+          onOpenChange={setQrModalOpen}
+          value={typeof window !== "undefined" ? window.location.href : ""}
+          title={linkData.label}
+          subtitle={`Pay ${linkData.merchantName}`}
+          amountUsdc={amount ? Number(amount) : undefined}
+        />
       </div>
     </div>
   );

@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui';
+import { Button } from '@/components/ui';
 import { Check, X, Loader2, ExternalLink, ArrowLeft } from 'lucide-react';
-import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay';
+import { CurrencyDisplay } from '@/components/shared';
 import { truncateAddress } from '@/lib/utils/format';
 import { apiClient } from '@/lib/api/axios';
 
@@ -107,15 +107,15 @@ export default function PaymentStatusPage() {
               className="w-full"
             >
               <Card className="border bg-card shadow-sm rounded-xl overflow-hidden">
-                <div className="h-2 bg-green-500 w-full" />
+                <div className="h-2 bg-success w-full" />
                 <CardContent className="pt-8 pb-8 px-6 flex flex-col items-center text-center space-y-6">
                   <motion.div 
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", bounce: 0.5, delay: 0.2 }}
-                    className="w-20 h-20 rounded-full bg-green-500/10 border-2 border-green-500 flex items-center justify-center"
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.4, ease: "easeOut", delay: 0.2 }}
+                    className="w-20 h-20 rounded-full bg-success/10 border-2 border-success flex items-center justify-center"
                   >
-                    <Check className="w-10 h-10 text-green-500" />
+                    <Check className="w-10 h-10 text-success" />
                   </motion.div>
                   
                   <div>
@@ -160,9 +160,9 @@ export default function PaymentStatusPage() {
                 <div className="h-2 bg-destructive w-full" />
                 <CardContent className="pt-8 pb-8 px-6 flex flex-col items-center text-center space-y-6">
                   <motion.div 
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", bounce: 0.5 }}
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.4, ease: "easeOut" }}
                     className="w-20 h-20 rounded-full bg-destructive/10 border-2 border-destructive flex items-center justify-center"
                   >
                     <X className="w-10 h-10 text-destructive" />

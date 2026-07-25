@@ -1,0 +1,153 @@
+"use client";
+
+import { useState, useEffect, useCallback } from 'react';
+import { apiClient } from './axios';
+import type { MerchantProfile } from '../types';
+import { getErrorMessage } from '../utils/apiError';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface ApiPayment {
+  id: string;
+  txHash: string | null;
+  payerAddress: string | null;
+  merchantId: string;
+  amountUsdc: number;
+  amountNgn: number | null;
+  fxRate: number | null;
+  status: string;
+  source: string | null;
+  createdAt: string;
+  stellarOpId?: string | null;
+  url?: string;
+  clicks?: number;
+}
+
+export interface ApiSettlement {
+  id: string;
+  merchantId: string;
+  amountUsdc: number;
+  amountNgn: number | null;
+  status: string;
+  createdAt: string;
+  txHash: string | null;
+  bankName: string | null;
+  accountNumber: string | null;
+}
+
+export interface ApiRate {
+  from: string;
+  to: string;
+  rate: number;
+  change: number;
+  trend: 'up' | 'down';
+}
+
+// ─── usePayments ──────────────────────────────────────────────────────────────
+
+export function usePayments() {
+  const [data, setData] = useState<ApiPayment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetch = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await apiClient.get<{ data: ApiPayment[] }>('/api/payments');
+      setData(res.data?.data ?? res.data ?? []);
+    } catch (err) {
+      setError(getErrorMessage(err) || 'Failed to load payments');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetch(); }, [fetch]);
+
+  return { data, isLoading, error, refetch: fetch };
+}
+
+// ─── useSettlements ───────────────────────────────────────────────────────────
+
+export function useSettlements() {
+  const [data, setData] = useState<ApiSettlement[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetch = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await apiClient.get<{ data: ApiSettlement[] }>('/api/settlements');
+      setData(res.data?.data ?? res.data ?? []);
+    } catch (err) {
+      setError(getErrorMessage(err) || 'Failed to load settlements');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetch(); }, [fetch]);
+
+  return { data, isLoading, error, refetch: fetch };
+}
+
+// ─── useRates ─────────────────────────────────────────────────────────────────
+
+export function useRates() {
+  const [data, setData] = useState<ApiRate[]>([]);
+  const [primaryRate, setPrimaryRate] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetch = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await apiClient.get<{ rates: ApiRate[]; usdcNgn?: number }>('/api/rates');
+      const rates: ApiRate[] = res.data?.rates ?? [];
+      setData(rates);
+      // Primary USDC/NGN rate
+      const primary = res.data?.usdcNgn ?? rates.find(r => r.from === 'USDC' && r.to === 'NGN')?.rate ?? null;
+      setPrimaryRate(primary);
+    } catch (err) {
+      setError(getErrorMessage(err) || 'Failed to load exchange rates');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetch(); }, [fetch]);
+
+  return { data, primaryRate, isLoading, error, refetch: fetch };
+}
+
+// ─── useMerchantProfile ───────────────────────────────────────────────────────
+
+export function useMerchantProfile(merchantId: string | undefined) {
+  const [data, setData] = useState<MerchantProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetch = useCallback(async () => {
+    if (!merchantId) {
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await apiClient.get<{ data: MerchantProfile }>(`/api/merchants/${merchantId}`);
+      setData(res.data?.data ?? null);
+    } catch (err) {
+      setError(getErrorMessage(err) || 'Failed to load merchant profile');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [merchantId]);
+
+  useEffect(() => { fetch(); }, [fetch]);
+
+  return { data, isLoading, error, refetch: fetch };
+}
