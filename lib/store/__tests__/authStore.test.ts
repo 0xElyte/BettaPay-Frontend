@@ -16,6 +16,7 @@ describe('useAuthStore', () => {
       token: null,
       role: null,
       isAuthenticated: false,
+      isLoggedIn: false,
     });
     localStorage.clear();
     jest.restoreAllMocks();
@@ -27,6 +28,7 @@ describe('useAuthStore', () => {
       token: null,
       role: null,
       isAuthenticated: false,
+      isLoggedIn: false,
     });
   });
 
@@ -38,6 +40,7 @@ describe('useAuthStore', () => {
       token: 'session-token',
       role: 'merchant',
       isAuthenticated: true,
+      isLoggedIn: true,
     });
   });
 
@@ -53,6 +56,7 @@ describe('useAuthStore', () => {
       token: null,
       role: null,
       isAuthenticated: false,
+      isLoggedIn: false,
     });
     expect(fetchMock).toHaveBeenCalledWith('/api/auth/session', {
       method: 'DELETE',
@@ -71,10 +75,11 @@ describe('useAuthStore', () => {
       token: null,
       role: null,
       isAuthenticated: false,
+      isLoggedIn: false,
     });
   });
 
-  it('persist partialize only stores the non-sensitive role', () => {
+  it('persist partialize only stores the non-sensitive isLoggedIn flag', () => {
     const partialize = useAuthStore.persist.getOptions().partialize;
 
     expect(partialize).toBeDefined();
@@ -85,7 +90,8 @@ describe('useAuthStore', () => {
         token: 'session-token',
         role: 'admin',
         isAuthenticated: true,
+        isLoggedIn: true,
       })
-    ).toEqual({ role: 'admin' });
+    ).toEqual({ isLoggedIn: true });
   });
 });

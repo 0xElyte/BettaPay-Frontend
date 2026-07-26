@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/authStore';
 
-const AUTH_STORAGE_KEY = 'auth-storage';
+const AUTH_STORAGE_KEY = 'bp-session';
 
 export function useCrossTabAuth() {
   const router = useRouter();
@@ -16,11 +16,11 @@ export function useCrossTabAuth() {
 
       try {
         const newValue = event.newValue ? JSON.parse(event.newValue) : null;
-        const role = newValue?.state?.role ?? null;
+        const isLoggedIn = newValue?.state?.isLoggedIn ?? false;
 
-        // role going null in another tab means the user logged out
-        if (role === null && isAuthenticated) {
-          useAuthStore.setState({ user: null, token: null, role: null, isAuthenticated: false });
+        // isLoggedIn going false in another tab means the user logged out
+        if (!isLoggedIn && isAuthenticated) {
+          useAuthStore.setState({ user: null, token: null, role: null, isAuthenticated: false, isLoggedIn: false });
           router.push('/auth/login');
         }
       } catch {
