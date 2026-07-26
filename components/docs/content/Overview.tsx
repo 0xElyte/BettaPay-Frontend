@@ -25,7 +25,6 @@ export function Overview() {
   return (
     <SectionShell
       id="overview"
-      title="Overview"
       lead="The BettaPay API lets you accept USDC payments on Stellar, settle to fiat, register merchants and read live FX rates — all over a small, predictable REST surface."
     >
       <SubSection id="overview-base-url" title="Base URL">

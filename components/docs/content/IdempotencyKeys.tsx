@@ -38,7 +38,6 @@ export function IdempotencyKeys() {
   return (
     <SectionShell
       id="idempotency-keys"
-      title="Idempotency Keys"
       lead="An idempotency key makes a create request safe to retry. Without one, a dropped response can turn a single checkout into two charges."
     >
       <SubSection id="idempotency-how" title="How they work">

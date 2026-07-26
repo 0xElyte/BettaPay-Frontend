@@ -27,6 +27,11 @@ export function useScrollSpy(ids: string[], options: ScrollSpyOptions = {}): str
   const visible = useRef<Set<string>>(new Set());
 
   useEffect(() => {
+    // Drop any ids left over from the previous `ids`/`rootMargin` — otherwise
+    // a stale entry from the old observer can win the "first visible" pick
+    // below before the new observer reports its own intersections.
+    visible.current = new Set();
+
     if (ids.length === 0 || typeof IntersectionObserver === 'undefined') return;
 
     const elements = ids

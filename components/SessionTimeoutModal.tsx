@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -9,7 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui';
-import { AlertTriangle, Clock, LogOut, RefreshCcw } from 'lucide-react';
+import { announce } from '@/lib/utils/announce';
 
 interface SessionTimeoutModalProps {
   open: boolean;
@@ -24,12 +25,31 @@ function formatCountdown(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+/**
+ * Purely presentational — all countdown/timer logic lives in useSessionTimeout;
+ * this component only renders whatever `secondsRemaining` it's given. Focus
+ * trapping and Escape-to-dismiss come for free from the shared Dialog
+ * primitive, matching every other modal in the app.
+ */
 export function SessionTimeoutModal({
   open,
   secondsRemaining,
   onExtend,
   onLogout,
 }: SessionTimeoutModalProps) {
+  // Explicitly announce the warning once when it appears — Dialog already
+  // moves focus and exposes the title/description via aria-labelledby/
+  // aria-describedby, but this mirrors the codebase's announce() convention
+  // (see useNotify) so the warning is reliably read out even if focus
+  // handling alone doesn't trigger it in a given screen reader.
+  useEffect(() => {
+    if (open) {
+      announce(`Session expiring in ${secondsRemaining} seconds. Stay logged in to continue.`);
+    }
+    // Only announce on the open transition, not on every countdown tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent className="sm:max-w-md" showCloseButton={false}>

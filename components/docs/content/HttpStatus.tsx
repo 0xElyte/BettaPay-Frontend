@@ -19,7 +19,6 @@ export function HttpStatus() {
   return (
     <SectionShell
       id="http-status"
-      title="HTTP Status"
       lead="How the gateway maps outcomes onto HTTP status codes, plus the rate limits and timeouts that govern every route."
     >
       <div className="overflow-x-auto rounded-xl border border-border">
