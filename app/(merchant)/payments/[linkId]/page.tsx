@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
   Card,
@@ -11,6 +11,8 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui";
+import { Input } from "@/components/ui";
+import { Label } from "@/components/ui";
 import { Skeleton } from "@/components/ui";
 import { StatusBadge } from "@/components/shared";
 import { CurrencyDisplay } from "@/components/shared";
@@ -41,6 +43,8 @@ import {
   Copy,
   QrCode,
   Trash2,
+  Pencil,
+  Power,
   CalendarDays,
   AlertTriangle,
   RotateCcw,
@@ -205,23 +209,30 @@ function generateWebhookLogs(linkId: string): WebhookLog[] {
   ];
 }
 
-function generateClickTimeline(): { date: string; clicks: number }[] {
-  return Array.from({ length: 30 }, (_, i) => ({
-    date: format(subDays(new Date(), 29 - i), "MMM d"),
+const CLICK_PERIODS = [7, 30, 90] as const;
+type ClickPeriod = (typeof CLICK_PERIODS)[number];
+
+function generateClickTimeline(days: number): { date: string; clicks: number }[] {
+  return Array.from({ length: days }, (_, i) => ({
+    date: format(subDays(new Date(), days - 1 - i), "MMM d"),
     clicks: Math.floor(Math.random() * 15 + 1),
   }));
 }
 
 export default function PaymentLinkDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const notify = useNotify();
   const linkId = params.linkId as string;
 
   const [deactivateOpen, setDeactivateOpen] = useState(false);
   const [isDeactivated, setIsDeactivated] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const [clickPeriod, setClickPeriod] = useState<ClickPeriod>(30);
 
-  const linkDetails = useMemo(() => mockLinkDetails[linkId] ?? {
+  const baseDetails = useMemo<PaymentLinkDetail>(() => mockLinkDetails[linkId] ?? {
     id: linkId,
     label: `Payment Link (${linkId})`,
     url: `${process.env.NEXT_PUBLIC_API_URL ?? 'https://betta.pay'}/pay/${linkId}`,
@@ -235,9 +246,25 @@ export default function PaymentLinkDetailPage() {
     status: "active",
   }, [linkId]);
 
-  const attempts = generatePaymentAttempts(linkId);
-  const webhooks = generateWebhookLogs(linkId);
-  const clickTimeline = generateClickTimeline();
+  // Local edits are held in state until a persistence layer exists; `null`
+  // means "unedited", so the memoised mock stays the source of truth.
+  const [edits, setEdits] = useState<{ label: string; amount: number | null } | null>(null);
+  const linkDetails: PaymentLinkDetail = useMemo(
+    () => (edits ? { ...baseDetails, ...edits } : baseDetails),
+    [baseDetails, edits],
+  );
+
+  const [editLabel, setEditLabel] = useState("");
+  const [editAmount, setEditAmount] = useState("");
+
+  const attempts = useMemo(() => generatePaymentAttempts(linkId), [linkId]);
+  const webhooks = useMemo(() => generateWebhookLogs(linkId), [linkId]);
+  // Keyed on the period so switching ranges reshapes the series instead of
+  // re-rolling a new random one on every unrelated render.
+  const clickTimeline = useMemo(
+    () => generateClickTimeline(clickPeriod),
+    [clickPeriod],
+  );
 
   const conversionRate = linkDetails
     ? Math.round((linkDetails.uniquePayers / linkDetails.clicks) * 100)
@@ -249,11 +276,44 @@ export default function PaymentLinkDetailPage() {
     notify.success("Link copied to clipboard");
   }, [linkDetails, notify]);
 
-  const handleDeactivate = useCallback(() => {
+  const handleToggleActive = useCallback(() => {
+    if (isDeactivated) {
+      setIsDeactivated(false);
+      notify.success("Payment link reactivated");
+      return;
+    }
     setIsDeactivated(true);
     setDeactivateOpen(false);
     notify.success("Payment link deactivated");
-  }, [notify]);
+  }, [isDeactivated, notify]);
+
+  const handleOpenEdit = useCallback(() => {
+    setEditLabel(linkDetails.label);
+    setEditAmount(linkDetails.amount != null ? String(linkDetails.amount) : "");
+    setEditOpen(true);
+  }, [linkDetails]);
+
+  const handleSaveEdit = useCallback(() => {
+    const trimmed = editLabel.trim();
+    if (!trimmed) {
+      notify.error("Label cannot be empty");
+      return;
+    }
+    const parsed = editAmount.trim() === "" ? null : Number(editAmount);
+    if (parsed !== null && (Number.isNaN(parsed) || parsed <= 0)) {
+      notify.error("Enter a valid amount, or leave it blank for an open link");
+      return;
+    }
+    setEdits({ label: trimmed, amount: parsed });
+    setEditOpen(false);
+    notify.success("Payment link updated");
+  }, [editLabel, editAmount, notify]);
+
+  const handleDelete = useCallback(() => {
+    setDeleteOpen(false);
+    notify.success("Payment link deleted");
+    router.push("/payments");
+  }, [notify, router]);
 
   const handleRetryAttempt = (attemptId: string) => {
     notify.info(`Triggered retry for attempt ${attemptId}`);
@@ -315,6 +375,12 @@ export default function PaymentLinkDetailPage() {
           <p className="text-sm text-muted-foreground mt-1 flex flex-wrap items-center gap-2">
             <span className="font-mono text-xs">{linkDetails.url}</span>
             <span className="text-muted-foreground/50">·</span>
+            <span>
+              {linkDetails.amount != null
+                ? `${formatCurrency(linkDetails.amount, linkDetails.currency)}`
+                : `Open amount (${linkDetails.currency})`}
+            </span>
+            <span className="text-muted-foreground/50">·</span>
             <span>Created {linkDetails.created}</span>
             <span className="text-muted-foreground/50">·</span>
             <span className={cn(
@@ -326,6 +392,36 @@ export default function PaymentLinkDetailPage() {
               {isDeactivated ? "Deactivated" : "Active"}
             </span>
           </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={handleOpenEdit}
+          >
+            <Pencil className="w-3.5 h-3.5" />
+            Edit
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => (isDeactivated ? handleToggleActive() : setDeactivateOpen(true))}
+          >
+            <Power className="w-3.5 h-3.5" />
+            {isDeactivated ? "Reactivate" : "Deactivate"}
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setDeleteOpen(true)}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Delete
+          </Button>
         </div>
       </div>
 
@@ -398,13 +494,32 @@ export default function PaymentLinkDetailPage() {
                 <CardTitle className="text-base font-semibold text-foreground">
                   Click Timeline
                 </CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Daily interactions over the last 30 days
+                <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                  <CalendarDays className="w-3.5 h-3.5" />
+                  Daily interactions over the last {clickPeriod} days
                 </p>
               </div>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <CalendarDays className="w-3.5 h-3.5" />
-                Last 30 days
+              <div
+                role="group"
+                aria-label="Click timeline period"
+                className="flex items-center gap-1 rounded-lg border border-border bg-muted/50 p-0.5"
+              >
+                {CLICK_PERIODS.map((period) => (
+                  <button
+                    key={period}
+                    type="button"
+                    aria-pressed={clickPeriod === period}
+                    onClick={() => setClickPeriod(period)}
+                    className={cn(
+                      "px-2.5 py-1 text-xs font-medium rounded-md transition-colors",
+                      clickPeriod === period
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {period}d
+                  </button>
+                ))}
               </div>
             </div>
           </CardHeader>
@@ -458,18 +573,25 @@ export default function PaymentLinkDetailPage() {
               </Button>
             </div>
 
-            <div className="pt-2 border-t border-border">
+            <div className="pt-2 border-t border-border space-y-2">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                 Danger Zone
               </p>
               <Button
+                variant={isDeactivated ? "outline" : "destructive"}
+                className="w-full justify-start gap-2"
+                onClick={() => (isDeactivated ? handleToggleActive() : setDeactivateOpen(true))}
+              >
+                <Power className="w-4 h-4" />
+                {isDeactivated ? "Reactivate Link" : "Deactivate Link"}
+              </Button>
+              <Button
                 variant="destructive"
                 className="w-full justify-start gap-2"
-                disabled={isDeactivated}
-                onClick={() => setDeactivateOpen(true)}
+                onClick={() => setDeleteOpen(true)}
               >
                 <Trash2 className="w-4 h-4" />
-                {isDeactivated ? "Deactivated" : "Deactivate Link"}
+                Delete Link
               </Button>
             </div>
           </CardContent>
@@ -600,8 +722,8 @@ export default function PaymentLinkDetailPage() {
               Deactivate Payment Link
             </DialogTitle>
             <DialogDescription>
-              This will permanently disable &ldquo;{linkDetails.label}&rdquo;.
-              No new payments can be made through this link.
+              This will disable &ldquo;{linkDetails.label}&rdquo;. No new payments
+              can be made through this link until you reactivate it.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-3">
@@ -609,10 +731,10 @@ export default function PaymentLinkDetailPage() {
               <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
               <div>
                 <p className="text-xs font-semibold text-destructive">
-                  This action cannot be undone
+                  Customers will see an error immediately
                 </p>
                 <p className="text-xs text-red-700 dark:text-red-400 mt-0.5">
-                  Existing payment links to this URL will stop working immediately.
+                  Existing shares of this URL stop working until it is reactivated.
                 </p>
               </div>
             </div>
@@ -627,10 +749,107 @@ export default function PaymentLinkDetailPage() {
             </Button>
             <Button
               variant="destructive"
-              onClick={handleDeactivate}
+              onClick={handleToggleActive}
               className="flex-1"
             >
               Yes, Deactivate
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-md bg-card border-border/50">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="w-4 h-4 text-primary" />
+              Edit Payment Link
+            </DialogTitle>
+            <DialogDescription>
+              Update the label and amount. Leave the amount blank to accept any
+              value from the payer.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2 space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-link-label">Label</Label>
+              <Input
+                id="edit-link-label"
+                value={editLabel}
+                onChange={(e) => setEditLabel(e.target.value)}
+                placeholder="e.g. Consulting Retainer Q3"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-link-amount">
+                Amount ({linkDetails.currency})
+              </Label>
+              <Input
+                id="edit-link-amount"
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                value={editAmount}
+                onChange={(e) => setEditAmount(e.target.value)}
+                placeholder="Open amount"
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setEditOpen(false)}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit} className="flex-1">
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="sm:max-w-md bg-card border-border/50">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="w-4 h-4" />
+              Delete Payment Link
+            </DialogTitle>
+            <DialogDescription>
+              &ldquo;{linkDetails.label}&rdquo; will be removed from your account.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="flex items-start gap-3 p-3 rounded-xl border border-destructive/20 bg-destructive/10">
+              <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-semibold text-destructive">
+                  This action cannot be undone
+                </p>
+                <p className="text-xs text-red-700 dark:text-red-400 mt-0.5">
+                  Analytics for this link are deleted with it. Deactivate instead
+                  if you only want to pause payments.
+                </p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteOpen(false)}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              className="flex-1"
+            >
+              Yes, Delete
             </Button>
           </DialogFooter>
         </DialogContent>
