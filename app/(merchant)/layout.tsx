@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { MerchantSidebar } from "@/components/layout";
 import { merchantNavItems } from "@/lib/navigation/merchantNav";
-import { PageTransition } from "@/components/shared";
+import { PageTransition, ErrorBoundary } from "@/components/shared";
 import { MobileNavDrawer } from "@/components/layout";
 import { Topbar } from "@/components/layout";
 import Footer from "@/components/layout";
@@ -84,7 +84,9 @@ export default function MerchantLayout({
         <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto bg-background/50 pb-20 md:pb-0">
           <div className="mx-auto max-w-7xl px-3 sm:px-6 py-4 sm:py-8 space-y-6">
             <OnboardingWizard />
-            <PageTransition>{children}</PageTransition>
+            <PageTransition>
+              <ErrorBoundary>{children}</ErrorBoundary>
+            </PageTransition>
           </div>
         </main>
 
