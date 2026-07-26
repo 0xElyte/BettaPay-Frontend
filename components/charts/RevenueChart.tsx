@@ -1,48 +1,18 @@
 "use client";
 
-import React from 'react';
-import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
-import { useTheme } from "next-themes";
-import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-} from 'recharts';
+import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
+import { cn } from '@/lib/utils';
+import { useTheme } from 'next-themes';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { Skeleton } from '@/components/ui';
 
-const mockChartData = [
-  { name: 'Mon', total: 1200, volume: 8400 },
-  { name: 'Tue', total: 2100, volume: 14700 },
-  { name: 'Wed', total: 1800, volume: 12600 },
-  { name: 'Thu', total: 3200, volume: 22400 },
-  { name: 'Fri', total: 2800, volume: 19600 },
-  { name: 'Sat', total: 4100, volume: 28700 },
-  { name: 'Sun', total: 3800, volume: 26600 },
-];
-
-interface TooltipProps { active?: boolean; payload?: { value: number }[]; label?: string; }
-
-export const ChartTooltip = ({ active, payload, label }: TooltipProps) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-lg text-sm">
-        <p className="font-semibold text-slate-700 mb-1">{label}</p>
-        <p className="text-amber-600 font-bold">${payload[0]?.value?.toLocaleString()}</p>
-} from "recharts";
-
-const mockChartData = [
-  { name: "Mon", total: 1200, volume: 8400 },
-  { name: "Tue", total: 2100, volume: 14700 },
-  { name: "Wed", total: 1800, volume: 12600 },
-  { name: "Thu", total: 3200, volume: 22400 },
-  { name: "Fri", total: 2800, volume: 19600 },
-  { name: "Sat", total: 4100, volume: 28700 },
-  { name: "Sun", total: 3800, volume: 26600 },
-];
+interface ChartDataItem {
+  name: string;
+  total: number;
+  volume: number;
+}
 
 interface ChartTooltipProps {
   active?: boolean;
@@ -52,21 +22,12 @@ interface ChartTooltipProps {
 
 const ChartTooltip = ({ active, payload, label }: ChartTooltipProps) => {
   const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
-
+  const isDark = resolvedTheme === 'dark';
   if (active && payload && payload.length) {
     return (
-      <div 
-        className="border rounded-xl p-3 shadow-lg text-sm"
-        style={{ 
-          backgroundColor: isDark ? "var(--card)" : "var(--card)",
-          borderColor: isDark ? "var(--border)" : "var(--border)",
-        }}
-      >
-        <p className="font-semibold mb-1" style={{ color: isDark ? "var(--foreground)" : "var(--foreground)" }}>{label}</p>
-        <p className="font-bold" style={{ color: isDark ? "var(--primary)" : "var(--primary)" }}>
-          ${payload[0]?.value?.toLocaleString()}
-        </p>
+      <div className="border rounded-xl p-3 shadow-lg text-sm" style={{ backgroundColor: isDark ? 'var(--card)' : 'var(--card)', borderColor: isDark ? 'var(--border)' : 'var(--border)' }}>
+        <p className="font-semibold mb-1" style={{ color: isDark ? 'var(--foreground)' : 'var(--foreground)' }}>{label}</p>
+        <p className="font-bold" style={{ color: isDark ? 'var(--primary)' : 'var(--primary)' }}>${payload[0]?.value?.toLocaleString()}</p>
       </div>
     );
   }
@@ -74,97 +35,47 @@ const ChartTooltip = ({ active, payload, label }: ChartTooltipProps) => {
 };
 
 export default function RevenueChart({ height = 260 }: { height?: number }) {
-  return (
-    <div style={{ height, width: '100%' }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={mockChartData} margin={{ top: 4, right: 4, bottom: 0, left: -16 }}>
-          <defs>
-            <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#F0A500" stopOpacity={0.25} />
-              <stop offset="95%" stopColor="#F0A500" stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
-          <XAxis
-            dataKey="name"
-            stroke="#CBD5E1"
-            fontSize={11}
-            tickLine={false}
-            axisLine={false}
-            tick={{ fill: '#94A3B8' }}
-          />
-          <YAxis
-            stroke="#CBD5E1"
-interface RevenueChartProps {
-  height?: number;
-}
-
-export default function RevenueChart({ height = 260 }: RevenueChartProps) {
-  const [isMobile, setIsMobile] = useState(false);
   const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
+  const isDark = resolvedTheme === 'dark';
+  const { data, isLoading, isError } = useQuery<ChartDataItem[]>(
+    ['revenue'],
+    async () => {
+      const res = await axios.get<ChartDataItem[]>('/api/revenue');
+      return res.data;
+    }
+  );
 
+  const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
-    const mq = window.matchMedia("(max-width: 639px)");
+    const mq = window.matchMedia('(max-width: 639px)');
     setIsMobile(mq.matches);
     const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
   }, []);
 
+  if (isLoading) {
+    return <Skeleton className="h-[260px] w-full rounded-xl" />;
+  }
+  if (isError || !data) {
+    return <p className="text-destructive">Failed to load revenue data.</p>;
+  }
+
   return (
-    <div className={cn("w-full", height ? `h-[${height}px]` : "h-64")} style={{ height }}>
+    <div className={cn('w-full', height ? `h-[${height}px]` : 'h-64')} style={{ height }}>
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart
-          data={mockChartData}
-          margin={{ top: 4, right: 4, bottom: 0, left: isMobile ? 0 : -16 }}
-        >
+        <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: isMobile ? 0 : -16 }}>
           <defs>
             <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="var(--primary)" stopOpacity={isDark ? 0.4 : 0.25} />
               <stop offset="95%" stopColor="var(--primary)" stopOpacity={isDark ? 0.05 : 0} />
             </linearGradient>
           </defs>
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke="var(--border)"
-            vertical={false}
-          />
-          <XAxis
-            dataKey="name"
-            stroke="var(--muted-foreground)"
-            fontSize={11}
-            tickLine={false}
-            axisLine={false}
-            tick={{ fill: "var(--muted-foreground)" }}
-          />
-          <YAxis
-            stroke="var(--muted-foreground)"
-            fontSize={11}
-            tickLine={false}
-            axisLine={false}
-            tickFormatter={(v) => `$${v}`}
-            tick={{ fill: '#94A3B8' }}
-            tick={{ fill: "var(--muted-foreground)" }}
-          />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+          <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} tick={{ fill: 'var(--muted-foreground)' }} />
+          <YAxis fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} tick={{ fill: 'var(--muted-foreground)' }} domain={['auto', 'auto']} />
           <Tooltip content={<ChartTooltip />} />
-          <Area
-            type="monotone"
-            dataKey="total"
-            stroke="#F0A500"
-            stroke="var(--primary)"
-            strokeWidth={2.5}
-            fillOpacity={1}
-            fill="url(#colorRevenue)"
-            dot={false}
-            activeDot={{ r: 5, fill: '#F0A500', stroke: '#fff', strokeWidth: 2 }}
-            activeDot={{
-              r: 5,
-              fill: "var(--primary)",
-              stroke: "var(--card)",
-              strokeWidth: 2,
-            }}
-          />
+          <Area type="monotone" dataKey="total" stroke="var(--primary)" strokeWidth={2.5} fillOpacity={1} fill="url(#colorRevenue)" dot={false} activeDot={{ r: 5, fill: 'var(--primary)', stroke: 'var(--card)', strokeWidth: 2 }} />
         </AreaChart>
       </ResponsiveContainer>
     </div>
