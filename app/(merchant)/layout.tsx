@@ -12,6 +12,9 @@ import Footer from "@/components/layout";
 import { MobileBottomNav } from "@/components/layout";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { useWalletStore } from "@/lib/store/walletStore";
+import { useAuthStore } from "@/lib/store/authStore";
+import { useSessionTimeout } from "@/lib/hooks/useSessionTimeout";
+import { SessionTimeoutModal } from "@/components/SessionTimeoutModal";
 
 export default function MerchantLayout({
   children,
@@ -22,10 +25,31 @@ export default function MerchantLayout({
   const router = useRouter();
   const network = useWalletStore((s) => s.network);
   const isTestnet = network === 'testnet';
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const logout = useAuthStore((s) => s.logout);
 
   const closeMobileMenu = useCallback(() => {
     setMobileMenuOpen(false);
   }, []);
+
+  const handleTimeoutLogout = useCallback(() => {
+    logout();
+    router.push('/auth/login');
+  }, [logout, router]);
+
+  const { showWarning, secondsRemaining, dismissWarning } = useSessionTimeout({
+    onTimeout: handleTimeoutLogout,
+  });
+
+  const handleExtend = useCallback(async () => {
+    try {
+      await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
+      dismissWarning();
+    } catch {
+      logout();
+      router.push('/auth/login');
+    }
+  }, [logout, router, dismissWarning]);
 
   useEffect(() => {
     router.prefetch("/transactions");
@@ -66,6 +90,15 @@ export default function MerchantLayout({
 
         <Footer />
       </div>
+
+      {isAuthenticated && (
+        <SessionTimeoutModal
+          open={showWarning}
+          secondsRemaining={secondsRemaining}
+          onExtend={handleExtend}
+          onLogout={handleTimeoutLogout}
+        />
+      )}
     </div>
   );
 }
