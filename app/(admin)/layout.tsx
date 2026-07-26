@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from 'react';
-import { AdminSidebar, adminNavItems } from '@/components/layout';
+import { AdminSidebar } from '@/components/layout';
+import { adminNavItems } from '@/lib/navigation/adminNav';
 import { PageTransition } from '@/components/shared';
 import { MobileNavDrawer } from '@/components/layout';
 import { Topbar } from '@/components/layout';

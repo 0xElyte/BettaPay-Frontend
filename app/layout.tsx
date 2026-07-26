@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { I18nProvider } from '@/components/i18n/I18nProvider';
 
+
 export const metadata: Metadata = {
   // Resolves relative canonical/openGraph URLs declared by individual pages.
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://betta.pay"),
@@ -13,18 +14,20 @@ export const metadata: Metadata = {
   description: "Accept USDC and stablecoins easily across Africa",
 };
 
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
-}>) {
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
+}>) {
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID; 
   // Pass the clientId straight to GoogleOAuthProvider only when configured;
   // otherwise pass an empty placeholder so the provider target render does
   // not blow up if a GoogleLogin button somehow ends up rendered. The login
   // page is responsible for showing a disabled fallback when the ID is
   // missing so users still get an explanatory UI instead of a silent failure.
+
   return (
     <html lang="en" className={cn("font-sans antialiased")}>
       <body className="min-h-screen bg-background text-foreground">

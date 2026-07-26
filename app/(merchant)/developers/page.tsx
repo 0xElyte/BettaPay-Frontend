@@ -6,7 +6,7 @@ import { Button } from '@/components/ui';
 import { Input } from '@/components/ui';
 import { Skeleton } from '@/components/ui';
 import { NetworkTooltip } from '@/components/ui';
-import { Copy, Eye, EyeOff, Plus, RefreshCcw, Key, Globe, BookOpen, Zap, CheckCircle2, AlertCircle, Code2, Terminal, Trash2 } from 'lucide-react';
+import { Copy, Eye, EyeOff, Plus, Key, Globe, BookOpen, Code2, Terminal, Trash2 } from 'lucide-react';
 import { useNotify } from '@/lib/hooks/useNotify';
 import {
   Select,
@@ -19,6 +19,7 @@ import { useOfflineStore } from '@/lib/store/offlineStore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui';
 import { Label } from '@/components/ui';
 import { RateLimitDisplay } from '@/components/developers/RateLimitDisplay';
+import { WebhookTester } from '@/components/developers/WebhookTester';
 
 const CodeExample = dynamic(() => import('@/components/developers/CodeExample').then(m => ({ default: m.CodeExample })), {
   loading: () => <Skeleton className="h-64 rounded-xl" />,
@@ -29,61 +30,9 @@ const initialKeys = [
   { id: 'key_02', name: 'Sandbox Key', prefix: 'bp_test_', suffix: '...c2d8', created: '2026-01-05', lastUsed: '5 days ago', type: 'test', scope: 'read_write' },
 ];
 
-const EVENT_TYPES = [
-  { value: 'payment.received', label: 'payment.received' },
-  { value: 'settlement.completed', label: 'settlement.completed' },
-  { value: 'payment.failed', label: 'payment.failed' },
-];
-
-type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
-
-const SAMPLE_PAYLOADS: Record<string, JsonValue> = {
-  'payment.received': {
-    "id": "evt_123456",
-    "type": "payment.received",
-    "data": {
-      "payment_id": "pay_987654",
-      "amount": 5000,
-      "currency": "USDC",
-      "status": "completed",
-      "customer": {
-        "email": "customer@example.com"
-      }
-    },
-    "created_at": "2026-07-23T12:00:00Z"
-  },
-  'settlement.completed': {
-    "id": "evt_234567",
-    "type": "settlement.completed",
-    "data": {
-      "settlement_id": "set_112233",
-      "amount": 4900,
-      "currency": "USDC",
-      "fee": 100,
-      "status": "processed"
-    },
-    "created_at": "2026-07-23T13:00:00Z"
-  },
-  'payment.failed': {
-    "id": "evt_345678",
-    "type": "payment.failed",
-    "data": {
-      "payment_id": "pay_failed_111",
-      "amount": 5000,
-      "currency": "USDC",
-      "status": "failed",
-      "reason": "insufficient_funds"
-    },
-    "created_at": "2026-07-23T14:00:00Z"
-  }
-};
-
 export default function DevelopersPage() {
   const [keys, setKeys] = useState(initialKeys);
   const [showKey, setShowKey] = useState<string | null>(null);
-  const [selectedEvent, setSelectedEvent] = useState<string>('payment.received');
-  const [isSimulating, setIsSimulating] = useState(false);
-  const [simulationResult, setSimulationResult] = useState<{ status: number; message: string } | null>(null);
   const isOnline = useOfflineStore((s) => s.isOnline);
   const notify = useNotify();
 
@@ -121,20 +70,6 @@ export default function DevelopersPage() {
   const handleRevokeKey = (id: string) => {
     setKeys(keys.filter(k => k.id !== id));
     notify.info('API key revoked');
-  };
-
-  const handleSendTest = () => {
-    setIsSimulating(true);
-    setSimulationResult(null);
-
-    setTimeout(() => {
-      setIsSimulating(false);
-      setSimulationResult({
-        status: 200,
-        message: 'Webhook delivered successfully with signature verification pass'
-      });
-      notify.success('Test webhook delivered');
-    }, 1200);
   };
 
   return (
@@ -269,87 +204,7 @@ export default function DevelopersPage() {
         </CardContent>
       </Card>
 
-      {/* Test Webhook Simulator Section */}
-      <Card className="border border-border bg-card shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
-            <Zap className="w-4 h-4 text-primary" /> Test Webhook Simulator
-          </CardTitle>
-          <CardDescription>
-            Simulate webhook events to verify signature verification and payload handlers.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex flex-col sm:flex-row gap-4 items-end">
-            <div className="flex-1 space-y-2">
-              <label className="text-xs font-semibold text-foreground">Event Type</label>
-              <Select value={selectedEvent} onValueChange={(value) => value && setSelectedEvent(value)}>
-                <SelectTrigger className="w-full h-10 border-border rounded-xl bg-muted">
-                  <SelectValue placeholder="Select event type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {EVENT_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button
-              onClick={handleSendTest}
-              disabled={isSimulating}
-              className="bg-foreground hover:bg-foreground/90 text-background rounded-xl h-10 px-6 text-sm font-semibold min-w-[140px]"
-            >
-              {isSimulating ? (
-                <>
-                  <RefreshCcw className="w-3.5 h-3.5 mr-2 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                'Send Test'
-              )}
-            </Button>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-foreground">Simulated Payload</label>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="min-h-[44px] text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => handleCopy(JSON.stringify(SAMPLE_PAYLOADS[selectedEvent], null, 2))}
-              >
-                <Copy className="w-3 h-3 mr-1" /> Copy JSON
-              </Button>
-            </div>
-            <div className="bg-foreground rounded-xl p-4 overflow-x-auto border border-border">
-              <pre className="text-xs text-emerald-400 font-mono leading-relaxed">
-                {JSON.stringify(SAMPLE_PAYLOADS[selectedEvent], null, 2)}
-              </pre>
-            </div>
-          </div>
-
-          {simulationResult && (
-            <div className={`p-4 rounded-xl border flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-300 ${
-              simulationResult.status === 200
-                ? 'bg-success/10 border-success/20 text-success'
-                : 'bg-destructive/10 border-destructive/20 text-destructive'
-            }`}>
-              {simulationResult.status === 200 ? (
-                <CheckCircle2 className="w-5 h-5 text-success shrink-0 mt-0.5" />
-              ) : (
-                <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-              )}
-              <div>
-                <p className="text-sm font-semibold">Response Status: {simulationResult.status} OK</p>
-                <p className="text-xs opacity-80">{simulationResult.message}</p>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <WebhookTester />
 
       {/* New API Key Dialog */}
       <Dialog open={isCreateKeyOpen} onOpenChange={setIsCreateKeyOpen}>
