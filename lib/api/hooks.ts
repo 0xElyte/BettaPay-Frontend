@@ -35,6 +35,16 @@ export interface ApiSettlement {
   accountNumber: string | null;
 }
 
+export interface AdminStats {
+  totalProcessed: number;
+  totalProcessedChangePct: number;
+  platformFees: number;
+  feeRatePct: number;
+  activeMerchants: number;
+  newMerchantsThisWeek: number;
+  pendingKyb: number;
+}
+
 export interface ApiRate {
   from: string;
   to: string;
@@ -94,7 +104,42 @@ export const queryKeys = {
   settlements: ['settlements'] as const,
   rates: ['rates'] as const,
   merchant: (id?: string) => ['merchant', id ?? null] as const,
+  adminStats: ['admin', 'stats'] as const,
 };
+
+// ─── useAdminStats ────────────────────────────────────────────────────────────
+
+// The admin analytics endpoint is not deployed in every environment, so these
+// figures double as the fallback rendered alongside the error banner — the
+// overview page stays readable instead of collapsing into an empty shell.
+export const MOCK_ADMIN_STATS: AdminStats = {
+  totalProcessed: 1452310.89,
+  totalProcessedChangePct: 12.5,
+  platformFees: 14523.1,
+  feeRatePct: 1.0,
+  activeMerchants: 142,
+  newMerchantsThisWeek: 12,
+  pendingKyb: 8,
+};
+
+export function useAdminStats(): HookShape<AdminStats> {
+  const query = useQuery<AdminStats, Error>({
+    queryKey: queryKeys.adminStats,
+    queryFn: async () => {
+      const res = await apiClient.get<ItemEnvelope<AdminStats> | AdminStats>(
+        '/api/admin/stats',
+      );
+      const payload = res.data;
+      if (payload && 'totalProcessed' in payload) {
+        return payload as AdminStats;
+      }
+      const unwrapped = (payload as ItemEnvelope<AdminStats> | undefined)?.data;
+      if (!unwrapped) throw new Error('Malformed admin stats response');
+      return unwrapped;
+    },
+  });
+  return mapQuery(query, MOCK_ADMIN_STATS);
+}
 
 // ─── usePayments ──────────────────────────────────────────────────────────────
 
