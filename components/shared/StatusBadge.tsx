@@ -25,7 +25,7 @@ export const StatusBadge = ({ status, className }: StatusBadgeProps) => {
     [PAYMENT_STATUS.PROCESSING]: {
       label: 'Processing',
       icon: Loader2,
-      className: 'bg-primary/10 text-primary hover:bg-primary/20 border-primary/20',
+      className: 'bg-info/10 text-info hover:bg-info/20 border-info/20',
     },
     [PAYMENT_STATUS.FAILED]: {
       label: 'Failed',
