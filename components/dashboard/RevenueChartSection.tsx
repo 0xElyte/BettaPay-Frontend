@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui';
 import { ErrorDisplay } from '@/components/shared';
 import { TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { RevenuePayment } from '@/components/charts/RevenueChart';
 
 const RevenueChart = dynamic(() => import('@/components/charts/RevenueChart'), {
   ssr: false,
@@ -19,6 +20,8 @@ type Period = typeof PERIOD_OPTIONS[number];
 interface RevenueChartSectionProps {
   chartError: boolean;
   onRetry: () => void;
+  /** Payments from `usePayments` — the chart falls back to mock data when omitted. */
+  data?: RevenuePayment[];
 }
 
 /**
@@ -28,6 +31,7 @@ interface RevenueChartSectionProps {
 export const RevenueChartSection = memo(function RevenueChartSection({
   chartError,
   onRetry,
+  data,
 }: RevenueChartSectionProps) {
   const [activePeriod, setActivePeriod] = useState<Period>('7D');
 
@@ -74,7 +78,7 @@ export const RevenueChartSection = memo(function RevenueChartSection({
             />
           </div>
         ) : (
-          <RevenueChart height={260} />
+          <RevenueChart height={260} data={data} />
         )}
         {/* Summary row */}
         <div className="flex items-center gap-6 pt-4 border-t border-border mt-2">

@@ -48,7 +48,6 @@ const mockPaymentLinks = [
   { id: 'link_02', label: 'E-commerce Checkout', url: 'betta.pay/pay/link_02', clicks: 112, converted: 47 },
   { id: 'link_03', label: 'Donation Campaign', url: 'betta.pay/pay/link_03', clicks: 58, converted: 19 },
 ];
-import RevenueChart from '@/components/charts/RevenueChart';
 
 const PERIOD_OPTIONS = ['7D', '30D', '90D'] as const;
 type Period = typeof PERIOD_OPTIONS[number];
@@ -202,7 +201,6 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="pt-0">
-            <RevenueChart height={260} />
             {chartError ? (
               <div className="h-[260px] flex items-center justify-center">
                 <ErrorDisplay
@@ -211,7 +209,7 @@ export default function DashboardPage() {
                 />
               </div>
             ) : (
-              <RevenueChart height={260} />
+              <RevenueChart height={260} data={payments} />
             )}
             {/* Summary row */}
             <div className="flex items-center gap-6 pt-4 border-t border-border mt-2">
