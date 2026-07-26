@@ -3,28 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import {
-  LayoutDashboard,
-  Link as LinkIcon,
-  ListOrdered,
-  Wallet,
-  RefreshCcw,
-  Settings,
-  Code2,
-  Building2,
-} from "lucide-react";
-
-export const merchantNavItems = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/payments", label: "Payments", icon: LinkIcon },
-  { href: "/transactions", label: "Transactions", icon: ListOrdered },
-  { href: "/settlement", label: "Settlement", icon: Building2 },
-  { href: "/wallet", label: "Wallet", icon: Wallet },
-  { href: "/fx", label: "FX Rates", icon: RefreshCcw },
-  { href: "/developers", label: "Developers", icon: Code2 },
-  { href: "/settings", label: "Settings", icon: Settings },
-];
-
+import { merchantNavItems } from "@/lib/navigation/merchantNav";
 import Image from 'next/image';
 
 export const MerchantSidebar = () => {

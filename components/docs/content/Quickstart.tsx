@@ -29,7 +29,6 @@ export function Quickstart() {
   return (
     <SectionShell
       id="quickstart"
-      title="Quickstart"
       lead="From zero to a settled payment in five steps. The snippets use cURL; every endpoint also ships Node.js, Python and React examples in the API Reference."
     >
       <SubSection id="quickstart-signup" title="1. Sign up and get a token">

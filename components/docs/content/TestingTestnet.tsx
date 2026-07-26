@@ -41,7 +41,6 @@ export function TestingTestnet() {
   return (
     <SectionShell
       id="testing-testnet"
-      title="Testing with Testnet"
       lead="Run the entire payment flow against Stellar Testnet with free test assets before you touch real funds."
     >
       <SubSection id="testnet-freighter" title="1. Point Freighter at Testnet">

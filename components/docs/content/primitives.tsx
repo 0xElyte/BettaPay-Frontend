@@ -1,21 +1,25 @@
 import { Info, TriangleAlert, Lightbulb } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { findNavItem } from '@/lib/docs/navigation';
 
 // Small presentational primitives shared by every docs content section so prose,
 // headings and callouts stay consistent. All pure — they render on the server.
 
-/** Top-level section shell. `id` matches the sidebar/scroll-spy section id. */
+/**
+ * Top-level section shell. `id` matches a section id in `lib/docs/navigation.ts`,
+ * which is the single source of truth for its sidebar/breadcrumb/heading title —
+ * content components never hardcode that label themselves.
+ */
 export function SectionShell({
   id,
-  title,
   lead,
   children,
 }: {
   id: string;
-  title: string;
   lead?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const title = findNavItem(id)!.title;
   return (
     <section
       id={id}
