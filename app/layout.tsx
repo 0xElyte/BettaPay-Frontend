@@ -17,6 +17,7 @@ export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
+  
 }>) {
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID; 
   // Pass the clientId straight to GoogleOAuthProvider only when configured;
