@@ -3,21 +3,14 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import {
-  LayoutDashboard,
-  Link as LinkIcon,
-  ListOrdered,
-  Wallet,
-  Settings
-} from 'lucide-react';
+import { merchantNavItems } from '@/lib/navigation/merchantNav';
 
-const mobileNavItems = [
-  { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-  { href: '/payments', label: 'Payments', icon: LinkIcon },
-  { href: '/transactions', label: 'History', icon: ListOrdered },
-  { href: '/wallet', label: 'Wallet', icon: Wallet },
-  { href: '/settings', label: 'Settings', icon: Settings },
-];
+const MOBILE_HREFS = ['/dashboard', '/payments', '/transactions', '/wallet', '/settings'] as const;
+
+const mobileNavItems = MOBILE_HREFS.map((href) => {
+  const item = merchantNavItems.find((n) => n.href === href)!;
+  return { ...item, label: item.shortLabel || item.label };
+});
 
 export const MobileBottomNav = () => {
   const pathname = usePathname();
