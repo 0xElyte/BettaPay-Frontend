@@ -14,6 +14,7 @@ export const metadata: Metadata = {
   description: "Accept USDC and stablecoins easily across Africa",
 };
 
+
 export default function RootLayout({
   children,
 }: Readonly<{
