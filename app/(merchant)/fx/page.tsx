@@ -1,15 +1,5 @@
 "use client";
 
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { RefreshCcw, TrendingUp, TrendingDown, Info } from 'lucide-react';
-import dynamic from 'next/dynamic';
-
-const FxRateChart = dynamic(() => import('@/components/charts/FxRateChart'), {
-  ssr: false,
-  loading: () => <div className="h-[240px] bg-slate-50 animate-pulse rounded-xl w-full" />
-});
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui';
@@ -220,7 +210,11 @@ export default function FxRatesPage() {
                 <CardTitle className="text-base font-semibold text-foreground">USDC/NGN — 7 Day Chart</CardTitle>
               </CardHeader>
               <CardContent>
-                <FxRateChart height={240} />
+                <FxRateChart
+                  height={240}
+                  error={fxError ? 'Failed to load FX rate history' : ratesError}
+                  onRetry={refetch}
+                />
               </CardContent>
             </Card>
 
@@ -265,8 +259,6 @@ export default function FxRatesPage() {
               <Bell className="w-4 h-4 text-primary" /> Create Rate Alert
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <FxRateChart height={240} />
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
