@@ -1,9 +1,17 @@
 import type { NavGroup, NavItem } from './types';
 
 // The documentation navigation tree — the single source of truth for the
-// sidebar, the breadcrumb trail and the "current section" scroll-spy. Each
-// `NavItem.id` doubles as the DOM id of that section on the page, so anchor
-// links, the sidebar and the observer all agree without any duplicated lists.
+// sidebar, the breadcrumb trail, the "current section" scroll-spy and every
+// content section's heading (via `SectionShell` in `content/primitives.tsx`).
+// Each `NavItem.id` doubles as the DOM id of that section on the page, so
+// anchor links, the sidebar and the observer all agree without any
+// duplicated lists.
+//
+// i18n note: the docs (this file and everything under `components/docs`) are
+// English-only by design — not translated, and not wired into any i18n
+// framework. Centralizing labels here means a future i18n pass has exactly
+// one place to source strings from instead of hunting through every content
+// component.
 
 export const DOCS_BASE_URL = 'https://bettapay-backend.onrender.com';
 

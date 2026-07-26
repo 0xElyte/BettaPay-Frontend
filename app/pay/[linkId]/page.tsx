@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useMemo, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
@@ -28,11 +28,8 @@ import { signWithFreighter } from "@/lib/stellar/freighter";
 import { apiClient } from "@/lib/api/axios";
 import { MULTI_CURRENCY_ASSETS, MOCK_RATES } from "@/lib/utils/constants";
 import { WalletModalFallback } from "@/components/wallet/WalletModalFallback";
+import { WalletModalErrorBoundary } from "@/components/wallet/WalletModalErrorBoundary";
 import { QRCodeModal } from "@/components/payments/QRCode";
-const WalletModal = dynamic(
-  () => import("@/components/wallet/WalletModal").then((m) => m.WalletModal),
-  { ssr: false },
-);
 
 export default function PaymentLinkPage() {
   const router = useRouter();
@@ -40,6 +37,21 @@ export default function PaymentLinkPage() {
   const { error: notifyError } = useNotify();
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [qrModalOpen, setQrModalOpen] = useState(false);
+  // Bumping this recreates the `dynamic()` import below with a fresh promise,
+  // so retrying after a chunk-load failure re-fetches the chunk instead of
+  // replaying the same cached rejection.
+  const [walletModalRetryKey, setWalletModalRetryKey] = useState(0);
+  const WalletModal = useMemo(
+    () =>
+      dynamic(
+        () => import("@/components/wallet/WalletModal").then((m) => m.WalletModal),
+        { ssr: false },
+      ),
+    // walletModalRetryKey isn't read inside the factory — it's only a cache
+    // key so bumping it forces a new dynamic() call (and a fresh import()).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [walletModalRetryKey],
+  );
 
   // Mock data for this link
   const linkData = {
@@ -158,19 +170,25 @@ export default function PaymentLinkPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <Suspense
-          fallback={
-            <WalletModalFallback
+        <WalletModalErrorBoundary
+          open={walletModalOpen}
+          onOpenChange={setWalletModalOpen}
+          onRetry={() => setWalletModalRetryKey((key) => key + 1)}
+        >
+          <Suspense
+            fallback={
+              <WalletModalFallback
+                open={walletModalOpen}
+                onOpenChange={setWalletModalOpen}
+              />
+            }
+          >
+            <WalletModal
               open={walletModalOpen}
               onOpenChange={setWalletModalOpen}
             />
-          }
-        >
-          <WalletModal
-            open={walletModalOpen}
-            onOpenChange={setWalletModalOpen}
-          />
-        </Suspense>
+          </Suspense>
+        </WalletModalErrorBoundary>
 
         {/* Merchant Branding Header */}
         <div className="flex flex-col items-center mb-8">

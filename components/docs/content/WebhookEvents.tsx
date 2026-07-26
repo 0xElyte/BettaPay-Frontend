@@ -58,7 +58,6 @@ export function WebhookEvents() {
   return (
     <SectionShell
       id="webhook-events"
-      title="Webhook Events"
       lead="Subscribe to webhooks to be notified the moment a payment or settlement changes state, instead of polling. Every delivery is signed so you can trust its origin."
     >
       <SubSection id="webhook-event-types" title="Event types">

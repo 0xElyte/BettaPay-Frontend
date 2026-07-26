@@ -59,7 +59,6 @@ export function WebhookIntegration() {
   return (
     <SectionShell
       id="webhook-integration"
-      title="Webhook Integration"
       lead="A practical walkthrough for receiving BettaPay events reliably: verify the signature, acknowledge fast, and make your handler idempotent."
     >
       <SubSection id="webhook-setup" title="Setting up an endpoint">

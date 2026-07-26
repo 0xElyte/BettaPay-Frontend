@@ -7,7 +7,6 @@ export function Settlements() {
   return (
     <SectionShell
       id="settlements"
-      title="Settlements"
       lead="Settlements move a merchant's USDC balance out to fiat or another destination. The settlement engine processes them in batches under per-merchant limits."
     >
       <P>Every settlement you create is validated against your merchant limits before it is queued:</P>
