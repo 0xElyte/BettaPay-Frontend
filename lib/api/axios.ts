@@ -5,6 +5,7 @@ import { getCsrfTokenFromCookie, CSRF_HEADER_NAME } from '../utils/csrf';
 import { toast } from 'sonner';
 import { announce } from '@/lib/utils/announce';
 import { parseApiError } from '../utils/apiError';
+import { getAppRouter } from '../navigation/appRouter';
 
 function notifyError(message: string) {
   toast.error(message, { duration: 5000 });
@@ -67,7 +68,16 @@ function redirectToLogin() {
     return;
   }
   useAuthStore.getState().logout();
-  if (typeof window !== 'undefined') {
+
+  // Prefer a client-side navigation via the App Router so React state, context
+  // and the query cache survive the redirect. The interceptor runs outside the
+  // component tree, so the router is provided through a module-level singleton
+  // registered by a top-level provider. Fall back to a full-page navigation
+  // only when the router isn't available (SSR or before the provider mounts).
+  const router = getAppRouter();
+  if (router) {
+    router.push('/auth/login');
+  } else if (typeof window !== 'undefined') {
     window.location.href = '/auth/login';
   }
 }
