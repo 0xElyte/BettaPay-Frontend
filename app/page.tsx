@@ -81,18 +81,32 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6" role="list">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6" role="list">
             {features.map((feature, i) => (
               <div
                 key={i}
-                className="p-8 rounded-2xl bg-card border border-border hover:border-primary/40 hover:shadow-md transition-all duration-200"
+                className={`group relative overflow-hidden p-8 rounded-3xl bg-card border border-border hover:border-primary/40 hover:shadow-lg transition-all duration-300 ${
+                  i === 0 ? "md:col-span-8 md:row-span-2 flex flex-col justify-center min-h-[400px]" : "md:col-span-4"
+                }`}
                 role="listitem"
               >
-                <div className="w-11 h-11 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6" aria-hidden="true">
-                  <feature.icon className="w-5 h-5 text-primary" />
+                {/* Subtle background decoration for the primary card */}
+                {i === 0 && (
+                  <div className="absolute right-0 top-0 -mt-8 -mr-8 w-64 h-64 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors duration-500" aria-hidden="true" />
+                )}
+
+                <div className={`relative z-10 w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6 ${i === 0 ? 'w-16 h-16 mb-8' : ''}`} aria-hidden="true">
+                  <feature.icon className={`text-primary ${i === 0 ? 'w-8 h-8' : 'w-6 h-6'}`} />
                 </div>
-                <h3 className="text-lg font-semibold mb-3 text-foreground">{t(`landing.features.${feature.key}.title`)}</h3>
-                <p className="text-muted-foreground leading-relaxed text-sm">{t(`landing.features.${feature.key}.description`)}</p>
+
+                <div className="relative z-10">
+                  <h3 className={`font-bold mb-3 text-foreground ${i === 0 ? 'text-3xl lg:text-4xl' : 'text-xl'}`}>
+                    {t(`landing.features.${feature.key}.title`)}
+                  </h3>
+                  <p className={`text-muted-foreground leading-relaxed ${i === 0 ? 'text-lg max-w-xl' : 'text-base'}`}>
+                    {t(`landing.features.${feature.key}.description`)}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
