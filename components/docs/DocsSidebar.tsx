@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from 'react';
-import { X } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowRight, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { docsNavigation } from '@/lib/docs/navigation';
+import { orderedGuides } from '@/lib/guides';
 
 interface NavTreeProps {
   activeSection: string;
@@ -43,6 +45,35 @@ function NavTree({ activeSection, onNavigate }: NavTreeProps) {
           </ul>
         </div>
       ))}
+
+      <div>
+        <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Integration Guides
+        </p>
+        <ul className="space-y-0.5">
+          {orderedGuides.map((guide) => (
+            <li key={guide.slug}>
+              <Link
+                href={guide.href}
+                onClick={onNavigate}
+                className="block rounded-md border-l-2 border-transparent px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                {guide.title}
+              </Link>
+            </li>
+          ))}
+          <li>
+            <Link
+              href="/guides"
+              onClick={onNavigate}
+              className="flex items-center gap-1 rounded-md border-l-2 border-transparent px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-muted"
+            >
+              All guides
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </Link>
+          </li>
+        </ul>
+      </div>
     </nav>
   );
 }
