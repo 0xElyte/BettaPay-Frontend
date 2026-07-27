@@ -1,18 +1,24 @@
 "use client";
 
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { merchantNavItems } from '@/lib/navigation/merchantNav';
+import { Menu } from 'lucide-react';
 
-const MOBILE_HREFS = ['/dashboard', '/payments', '/transactions', '/wallet', '/settings'] as const;
+const MOBILE_HREFS = ['/dashboard', '/payments', '/transactions', '/wallet'] as const;
 
 const mobileNavItems = MOBILE_HREFS.map((href) => {
   const item = merchantNavItems.find((n) => n.href === href)!;
   return { ...item, label: item.shortLabel || item.label };
 });
 
-export const MobileBottomNav = () => {
+interface MobileBottomNavProps {
+  onMoreClick?: () => void;
+}
+
+export const MobileBottomNav = ({ onMoreClick }: MobileBottomNavProps) => {
   const pathname = usePathname();
 
   return (
@@ -38,6 +44,18 @@ export const MobileBottomNav = () => {
           </Link>
         );
       })}
+
+      <button
+        type="button"
+        onClick={onMoreClick}
+        className={cn(
+          "flex flex-col items-center justify-center w-[68px] gap-1 py-1.5 rounded-lg transition-all text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
+      >
+        <Menu className="w-5 h-5 text-muted-foreground" />
+        <span className="text-[10px] font-medium tracking-tight">More</span>
+      </button>
     </div>
   );
 };
+

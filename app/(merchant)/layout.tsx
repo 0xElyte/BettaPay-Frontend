@@ -100,7 +100,7 @@ export default function MerchantLayout({
           isMenuOpen={mobileMenuOpen}
         />
 
-        <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto bg-background/50 pb-20 md:pb-0">
+        <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto bg-background/50 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
           <div className="mx-auto max-w-7xl px-3 sm:px-6 py-4 sm:py-8 space-y-6">
             <OnboardingWizard />
             <PageTransition>
