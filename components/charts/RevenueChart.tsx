@@ -90,7 +90,9 @@ interface ChartTooltipProps {
   label?: string;
 }
 
-export const ChartTooltip = ({ active, payload, label }: ChartTooltipProps) => {
+const ChartTooltip = ({ active, payload, label }: ChartTooltipProps) => {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
   if (active && payload && payload.length) {
     const daily = payload.find((p) => p.dataKey === "total")?.value;
     const cumulative = payload.find((p) => p.dataKey === "volume")?.value;
@@ -136,15 +138,24 @@ const isAggregated = (
 
 export default function RevenueChart({ height = 260, data }: RevenueChartProps) {
   const [isMobile, setIsMobile] = useState(false);
+export default function RevenueChart({ height = 260 }: { height?: number }) {
   const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
+  const isDark = resolvedTheme === 'dark';
+  const { data, isLoading, isError } = useQuery<ChartDataItem[]>(
+    ['revenue'],
+    async () => {
+      const res = await axios.get<ChartDataItem[]>('/api/revenue');
+      return res.data;
+    }
+  );
 
+  const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
-    const mq = window.matchMedia("(max-width: 639px)");
+    const mq = window.matchMedia('(max-width: 639px)');
     setIsMobile(mq.matches);
     const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
   }, []);
 
   const chartData = useMemo(() => {

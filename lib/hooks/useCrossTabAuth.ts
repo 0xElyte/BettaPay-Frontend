@@ -4,12 +4,12 @@ import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/authStore';
 
-const AUTH_STORAGE_KEY = 'auth-storage';
+const AUTH_STORAGE_KEY = 'bp-session';
 const CHANNEL_NAME = 'bettapay-auth-sync';
 
 interface AuthChannelMessage {
   type: 'AUTH_LOGIN' | 'AUTH_LOGOUT' | 'AUTH_TOKEN_EXPIRED';
-  role?: string;
+  isLoggedIn?: boolean;
 }
 
 export function useCrossTabAuth() {
@@ -38,6 +38,7 @@ export function useCrossTabAuth() {
               token: null,
               role: null,
               isAuthenticated: false,
+              isLoggedIn: false,
             });
             router.push('/auth/login');
           }
@@ -60,14 +61,15 @@ export function useCrossTabAuth() {
 
       try {
         const newValue = event.newValue ? JSON.parse(event.newValue) : null;
-        const newRole = newValue?.state?.role ?? null;
+        const isLoggedIn = newValue?.state?.isLoggedIn ?? false;
 
-        if (newRole === null && useAuthStore.getState().isAuthenticated) {
+        if (!isLoggedIn && useAuthStore.getState().isAuthenticated) {
           useAuthStore.setState({
             user: null,
             token: null,
             role: null,
             isAuthenticated: false,
+            isLoggedIn: false,
           });
           router.push('/auth/login');
         }
@@ -94,7 +96,7 @@ export function useCrossTabAuth() {
       if (!channel) return;
 
       if (state.isAuthenticated && !prevState.isAuthenticated) {
-        channel.postMessage({ type: 'AUTH_LOGIN', role: state.role } satisfies AuthChannelMessage);
+        channel.postMessage({ type: 'AUTH_LOGIN', isLoggedIn: state.isLoggedIn } satisfies AuthChannelMessage);
       } else if (!state.isAuthenticated && prevState.isAuthenticated) {
         channel.postMessage({ type: 'AUTH_LOGOUT' } satisfies AuthChannelMessage);
       }

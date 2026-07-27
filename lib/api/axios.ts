@@ -5,6 +5,7 @@ import { getCsrfTokenFromCookie, CSRF_HEADER_NAME } from '../utils/csrf';
 import { toast } from 'sonner';
 import { announce } from '@/lib/utils/announce';
 import { parseApiError } from '../utils/apiError';
+import { getAppRouter } from '../navigation/appRouter';
 
 function notifyError(message: string) {
   toast.error(message, { duration: 5000 });
@@ -45,17 +46,21 @@ apiClient.interceptors.request.use((config) => {
 
 // Token refresh state
 let isRefreshing = false;
+// Auth is cookie-based (the refresh endpoint sets a fresh HttpOnly cookie and
+// returns no token), so queued requests only need to know whether the refresh
+// succeeded — there is no token to thread through. Each queued entry re-issues
+// its original request on resolve, so the real response flows back to callers.
 let failedQueue: Array<{
-  resolve: (token: string) => void;
+  resolve: () => void;
   reject: (error: unknown) => void;
 }> = [];
 
-function processQueue(error: unknown, token: string | null) {
+function processQueue(error: unknown) {
   failedQueue.forEach((prom) => {
-    if (error || !token) {
+    if (error) {
       prom.reject(error);
     } else {
-      prom.resolve(token);
+      prom.resolve();
     }
   });
   failedQueue = [];
@@ -67,7 +72,16 @@ function redirectToLogin() {
     return;
   }
   useAuthStore.getState().logout();
-  if (typeof window !== 'undefined') {
+
+  // Prefer a client-side navigation via the App Router so React state, context
+  // and the query cache survive the redirect. The interceptor runs outside the
+  // component tree, so the router is provided through a module-level singleton
+  // registered by a top-level provider. Fall back to a full-page navigation
+  // only when the router isn't available (SSR or before the provider mounts).
+  const router = getAppRouter();
+  if (router) {
+    router.push('/auth/login');
+  } else if (typeof window !== 'undefined') {
     window.location.href = '/auth/login';
   }
 }
@@ -82,8 +96,9 @@ apiClient.interceptors.response.use(
     // Handle 401 with token refresh
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       if (isRefreshing) {
-        // Queue this request until refresh completes
-        return new Promise<string>((resolve, reject) => {
+        // Queue this request until refresh completes, then re-issue it and
+        // resolve with the actual retried response (not undefined).
+        return new Promise<void>((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         }).then(() => apiClient(originalRequest));
       }
@@ -93,10 +108,10 @@ apiClient.interceptors.response.use(
 
       try {
         await refreshClient.post('/api/auth/refresh');
-        processQueue(null, 'refreshed');
+        processQueue(null);
         return apiClient(originalRequest);
       } catch (refreshError) {
-        processQueue(refreshError, null);
+        processQueue(refreshError);
         redirectToLogin();
         return Promise.reject(parseApiError(refreshError));
       } finally {
