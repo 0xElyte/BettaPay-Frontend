@@ -66,10 +66,56 @@ export default function SettingsPage() {
   const [newKeyName, setNewKeyName] = useState('');
   const [newKeyScope, setNewKeyScope] = useState('write');
 
-  // Security State
+  // Security State & Validation
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [passwordTouched, setPasswordTouched] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+  });
+
+  const isCurrentPasswordValid = currentPassword.trim().length > 0;
+  const isNewPasswordValid =
+    newPassword.length >= 8 &&
+    /[A-Z]/.test(newPassword) &&
+    /\d/.test(newPassword);
+  const isConfirmPasswordValid =
+    confirmNewPassword.length > 0 && confirmNewPassword === newPassword;
+
+  const isPasswordFormValid =
+    isCurrentPasswordValid && isNewPasswordValid && isConfirmPasswordValid;
+
+  const currentPasswordError =
+    passwordTouched.current && !isCurrentPasswordValid
+      ? 'Current password is required'
+      : '';
+
+  const getNewPasswordError = () => {
+    if (!passwordTouched.new || newPassword.length === 0) return '';
+    if (newPassword.length < 8) return 'Password must be at least 8 characters long';
+    if (!/[A-Z]/.test(newPassword)) return 'Password must contain at least one uppercase letter';
+    if (!/\d/.test(newPassword)) return 'Password must contain at least one number';
+    return '';
+  };
+  const newPasswordError = getNewPasswordError();
+
+  const confirmPasswordError =
+    passwordTouched.confirm && confirmNewPassword.length > 0 && !isConfirmPasswordValid
+      ? 'Passwords do not match'
+      : passwordTouched.confirm && confirmNewPassword.length === 0
+      ? 'Please confirm your new password'
+      : '';
+
+  const handleUpdatePassword = () => {
+    if (!isPasswordFormValid) return;
+    notify.success('Password updated');
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmNewPassword('');
+    setPasswordTouched({ current: false, new: false, confirm: false });
+  };
 
   const [notificationPreferences, setNotificationPreferences] = useState<Record<string, boolean>>({
     paymentReceived: true,
