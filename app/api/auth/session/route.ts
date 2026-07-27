@@ -1,5 +1,26 @@
-import { NextResponse } from 'next/server';
-import { generateCsrfToken } from '@/lib/utils/csrf';
+import { NextResponse, NextRequest } from 'next/server';
+import { generateCsrfToken, buildCsrfCookieHeader } from '@/lib/utils/csrf';
+
+export async function GET(req: NextRequest) {
+  const token = req.cookies.get('auth_token')?.value;
+  const role = req.cookies.get('user_role')?.value;
+
+  if (!token) {
+    return NextResponse.json({ error: 'Session expired' }, { status: 401 });
+  }
+
+  // In production, validate the token and fetch real user data.
+  // For mock/preview mode, return a session based on the cookie values.
+  return NextResponse.json({
+    user: {
+      id: role === 'admin' ? 'admin-1' : 'GCCHHKNI7GRA5QWC7RCTT3OHO7SKAUMKQA6IBWEQEO2SXI3GF376UHDD',
+      email: role === 'admin' ? 'admin@bettapay.com' : 'merchant@bettapay.com',
+      name: role === 'admin' ? 'System Admin' : 'Merchant User',
+      role: role || 'merchant',
+    },
+    token,
+  });
+}
 
 export async function POST(req: Request) {
   try {
@@ -7,16 +28,27 @@ export async function POST(req: Request) {
     const token = body.token;
     const role = body.role || '';
 
+    const isProduction = process.env.NODE_ENV === 'production';
+    const secureFlag = isProduction ? '; Secure' : '';
+
+    // Rotate the CSRF token on every login — this is the primary token rotation
+    // point. A fresh token is tied to the new authenticated session.
+    const csrfToken = generateCsrfToken();
+
     const res = NextResponse.json({ ok: true });
 
-    // Set HttpOnly cookie for auth token
-    // NOTE: In production set Secure=true and proper domain attributes
-    res.headers.set('Set-Cookie', `auth_token=${token}; HttpOnly; Path=/; SameSite=Lax`);
-    // Also set a non-HttpOnly role cookie so middleware/server-side can read role where needed
-    res.headers.append('Set-Cookie', `user_role=${role}; Path=/; SameSite=Lax`);
-    // Set CSRF token cookie (non-HttpOnly so the client JS can read it for double-submit)
-    const csrfToken = generateCsrfToken();
-    res.headers.append('Set-Cookie', `csrf_token=${csrfToken}; Path=/; SameSite=Strict; Max-Age=86400`);
+    // auth_token: HttpOnly so JS cannot read it (XSS protection)
+    res.headers.set(
+      'Set-Cookie',
+      `auth_token=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=86400${secureFlag}`
+    );
+    // user_role: non-HttpOnly so middleware / server-side can read it
+    res.headers.append(
+      'Set-Cookie',
+      `user_role=${role}; Path=/; SameSite=Lax; Max-Age=86400${secureFlag}`
+    );
+    // csrf_token: non-HttpOnly (JS must read it), SameSite=Strict
+    res.headers.append('Set-Cookie', buildCsrfCookieHeader(csrfToken));
 
     return res;
   } catch (error) {
@@ -26,10 +58,22 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE() {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const secureFlag = isProduction ? '; Secure' : '';
+
   const res = NextResponse.json({ ok: true });
-  // Clear cookies
-  res.headers.set('Set-Cookie', `auth_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax`);
-  res.headers.append('Set-Cookie', `user_role=; Path=/; Max-Age=0; SameSite=Lax`);
-  res.headers.append('Set-Cookie', `csrf_token=; Path=/; Max-Age=0; SameSite=Strict`);
+  // Expire all three cookies atomically on logout
+  res.headers.set(
+    'Set-Cookie',
+    `auth_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax${secureFlag}`
+  );
+  res.headers.append(
+    'Set-Cookie',
+    `user_role=; Path=/; Max-Age=0; SameSite=Lax${secureFlag}`
+  );
+  res.headers.append(
+    'Set-Cookie',
+    `csrf_token=; Path=/; Max-Age=0; SameSite=Strict${secureFlag}`
+  );
   return res;
 }

@@ -9,8 +9,40 @@
 }
 
 @layer base {
+  /*
+   * Theme tokens follow the shadcn-style semantic naming convention.
+   * Use these role-based variables (background, foreground, card, border,
+   * muted, primary, etc.) in Tailwind classes instead of brand-specific
+   * aliases or hardcoded surface/text colors. The .dark block below must
+   * define the same token set so components adapt by theme.
+   *
+   * COLOR EXCEPTION LIST (DO NOT REPLACE):
+   * - Stellar Wallet Modal / Tooltips: Elements meant to strictly look like 
+   *   Stellar-branded UI (e.g. `bg-slate-900`) must remain dark.
+   * - Code Blocks: Syntax highlighting elements (e.g. `text-emerald-400` in <pre>)
+   *   should not adapt to theme if they rely on specific contrast against dark blocks.
+   * - Brand Logos: Background wrappers for external logos that require specific contrast.
+   */
   :root {
-    /* Clean white-background light theme */
+    /* ── Font tokens ── */
+    /* font-heading resolves the Tailwind `font-heading` utility (card.tsx, dialog.tsx).
+       Set by next/font/google via the --font-heading CSS variable from Fraunces. */
+    --font-heading: "Fraunces", serif;
+
+    /* font-body resolves the Tailwind `font-sans` utility for body text.
+       Set by next/font/google via the --font-body CSS variable from DM Sans. */
+    --font-body: "DM Sans", sans-serif;
+
+    /* ── Shadow tokens ── */
+    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05);
+    --shadow-card-hover: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.07);
+    --shadow-button: 0 1px 3px 0 rgb(0 0 0 / 0.08), 0 0 0 1px rgb(240 165 0 / 0.15);
+    --shadow-dropdown: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.06), 0 0 0 1px rgb(0 0 0 / 0.05);
+    --shadow-glow: 0 0 20px rgba(240, 165, 0, 0.3);
+    --shadow-glow-hover: 0 0 25px rgba(240, 165, 0, 0.5);
+    --shadow-nav-bottom: 0 -4px 10px rgb(0 0 0 / 0.04);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
     --background: #FFFFFF;
     --foreground: #0F172A;
     --card: #FFFFFF;
@@ -27,12 +59,22 @@
     --accent-foreground: #0F172A;
     --destructive: #EF4444;
     --destructive-foreground: #FFFFFF;
+    --success: #10B981;
+    --success-foreground: #FFFFFF;
+    --warning: #F59E0B;
+    --warning-foreground: #FFFFFF;
+    --info: #3B82F6;
+    --info-foreground: #FFFFFF;
     --border: #E2E8F0;
     --input: #F8FAFC;
     --ring: #F0A500;
     --radius: 0.75rem;
+    --chart-1: #F0A500;
+    --chart-2: #2563EB;
+    --chart-3: #16A34A;
+    --chart-4: #8B5CF6;
+    --chart-5: #EF4444;
 
-    /* Sidebar */
     --sidebar: #FFFFFF;
     --sidebar-foreground: #0F172A;
     --sidebar-primary: #F0A500;
@@ -41,20 +83,58 @@
     --sidebar-accent-foreground: #0F172A;
     --sidebar-border: #E2E8F0;
     --sidebar-ring: #F0A500;
+  }
 
-    /* Brand tokens */
-    --brand-primary: #F0A500;
-    --brand-surface: #FFFFFF;
-    --brand-surface-alt: #F8FAFC;
-    --brand-accent: #2563EB;
-    --brand-accent-hover: #1D4ED8;
-    --brand-success: #16A34A;
-    --brand-warning: #F59E0B;
-    --brand-error: #EF4444;
-    --brand-text-primary: #0F172A;
-    --brand-text-secondary: #334155;
-    --brand-text-muted: #64748B;
-    --brand-border: #E2E8F0;
+  .dark {
+    /* ── Shadow tokens (dark mode — lighter, more diffuse) ── */
+    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.2), 0 1px 2px -1px rgb(0 0 0 / 0.2);
+    --shadow-card-hover: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.25);
+    --shadow-button: 0 1px 3px 0 rgb(0 0 0 / 0.25), 0 0 0 1px rgb(251 191 36 / 0.2);
+    --shadow-dropdown: 0 4px 6px -1px rgb(0 0 0 / 0.35), 0 2px 4px -2px rgb(0 0 0 / 0.3), 0 0 0 1px rgb(255 255 255 / 0.05);
+    --shadow-glow: 0 0 20px rgba(251, 191, 36, 0.25);
+    --shadow-glow-hover: 0 0 25px rgba(251, 191, 36, 0.4);
+    --shadow-nav-bottom: 0 -4px 10px rgb(0 0 0 / 0.15);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.4), 0 8px 10px -6px rgb(0 0 0 / 0.35);
+
+    --background: #0F172A;
+    --foreground: #F8FAFC;
+    --card: #1E293B;
+    --card-foreground: #F8FAFC;
+    --popover: #1E293B;
+    --popover-foreground: #F8FAFC;
+    --primary: #FBBF24;
+    --primary-foreground: #0F172A;
+    --secondary: #334155;
+    --secondary-foreground: #F8FAFC;
+    --muted: #334155;
+    --muted-foreground: #CBD5E1;
+    --accent: #334155;
+    --accent-foreground: #F8FAFC;
+    --destructive: #F87171;
+    --destructive-foreground: #0F172A;
+    --success: #34D399;
+    --success-foreground: #0F172A;
+    --warning: #FBBF24;
+    --warning-foreground: #0F172A;
+    --info: #60A5FA;
+    --info-foreground: #0F172A;
+    --border: #334155;
+    --input: #1E293B;
+    --ring: #FBBF24;
+    --chart-1: #FBBF24;
+    --chart-2: #60A5FA;
+    --chart-3: #34D399;
+    --chart-4: #A78BFA;
+    --chart-5: #F87171;
+
+    --sidebar: #0F172A;
+    --sidebar-foreground: #F8FAFC;
+    --sidebar-primary: #FBBF24;
+    --sidebar-primary-foreground: #0F172A;
+    --sidebar-accent: #1E293B;
+    --sidebar-accent-foreground: #F8FAFC;
+    --sidebar-border: #334155;
+    --sidebar-ring: #FBBF24;
   }
 
   html {
@@ -74,12 +154,72 @@
     padding-right: 1rem;
   }
 
-  :focus {
-    outline: none !important;
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--ring) 25%, transparent);
+    border-radius: 4px;
   }
 
-  :focus-visible {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 30%, transparent);
-    border-radius: 8px;
+  /* Ensure all focusable elements have visible focus indicators */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--ring) 25%, transparent);
   }
+
+  /* Smooth anchor scrolling, scoped to the docs page and disabled for users
+     who prefer reduced motion. */
+  @media (prefers-reduced-motion: no-preference) {
+    html:has([data-docs-content]) {
+      scroll-behavior: smooth;
+    }
+  }
+}
+
+/* ── Documentation code blocks (Shiki dual-theme) ──
+   Shiki emits both light and dark token colors as CSS variables; we pick the
+   set that matches the active theme via the `.dark` class so toggling never
+   re-highlights or flashes. See lib/docs/highlight.ts. */
+.docs-code .shiki {
+  margin: 0;
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  background-color: var(--shiki-light-bg);
+  tab-size: 2;
+}
+.docs-code .shiki code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+.docs-code .shiki,
+.docs-code .shiki span {
+  color: var(--shiki-light);
+}
+.dark .docs-code .shiki {
+  background-color: var(--shiki-dark-bg);
+}
+.dark .docs-code .shiki,
+.dark .docs-code .shiki span {
+  color: var(--shiki-dark);
+}
+
+/* ── Documentation disclosures (<details>) ── */
+details[data-docs-disclosure] > summary {
+  list-style: none;
+}
+details[data-docs-disclosure] > summary::-webkit-details-marker {
+  display: none;
+}
+.docs-chevron {
+  transition: transform 0.2s ease;
+}
+details[data-docs-disclosure][open] > summary .docs-chevron {
+  transform: rotate(90deg);
 }

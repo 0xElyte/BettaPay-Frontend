@@ -1,12 +1,52 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../store/authStore';
 import { useRateLimitStore } from '../store/rateLimitStore';
-import { toast } from 'sonner';
 import { getCsrfTokenFromCookie, CSRF_HEADER_NAME } from '../utils/csrf';
+import { toast } from 'sonner';
+import { announce } from '@/lib/utils/announce';
+import { parseApiError } from '../utils/apiError';
+import { getAppRouter } from '../navigation/appRouter';
+
+// Deduplication: avoid showing multiple toasts for simultaneous errors
+const recentErrors = new Map<string, number>();
+const ERROR_DEDUP_WINDOW_MS = 3000;
+
+function notifyError(message: string, key?: string) {
+  const dedupKey = key || message;
+  const now = Date.now();
+  const lastShown = recentErrors.get(dedupKey);
+
+  if (lastShown && now - lastShown < ERROR_DEDUP_WINDOW_MS) {
+    return;
+  }
+
+  recentErrors.set(dedupKey, now);
+  toast.error(message, { duration: 5000 });
+  announce(message);
+
+  // Clean up old entries
+  if (recentErrors.size > 50) {
+    for (const [k, v] of recentErrors) {
+      if (now - v > ERROR_DEDUP_WINDOW_MS) {
+        recentErrors.delete(k);
+      }
+    }
+  }
+}
 
 // Use cookie-based auth (HttpOnly cookie set by the server). Do not read tokens from localStorage.
+const apiBaseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+if (!process.env.NEXT_PUBLIC_API_URL && typeof window !== 'undefined') {
+  console.warn(
+    '[API Client] NEXT_PUBLIC_API_URL is not set. Defaulting to http://localhost:3001. ' +
+    'This will cause API calls to fail in production. Please set NEXT_PUBLIC_API_URL environment variable.'
+  );
+}
+
 export const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
+  baseURL: apiBaseURL,
+  timeout: 15000, // 15 seconds for normal requests
   headers: {
     'Content-Type': 'application/json',
   },
@@ -14,9 +54,10 @@ export const apiClient = axios.create({
   withCredentials: true,
 });
 
-// Separate instance for refresh calls to avoid interceptor recursion
+// Separate instance for refresh calls to avoid interceptor recursion.
+// Must use same-origin (no baseURL) because /api/auth/refresh is a Next.js API route,
+// not a backend endpoint. Cookies are sent to the Next.js server, not the backend.
 const refreshClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true,
 });
@@ -32,30 +73,56 @@ apiClient.interceptors.request.use((config) => {
       config.headers.set(CSRF_HEADER_NAME, csrfToken);
     }
   }
+
+  // Use 30 second timeout for payment submission endpoints, 15 seconds for others
+  const url = config.url || '';
+  if (url.includes('/payments') || url.includes('/settlements')) {
+    config.timeout = 30000;
+  } else {
+    config.timeout = 15000;
+  }
+
   return config;
 });
 
 // Token refresh state
 let isRefreshing = false;
+// Auth is cookie-based (the refresh endpoint sets a fresh HttpOnly cookie and
+// returns no token), so queued requests only need to know whether the refresh
+// succeeded — there is no token to thread through. Each queued entry re-issues
+// its original request on resolve, so the real response flows back to callers.
 let failedQueue: Array<{
-  resolve: (token: string) => void;
+  resolve: () => void;
   reject: (error: unknown) => void;
 }> = [];
 
-function processQueue(error: unknown, token: string | null) {
+function processQueue(error: unknown) {
   failedQueue.forEach((prom) => {
-    if (error || !token) {
+    if (error) {
       prom.reject(error);
     } else {
-      prom.resolve(token);
+      prom.resolve();
     }
   });
   failedQueue = [];
 }
 
 function redirectToLogin() {
+  // Don't redirect if already on an auth page — prevents infinite redirect loops
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/auth')) {
+    return;
+  }
   useAuthStore.getState().logout();
-  if (typeof window !== 'undefined') {
+
+  // Prefer a client-side navigation via the App Router so React state, context
+  // and the query cache survive the redirect. The interceptor runs outside the
+  // component tree, so the router is provided through a module-level singleton
+  // registered by a top-level provider. Fall back to a full-page navigation
+  // only when the router isn't available (SSR or before the provider mounts).
+  const router = getAppRouter();
+  if (router) {
+    router.push('/auth/login');
+  } else if (typeof window !== 'undefined') {
     window.location.href = '/auth/login';
   }
 }
@@ -70,8 +137,9 @@ apiClient.interceptors.response.use(
     // Handle 401 with token refresh
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       if (isRefreshing) {
-        // Queue this request until refresh completes
-        return new Promise<string>((resolve, reject) => {
+        // Queue this request until refresh completes, then re-issue it and
+        // resolve with the actual retried response (not undefined).
+        return new Promise<void>((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         }).then(() => apiClient(originalRequest));
       }
@@ -81,12 +149,12 @@ apiClient.interceptors.response.use(
 
       try {
         await refreshClient.post('/api/auth/refresh');
-        processQueue(null, 'refreshed');
+        processQueue(null);
         return apiClient(originalRequest);
       } catch (refreshError) {
-        processQueue(refreshError, null);
+        processQueue(refreshError);
         redirectToLogin();
-        return Promise.reject(refreshError);
+        return Promise.reject(parseApiError(refreshError));
       } finally {
         isRefreshing = false;
       }
@@ -97,14 +165,13 @@ apiClient.interceptors.response.use(
       const retryAfter = error.response.headers['retry-after'];
       const seconds = parseInt(retryAfter, 10) || 30;
       useRateLimitStore.getState().setRateLimited(seconds);
-      toast.error(`Too many attempts. Please try again in ${seconds} seconds.`);
+      notifyError(`Too many attempts. Please try again in ${seconds} seconds.`);
+    } else if (!error.response) {
+      notifyError('Network error. Please check your connection.', 'network_error');
+    } else if (error.response?.status >= 500) {
+      notifyError('A server error occurred. Please try again later.', `5xx_${error.response.status}`);
     }
 
-    // Show toast for network errors
-    if (!error.response) {
-      toast.error('Network error. Please check your connection.');
-    }
-
-    return Promise.reject(error);
+    return Promise.reject(parseApiError(error));
   }
 );
