@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { AdminSidebar } from '@/components/layout';
 import { adminNavItems } from '@/lib/navigation/adminNav';
 import { PageTransition } from '@/components/shared';
@@ -8,6 +9,7 @@ import { MobileNavDrawer } from '@/components/layout';
 import { Topbar } from '@/components/layout';
 import Footer from '@/components/layout';
 import Image from 'next/image';
+import { useAuthStore } from '@/lib/store/authStore';
 
 export default function AdminLayout({
   children,
@@ -15,6 +17,40 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const router = useRouter();
+  const role = useAuthStore((s) => s.role);
+
+  // The persisted role only exists on the client, so the guard is deferred to
+  // an effect. `mounted` keeps SSR and the first client render identical while
+  // zustand rehydrates from storage — without it the layout would flash for
+  // merchants who type an /admin URL directly, before middleware redirects.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isMerchant = mounted && role === 'merchant';
+
+  useEffect(() => {
+    if (isMerchant) {
+      router.replace('/dashboard');
+    }
+  }, [isMerchant, router]);
+
+  if (!mounted || isMerchant) {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="flex h-screen items-center justify-center bg-background"
+      >
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+          <p className="text-sm text-muted-foreground">Redirecting&hellip;</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
