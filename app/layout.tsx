@@ -5,6 +5,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { I18nProvider } from '@/components/i18n/I18nProvider';
+import { ensureCsrfCookie } from '@/lib/utils/csrf';
 
 
 export const metadata: Metadata = {
@@ -15,13 +16,17 @@ export const metadata: Metadata = {
 };
 
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
-
 }>) {
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID; 
+  // Seed the CSRF cookie before the page HTML is streamed to the client.
+  // ensureCsrfCookie() is a no-op when a valid token is already present,
+  // so this adds no overhead on subsequent requests.
+  await ensureCsrfCookie();
+
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   // Pass the clientId straight to GoogleOAuthProvider only when configured;
   // otherwise pass an empty placeholder so the provider target render does
   // not blow up if a GoogleLogin button somehow ends up rendered. The login
