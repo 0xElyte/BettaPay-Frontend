@@ -103,6 +103,8 @@ export default function OnboardingPage() {
         webhookUrl: data.webhookUrl || null,
       });
       localStorage.setItem("onboardingCompleted", "true");
+      const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+      document.cookie = `merchant_onboarded=true; Path=/; SameSite=Lax; Max-Age=86400${secureFlag}`;
       notify.success("Your merchant profile is ready!");
       router.push("/dashboard");
     } catch (error) {

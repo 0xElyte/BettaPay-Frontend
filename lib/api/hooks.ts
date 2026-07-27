@@ -21,6 +21,7 @@ export interface ApiPayment {
   stellarOpId?: string | null;
   url?: string;
   clicks?: number;
+  converted?: number;
 }
 
 export interface ApiSettlement {

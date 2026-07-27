@@ -6,6 +6,8 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useAuthStore } from '@/lib/store/authStore';
 
 interface NavItem {
   href: string;
@@ -140,6 +142,7 @@ export const MobileNavDrawer = ({
 
         {/* Scrollable Navigation Items */}
         <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
             const Icon = item.icon;
@@ -181,8 +184,61 @@ export const MobileNavDrawer = ({
             {userFooter}
           </div>
         )}
+        <UserProfileFooter onClose={onClose} />
       </div>
     </>
   );
 };
 
+interface UserProfileFooterProps {
+  onClose: () => void;
+}
+
+function UserProfileFooter({ onClose }: UserProfileFooterProps) {
+  const user = useAuthStore((s) => s.user);
+
+  const initials = user?.name
+    ? user.name
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+    : 'U';
+
+  return (
+    <div className="border-t border-sidebar-border px-4 py-4 space-y-3">
+      <div className="flex items-center gap-3">
+        <Avatar className="h-10 w-10 border border-sidebar-border">
+          <AvatarImage src="/avatars/01.png" alt={user?.name ?? 'User'} />
+          <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
+            {initials}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-sidebar-foreground truncate">
+            {user?.name ?? 'User'}
+          </p>
+          <p className="text-xs text-muted-foreground truncate">
+            {user?.email ?? 'user@example.com'}
+          </p>
+        </div>
+      </div>
+
+      <Link
+        href="/settings"
+        onClick={onClose}
+        className={cn(
+          "flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors min-h-[44px]",
+          "text-muted-foreground hover:bg-sidebar-accent/20 hover:text-sidebar-foreground"
+        )}
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        Settings
+      </Link>
+    </div>
+  );
+}

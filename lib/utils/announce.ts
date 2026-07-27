@@ -1,5 +1,7 @@
 let timeoutId: any = null;
 let clearAnnouncerTimeoutId: any = null;
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+let latestMessage = '';
 
 export function announce(message: string): void {
   if (typeof document === 'undefined') return;
@@ -32,6 +34,18 @@ export function announce(message: string): void {
         el.textContent = '';
       }, 1000);
     }, 100);
+  latestMessage = message;
+
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+  }
+
+  debounceTimer = setTimeout(() => {
+    el.textContent = '';
+    setTimeout(() => {
+      el.textContent = latestMessage;
+    }, 100);
+    debounceTimer = null;
   }, 500);
 }
 

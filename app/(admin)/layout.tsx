@@ -7,7 +7,7 @@ import { adminNavItems } from '@/lib/navigation/adminNav';
 import { PageTransition } from '@/components/shared';
 import { MobileNavDrawer } from '@/components/layout';
 import { Topbar } from '@/components/layout';
-import Footer from '@/components/layout';
+import Footer from '@/components/layout/Footer';
 import Image from 'next/image';
 import { useAuthStore } from '@/lib/store/authStore';
 
