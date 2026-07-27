@@ -28,3 +28,10 @@ export interface MerchantProfile {
   phoneNumber: string | null;
   logoUrl: string | null;
 }
+
+export interface MerchantBankAccount {
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  bankCode?: string;
+}

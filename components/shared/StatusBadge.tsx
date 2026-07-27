@@ -17,6 +17,11 @@ export const StatusBadge = ({ status, className }: StatusBadgeProps) => {
       icon: CheckCircle2,
       className: 'bg-success/10 text-success hover:bg-success/20 border-success/20',
     },
+    completed: {
+      label: 'Completed',
+      icon: CheckCircle2,
+      className: 'bg-success/10 text-success hover:bg-success/20 border-success/20',
+    },
     [PAYMENT_STATUS.PENDING]: {
       label: 'Pending',
       icon: Clock,
