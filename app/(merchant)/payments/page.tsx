@@ -227,10 +227,16 @@ export default function PaymentsPage() {
 
                 <div className="space-y-3">
                   <Label>Payment Mode</Label>
-                  <div className="flex rounded-lg border border-border/50 bg-background/50 p-0.5">
+                  <div
+                    role="tablist"
+                    aria-label="Payment mode"
+                    className="flex rounded-lg border border-border/50 bg-background/50 p-0.5"
+                  >
                     <button
                       type="button"
-                      className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
+                      role="tab"
+                      aria-selected={currencyMode === 'single'}
+                      className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
                         currencyMode === 'single'
                           ? 'bg-primary text-primary-foreground shadow-sm'
                           : 'text-muted-foreground hover:text-foreground'
@@ -241,7 +247,9 @@ export default function PaymentsPage() {
                     </button>
                     <button
                       type="button"
-                      className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
+                      role="tab"
+                      aria-selected={currencyMode === 'multi'}
+                      className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
                         currencyMode === 'multi'
                           ? 'bg-primary text-primary-foreground shadow-sm'
                           : 'text-muted-foreground hover:text-foreground'
