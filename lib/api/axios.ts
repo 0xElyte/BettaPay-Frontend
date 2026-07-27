@@ -13,8 +13,18 @@ function notifyError(message: string) {
 }
 
 // Use cookie-based auth (HttpOnly cookie set by the server). Do not read tokens from localStorage.
+const apiBaseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+if (!process.env.NEXT_PUBLIC_API_URL && typeof window !== 'undefined') {
+  console.warn(
+    '[API Client] NEXT_PUBLIC_API_URL is not set. Defaulting to http://localhost:3001. ' +
+    'This will cause API calls to fail in production. Please set NEXT_PUBLIC_API_URL environment variable.'
+  );
+}
+
 export const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
+  baseURL: apiBaseURL,
+  timeout: 15000, // 15 seconds for normal requests
   headers: {
     'Content-Type': 'application/json',
   },
@@ -41,6 +51,15 @@ apiClient.interceptors.request.use((config) => {
       config.headers.set(CSRF_HEADER_NAME, csrfToken);
     }
   }
+
+  // Use 30 second timeout for payment submission endpoints, 15 seconds for others
+  const url = config.url || '';
+  if (url.includes('/payments') || url.includes('/settlements')) {
+    config.timeout = 30000;
+  } else {
+    config.timeout = 15000;
+  }
+
   return config;
 });
 
