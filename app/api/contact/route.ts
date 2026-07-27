@@ -96,9 +96,19 @@ export async function POST(req: Request) {
 
     // 2. Enforce Rate Limiting
     if (!checkRateLimit(ip)) {
+      const record = rateLimitMap.get(ip);
+      const oldestTimestamp = record && record.timestamps.length > 0 ? record.timestamps[0] : Date.now();
+      const resetTimeMs = oldestTimestamp + 3600000;
+      const remainingSeconds = Math.max(0, Math.ceil((resetTimeMs - Date.now()) / 1000));
+
       return NextResponse.json(
         { error: "Too many submissions. Please try again in an hour." },
-        { status: 429 }
+        {
+          status: 429,
+          headers: {
+            "Retry-After": remainingSeconds.toString(),
+          },
+        }
       );
     }
 
