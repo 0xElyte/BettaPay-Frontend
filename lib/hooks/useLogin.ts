@@ -2,7 +2,8 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/authStore';
 import { useNotify } from '@/lib/hooks/useNotify';
-import { useWalletStore } from '@/lib/store/walletStore';
+import { signChallenge } from '@/lib/stellar/freighter';
+import { decodeJwtPayload } from '@/lib/utils/jwt';
 
 export function useLogin() {
   const router = useRouter();
@@ -14,12 +15,17 @@ export function useLogin() {
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
   const handleAuthSuccess = useCallback(async (token: string) => {
-    const payloadBase64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-    const payload = JSON.parse(atob(payloadBase64));
+    let payload: Record<string, unknown>;
+    try {
+      payload = decodeJwtPayload(token);
+    } catch {
+      error('Failed to decode authentication token');
+      return;
+    }
 
     const user = {
-      id: payload.merchantId,
-      email: payload.ownerId,
+      id: payload.merchantId as string,
+      email: payload.ownerId as string,
       name: 'Merchant',
       role: (payload.role ?? 'merchant') as 'admin' | 'merchant',
     };
@@ -54,7 +60,7 @@ export function useLogin() {
     }
 
     router.push(user.role === 'admin' ? '/overview' : '/dashboard');
-  }, [apiBase, login, router, success]);
+  }, [apiBase, login, router, success, error]);
 
   const onGoogleSuccess = async (credentialResponse: { credential?: string }) => {
     try {

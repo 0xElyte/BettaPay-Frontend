@@ -1,4 +1,5 @@
 export * from './PageTransition';
+export * from './ErrorBoundary';
 export * from './StatCard';
 export * from './CurrencyDisplay';
 export * from './ErrorDisplay';

@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { announce } from '@/lib/utils/announce';
 
@@ -11,23 +12,23 @@ import { announce } from '@/lib/utils/announce';
  * - silent:  No visual toast (placeholder for background tasks)
  */
 export const useNotify = () => {
-  const success = (message: string) => {
+  const success = useCallback((message: string) => {
     toast.success(message, { duration: 3000 });
     announce(message);
-  };
+  }, []);
 
-  const error = (message: string) => {
+  const error = useCallback((message: string) => {
     toast.error(message, { duration: 5000 });
     announce(message);
-  };
+  }, []);
 
-  const info = (message: string) => {
+  const info = useCallback((message: string) => {
     toast.info(message, { duration: 4000 });
     announce(message);
-  };
+  }, []);
 
   // Silent handler – can be used for background tasks that should not show UI.
-  const silent = () => {};
+  const silent = useCallback(() => {}, []);
 
   return { success, error, info, silent };
 };

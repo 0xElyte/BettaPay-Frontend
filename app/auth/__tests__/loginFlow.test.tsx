@@ -105,6 +105,7 @@ describe('Login Flow Integration Tests', () => {
       token: null,
       role: null,
       isAuthenticated: false,
+      isLoggedIn: false,
     });
   });
 
