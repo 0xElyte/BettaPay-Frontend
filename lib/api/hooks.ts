@@ -2,7 +2,7 @@
 
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { apiClient } from './axios';
-import type { MerchantProfile } from '../types';
+import type { MerchantProfile, MerchantBankAccount } from '../types';
 import { getErrorMessage } from '../utils/apiError';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -204,6 +204,38 @@ export function useRates(): UseRatesResult {
       void query.refetch();
     },
     primaryRate,
+  };
+}
+
+// ─── useMerchantBankAccount ────────────────────────────────────────────────────
+
+export function useMerchantBankAccount(
+  merchantId: string | undefined,
+): HookShape<MerchantBankAccount | null> {
+  const query = useQuery<MerchantBankAccount | null, Error>({
+    queryKey: [...queryKeys.merchant(merchantId), 'bank-account'],
+    enabled: Boolean(merchantId),
+    queryFn: async () => {
+      const res = await apiClient.get<
+        ItemEnvelope<MerchantBankAccount> | MerchantBankAccount
+      >(`/api/merchants/${merchantId}/bank-account`);
+      const payload = res.data;
+      if (payload && !Array.isArray(payload) && 'bankName' in payload) {
+        return payload as MerchantBankAccount;
+      }
+      return (payload as ItemEnvelope<MerchantBankAccount> | undefined)?.data ?? null;
+    },
+  });
+
+  const isLoading = query.isLoading;
+
+  return {
+    data: query.data ?? null,
+    isLoading,
+    error: query.isError ? getErrorMessage(query.error) : null,
+    refetch: () => {
+      void query.refetch();
+    },
   };
 }
 

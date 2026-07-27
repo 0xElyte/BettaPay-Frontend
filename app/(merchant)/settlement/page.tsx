@@ -21,11 +21,12 @@ import { getStellarExplorerTxUrl } from '@/lib/utils/explorer';
 import { EmptyState } from '@/components/shared';
 import { ErrorDisplay } from '@/components/shared';
 import { useOfflineStore } from '@/lib/store/offlineStore';
+import { useAuthStore } from '@/lib/store/authStore';
 import { SettlementConfirmation } from '@/components/settlement/SettlementConfirmation';
 import { InvoiceDownloadButton, BatchInvoiceDownload } from '@/components/settlement/InvoiceGenerator';
 import { StatCard } from '@/components/shared';
 import { memo } from 'react';
-import { useSettlements, type ApiSettlement } from '@/lib/api/hooks';
+import { useSettlements, useMerchantBankAccount, type ApiSettlement } from '@/lib/api/hooks';
 
 type Settlement = ApiSettlement;
 
@@ -70,6 +71,8 @@ const SettlementItem = memo(function SettlementItem({ settlement: s }: Settlemen
 export default function SettlementPage() {
   const { data: settlements, isLoading, error: fetchError, refetch } = useSettlements();
   const [settlementsError, setSettlementsError] = useState(false);
+  const { user } = useAuthStore();
+  const { data: bankAccount, isLoading: bankLoading } = useMerchantBankAccount(user?.id);
   const isOnline = useOfflineStore((s) => s.isOnline);
   const [settlementOpen, setSettlementOpen] = useState(false);
 
@@ -184,20 +187,35 @@ export default function SettlementPage() {
       </Card>
 
       {/* Bank account config notice */}
-      <Card className="border border-primary/30 bg-primary/10">
-        <CardContent className="flex items-start gap-4 p-5">
-          <AlertCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-primary">Bank account not configured</p>
-            <p className="text-xs text-primary mt-0.5">
-              Add your Nigerian bank account in Settings to enable automatic settlements.
-            </p>
-          </div>
-          <Button variant="ghost" className="text-primary hover:bg-primary/20 rounded-xl text-xs h-8 px-3 flex-shrink-0">
-            Go to Settings <ChevronRight className="w-3 h-3 ml-1" />
-          </Button>
-        </CardContent>
-      </Card>
+      {!bankLoading && !bankAccount && (
+        <Card className="border border-primary/30 bg-primary/10">
+          <CardContent className="flex items-start gap-4 p-5">
+            <AlertCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-primary">Bank account not configured</p>
+              <p className="text-xs text-primary mt-0.5">
+                Add your Nigerian bank account in Settings to enable automatic settlements.
+              </p>
+            </div>
+            <Button variant="ghost" className="text-primary hover:bg-primary/20 rounded-xl text-xs h-8 px-3 flex-shrink-0">
+              Go to Settings <ChevronRight className="w-3 h-3 ml-1" />
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+      {!bankLoading && bankAccount && (
+        <Card className="border border-success/30 bg-success/5">
+          <CardContent className="flex items-start gap-4 p-5">
+            <CheckCircle2 className="w-5 h-5 text-success mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-success">Bank account configured</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {bankAccount.bankName} · {'\u2022'.repeat(Math.max(0, bankAccount.accountNumber.length - 4))}{bankAccount.accountNumber.slice(-4)}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
