@@ -67,9 +67,25 @@ export default function MerchantLayout({
         isOpen={mobileMenuOpen}
         onClose={closeMobileMenu}
         navItems={merchantNavItems}
+        userFooter={
+          <div className="flex items-center gap-3 px-2 py-2">
+            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-primary-foreground flex-shrink-0">
+              MC
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-semibold text-foreground truncate">
+                Merchant Corp
+              </span>
+              <span className="text-xs text-success flex items-center gap-1 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block text-emerald-500"></span>
+                Verified
+              </span>
+            </div>
+          </div>
+        }
       />
 
-      <MobileBottomNav />
+      <MobileBottomNav onMoreClick={() => setMobileMenuOpen(true)} />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {isTestnet && (

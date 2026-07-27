@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -19,6 +19,7 @@ interface MobileNavDrawerProps {
   navItems: NavItem[];
   brandLabel?: string;
   logo?: React.ReactNode;
+  userFooter?: React.ReactNode;
 }
 
 export const MobileNavDrawer = ({
@@ -27,23 +28,36 @@ export const MobileNavDrawer = ({
   navItems,
   brandLabel = 'BettaPay',
   logo,
+  userFooter,
 }: MobileNavDrawerProps) => {
   const pathname = usePathname();
   const drawerRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
+  // Close the drawer automatically when pathname changes (route change)
+  useEffect(() => {
+    if (isOpen) {
+      onClose();
+    }
+  }, [pathname]);
+
+  // Lock scroll when open, focus close button
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
-      closeButtonRef.current?.focus();
+      const timer = setTimeout(() => {
+        closeButtonRef.current?.focus();
+      }, 50);
+      return () => {
+        clearTimeout(timer);
+        document.body.style.overflow = '';
+      };
     } else {
       document.body.style.overflow = '';
     }
-    return () => {
-      document.body.style.overflow = '';
-    };
   }, [isOpen]);
 
+  // Trap focus inside the drawer & handle Escape key
   useEffect(() => {
     if (!isOpen) return;
 
@@ -57,15 +71,21 @@ export const MobileNavDrawer = ({
         const focusableElements = drawerRef.current.querySelectorAll<HTMLElement>(
           'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
         );
+        if (focusableElements.length === 0) return;
+
         const firstElement = focusableElements[0];
         const lastElement = focusableElements[focusableElements.length - 1];
 
-        if (e.shiftKey && document.activeElement === firstElement) {
-          e.preventDefault();
-          lastElement?.focus();
-        } else if (!e.shiftKey && document.activeElement === lastElement) {
-          e.preventDefault();
-          firstElement?.focus();
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement.focus();
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement.focus();
+          }
         }
       }
     };
@@ -76,6 +96,7 @@ export const MobileNavDrawer = ({
 
   return (
     <>
+      {/* Backdrop overlay */}
       <div
         className={cn(
           'fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 md:hidden',
@@ -84,17 +105,20 @@ export const MobileNavDrawer = ({
         onClick={onClose}
         aria-hidden="true"
       />
+
+      {/* Drawer content panel */}
       <div
         ref={drawerRef}
         className={cn(
-          'fixed inset-y-0 left-0 z-50 w-64 bg-sidebar border-r border-sidebar-border shadow-surface-xl transform transition-transform duration-300 ease-in-out md:hidden',
+          'fixed inset-y-0 left-0 z-50 w-64 bg-sidebar border-r border-sidebar-border shadow-surface-xl transform transition-transform duration-300 ease-in-out md:hidden flex flex-col',
           isOpen ? 'translate-x-0' : '-translate-x-full'
         )}
         role="dialog"
         aria-modal="true"
         aria-label="Mobile navigation"
       >
-        <div className="flex items-center justify-between p-6">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-sidebar-border flex-shrink-0">
           {logo ? (
             logo
           ) : (
@@ -114,9 +138,10 @@ export const MobileNavDrawer = ({
           </Button>
         </div>
 
-        <nav className="flex-1 px-4 py-4 space-y-1">
+        {/* Scrollable Navigation Items */}
+        <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
-            const isActive = pathname.startsWith(item.href);
+            const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
             const Icon = item.icon;
 
             return (
@@ -126,19 +151,38 @@ export const MobileNavDrawer = ({
                 onClick={onClose}
                 aria-current={isActive ? 'page' : undefined}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors min-h-[44px]",
+                  "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all min-h-[44px]",
                   isActive
-                    ? "bg-sidebar-accent/40 text-sidebar-foreground font-semibold"
-                    : "text-muted-foreground hover:bg-sidebar-accent/20 hover:text-sidebar-foreground"
+                    ? "bg-primary/10 text-sidebar-foreground font-semibold border border-primary/30 shadow-sm"
+                    : "text-muted-foreground hover:bg-sidebar-accent/20 hover:text-sidebar-foreground font-medium border border-transparent"
                 )}
               >
-                <Icon className="w-5 h-5" aria-hidden="true" />
+                <div className="relative flex items-center">
+                  <Icon
+                    className={cn(
+                      "w-5 h-5 transition-colors",
+                      isActive ? "text-primary" : "text-muted-foreground group-hover:text-sidebar-foreground"
+                    )}
+                    aria-hidden="true"
+                  />
+                  {isActive && (
+                    <span className="absolute -right-1 -top-1 w-2 h-2 rounded-full bg-primary" />
+                  )}
+                </div>
                 {item.label}
               </Link>
             );
           })}
         </nav>
+
+        {/* User profile footer section */}
+        {userFooter && (
+          <div className="p-4 border-t border-sidebar-border mt-auto flex-shrink-0">
+            {userFooter}
+          </div>
+        )}
       </div>
     </>
   );
 };
+
