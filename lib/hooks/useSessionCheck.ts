@@ -7,14 +7,14 @@ import { useAuthStore } from '@/lib/store/authStore';
 export function useSessionCheck() {
   const [isVerifying, setIsVerifying] = useState(false);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const role = useAuthStore((s) => s.role);
+  const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
   const login = useAuthStore((s) => s.login);
   const logout = useAuthStore((s) => s.logout);
   const router = useRouter();
 
   useEffect(() => {
-    // Only verify when in-memory state was lost but a persisted role exists (tab restore scenario)
-    if (isAuthenticated || !role) return;
+    // Only verify when in-memory state was lost but a persisted flag exists (tab restore scenario)
+    if (isAuthenticated || !isLoggedIn) return;
 
     let cancelled = false;
     setIsVerifying(true);
@@ -43,7 +43,7 @@ export function useSessionCheck() {
       });
 
     return () => { cancelled = true; };
-  }, [isAuthenticated, role, login, logout, router]);
+  }, [isAuthenticated, isLoggedIn, login, logout, router]);
 
   return { isVerifying };
 }
