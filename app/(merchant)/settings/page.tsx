@@ -344,23 +344,69 @@ export default function SettingsPage() {
             <Card className="border border-border bg-card shadow-sm">
               <CardHeader>
                 <CardTitle className="text-base font-semibold text-foreground">Security</CardTitle>
+                <CardDescription>Update your account password. Passwords must be at least 8 characters long and include an uppercase letter and a number.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Current Password</Label>
-                  <Input value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} type="password" placeholder="••••••••" className="h-10 border-border rounded-xl bg-card text-sm" />
+                  <Input
+                    value={currentPassword}
+                    onChange={(e) => {
+                      setCurrentPassword(e.target.value);
+                      setPasswordTouched((prev) => ({ ...prev, current: true }));
+                    }}
+                    onBlur={() => setPasswordTouched((prev) => ({ ...prev, current: true }))}
+                    type="password"
+                    placeholder="••••••••"
+                    className={cn("h-10 border-border rounded-xl bg-card text-sm", currentPasswordError && "border-destructive focus-visible:ring-destructive")}
+                  />
+                  {currentPasswordError && (
+                    <p className="text-xs text-destructive mt-1 font-medium">{currentPasswordError}</p>
+                  )}
                 </div>
+
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">New Password</Label>
-                  <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} type="password" placeholder="••••••••" className="h-10 border-border rounded-xl bg-card text-sm" />
+                  <Input
+                    value={newPassword}
+                    onChange={(e) => {
+                      setNewPassword(e.target.value);
+                      setPasswordTouched((prev) => ({ ...prev, new: true }));
+                    }}
+                    onBlur={() => setPasswordTouched((prev) => ({ ...prev, new: true }))}
+                    type="password"
+                    placeholder="••••••••"
+                    className={cn("h-10 border-border rounded-xl bg-card text-sm", newPasswordError && "border-destructive focus-visible:ring-destructive")}
+                  />
+                  {newPasswordError ? (
+                    <p className="text-xs text-destructive mt-1 font-medium">{newPasswordError}</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground mt-1">Must be at least 8 characters with 1 uppercase letter and 1 number</p>
+                  )}
                 </div>
+
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Confirm New Password</Label>
-                  <Input value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} type="password" placeholder="••••••••" className="h-10 border-border rounded-xl bg-card text-sm" />
+                  <Input
+                    value={confirmNewPassword}
+                    onChange={(e) => {
+                      setConfirmNewPassword(e.target.value);
+                      setPasswordTouched((prev) => ({ ...prev, confirm: true }));
+                    }}
+                    onBlur={() => setPasswordTouched((prev) => ({ ...prev, confirm: true }))}
+                    type="password"
+                    placeholder="••••••••"
+                    className={cn("h-10 border-border rounded-xl bg-card text-sm", confirmPasswordError && "border-destructive focus-visible:ring-destructive")}
+                  />
+                  {confirmPasswordError && (
+                    <p className="text-xs text-destructive mt-1 font-medium">{confirmPasswordError}</p>
+                  )}
                 </div>
+
                 <Button
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl h-10 px-6 text-sm"
-                  onClick={() => notify.success('Password updated')}
+                  disabled={!isPasswordFormValid}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl h-10 px-6 text-sm disabled:opacity-50"
+                  onClick={handleUpdatePassword}
                 >
                   Update Password
                 </Button>
