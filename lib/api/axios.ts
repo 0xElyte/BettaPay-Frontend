@@ -7,9 +7,31 @@ import { announce } from '@/lib/utils/announce';
 import { parseApiError } from '../utils/apiError';
 import { getAppRouter } from '../navigation/appRouter';
 
-function notifyError(message: string) {
+// Deduplication: avoid showing multiple toasts for simultaneous errors
+const recentErrors = new Map<string, number>();
+const ERROR_DEDUP_WINDOW_MS = 3000;
+
+function notifyError(message: string, key?: string) {
+  const dedupKey = key || message;
+  const now = Date.now();
+  const lastShown = recentErrors.get(dedupKey);
+
+  if (lastShown && now - lastShown < ERROR_DEDUP_WINDOW_MS) {
+    return;
+  }
+
+  recentErrors.set(dedupKey, now);
   toast.error(message, { duration: 5000 });
   announce(message);
+
+  // Clean up old entries
+  if (recentErrors.size > 50) {
+    for (const [k, v] of recentErrors) {
+      if (now - v > ERROR_DEDUP_WINDOW_MS) {
+        recentErrors.delete(k);
+      }
+    }
+  }
 }
 
 // Use cookie-based auth (HttpOnly cookie set by the server). Do not read tokens from localStorage.
@@ -145,10 +167,9 @@ apiClient.interceptors.response.use(
       useRateLimitStore.getState().setRateLimited(seconds);
       notifyError(`Too many attempts. Please try again in ${seconds} seconds.`);
     } else if (!error.response) {
-      // Show toast for network errors
-      notifyError('Network error. Please check your connection.');
+      notifyError('Network error. Please check your connection.', 'network_error');
     } else if (error.response?.status >= 500) {
-      notifyError('A server error occurred. Please try again later.');
+      notifyError('A server error occurred. Please try again later.', `5xx_${error.response.status}`);
     }
 
     return Promise.reject(parseApiError(error));

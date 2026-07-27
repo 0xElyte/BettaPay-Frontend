@@ -85,9 +85,8 @@ export function useSessionTimeout({
     resetTimer();
 
     const handleActivity = () => {
-      if (!showWarning) {
-        resetTimer();
-      }
+      // Reset timer on any activity, whether modal is showing or not
+      resetTimer();
     };
 
     ACTIVITY_EVENTS.forEach((event) => {
@@ -100,7 +99,7 @@ export function useSessionTimeout({
         document.removeEventListener(event, handleActivity);
       });
     };
-  }, [resetTimer, clearAllTimers, showWarning]);
+  }, [resetTimer, clearAllTimers]);
 
   return { showWarning, secondsRemaining, dismissWarning };
 }
