@@ -49,13 +49,20 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/auth/login', request.url));
   }
 
+  // Redirect onboarded merchants away from onboarding page
+  const isOnboarded = request.cookies.get('merchant_onboarded')?.value === 'true';
+  if (request.nextUrl.pathname === '/onboarding' && isOnboarded) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
   // Role-based protection
   if (isAdminRoute && role !== 'admin') {
     return NextResponse.redirect(new URL('/dashboard', request.url)); // redirect merchants from admin
   }
 
   // Protect merchant routes from admins
-  const isMerchantRoute = request.nextUrl.pathname === '/dashboard' ||
+  const isMerchantRoute = request.nextUrl.pathname === '/onboarding' ||
+                          request.nextUrl.pathname === '/dashboard' ||
                           request.nextUrl.pathname.startsWith('/payments') ||
                           request.nextUrl.pathname === '/transactions' ||
                           request.nextUrl.pathname === '/settlement' ||

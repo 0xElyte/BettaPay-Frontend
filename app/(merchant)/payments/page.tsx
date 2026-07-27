@@ -1,6 +1,9 @@
 "use client";
 
-import { useState, memo, useMemo } from 'react';
+import { useState, memo, useMemo, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { editPaymentLinkSchema, type EditPaymentLinkFormValues } from '@/lib/utils/validation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, Button, Input, Label } from '@/components/ui';
 import { CopyAddress, EmptyState, ErrorDisplay } from '@/components/shared';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -166,8 +169,24 @@ export default function PaymentsPage() {
     resetForm();
   };
 
-  const handleEditSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const { register: registerEdit, handleSubmit: handleEditSubmitForm, reset: resetEditForm, formState: { errors: editErrors } } = useForm<EditPaymentLinkFormValues>({
+    resolver: zodResolver(editPaymentLinkSchema),
+  });
+
+  useEffect(() => {
+    if (editingLink) {
+      resetEditForm({
+        label: editingLink.source ?? '',
+        amount: editingLink.amountUsdc ? String(editingLink.amountUsdc) : '',
+        currency: editingLink.amountUsdc ? 'USDC' : 'XLM',
+        expiry: '',
+        redirectUrl: '',
+        reference: '',
+      });
+    }
+  }, [editingLink, resetEditForm]);
+
+  const handleEditSubmit = (data: EditPaymentLinkFormValues) => {
     notifySuccess('Payment link updated successfully');
     setEditingLink(null);
   };
@@ -227,10 +246,16 @@ export default function PaymentsPage() {
 
                 <div className="space-y-3">
                   <Label>Payment Mode</Label>
-                  <div className="flex rounded-lg border border-border/50 bg-background/50 p-0.5">
+                  <div
+                    role="tablist"
+                    aria-label="Payment mode"
+                    className="flex rounded-lg border border-border/50 bg-background/50 p-0.5"
+                  >
                     <button
                       type="button"
-                      className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
+                      role="tab"
+                      aria-selected={currencyMode === 'single'}
+                      className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
                         currencyMode === 'single'
                           ? 'bg-primary text-primary-foreground shadow-sm'
                           : 'text-muted-foreground hover:text-foreground'
@@ -241,7 +266,9 @@ export default function PaymentsPage() {
                     </button>
                     <button
                       type="button"
-                      className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
+                      role="tab"
+                      aria-selected={currencyMode === 'multi'}
+                      className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
                         currencyMode === 'multi'
                           ? 'bg-primary text-primary-foreground shadow-sm'
                           : 'text-muted-foreground hover:text-foreground'
@@ -463,21 +490,86 @@ export default function PaymentsPage() {
 
       {/* Edit Dialog */}
       <Dialog open={!!editingLink} onOpenChange={(open) => !open && setEditingLink(null)}>
-        <DialogContent className="sm:max-w-[425px] bg-card border-border/50">
+        <DialogContent className="sm:max-w-[425px] bg-card border-border/50 max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Payment Link</DialogTitle>
             <DialogDescription>Update details for {editingLink?.source}</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleEditSubmit} className="space-y-4 py-2">
+          <form onSubmit={handleEditSubmitForm(handleEditSubmit)} className="space-y-4 py-2">
             <div className="space-y-2">
               <Label htmlFor="edit-title">Title / Label</Label>
-              <Input id="edit-title" defaultValue={editingLink?.source ?? ''} />
+              <Input
+                id="edit-title"
+                className="bg-background/50 border-border/50"
+                {...registerEdit('label')}
+              />
+              {editErrors.label && (
+                <p className="text-xs text-destructive mt-1">{editErrors.label.message}</p>
+              )}
             </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="edit-amount">Amount (Optional)</Label>
+                <Input
+                  id="edit-amount"
+                  type="number"
+                  placeholder="0.00"
+                  className="bg-background/50 border-border/50"
+                  {...registerEdit('amount')}
+                />
+                {editErrors.amount && (
+                  <p className="text-xs text-destructive mt-1">{editErrors.amount.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-currency">Currency</Label>
+                <select
+                  id="edit-currency"
+                  className="flex h-10 w-full rounded-md border border-input border-border/50 bg-background/50 px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  {...registerEdit('currency')}
+                >
+                  <option value="USDC">USDC</option>
+                  <option value="XLM">XLM</option>
+                  <option value="USDT">USDT</option>
+                </select>
+              </div>
+            </div>
+
             <div className="space-y-2">
-              <Label htmlFor="edit-amount">Amount (USDC)</Label>
-              <Input id="edit-amount" type="number" defaultValue={editingLink?.amountUsdc ?? 0} />
+              <Label htmlFor="edit-reference">Internal Reference</Label>
+              <Input
+                id="edit-reference"
+                placeholder="e.g. INV-2026-001"
+                className="bg-background/50 border-border/50"
+                {...registerEdit('reference')}
+              />
             </div>
-            <DialogFooter>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-expiry">Expiry Date</Label>
+              <Input
+                id="edit-expiry"
+                type="date"
+                className="bg-background/50 border-border/50"
+                {...registerEdit('expiry')}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-redirect">Redirect URL (On success)</Label>
+              <Input
+                id="edit-redirect"
+                placeholder="https://yourstore.com/thank-you"
+                className="bg-background/50 border-border/50"
+                {...registerEdit('redirectUrl')}
+              />
+              {editErrors.redirectUrl && (
+                <p className="text-xs text-destructive mt-1">{editErrors.redirectUrl.message}</p>
+              )}
+            </div>
+
+            <DialogFooter className="pt-4">
               <Button type="button" variant="ghost" onClick={() => setEditingLink(null)}>Cancel</Button>
               <Button type="submit">Save Changes</Button>
             </DialogFooter>
