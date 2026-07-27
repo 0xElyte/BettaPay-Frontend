@@ -36,6 +36,8 @@ export default function DevelopersPage() {
   const isOnline = useOfflineStore((s) => s.isOnline);
   const notify = useNotify();
 
+  const [webhookUrl, setWebhookUrl] = useState("https://your-app.com/webhooks/bettapay");
+
   // Create Key Dialog
   const [isCreateKeyOpen, setIsCreateKeyOpen] = useState(false);
   const [newKeyName, setNewKeyName] = useState('');
@@ -192,7 +194,8 @@ export default function DevelopersPage() {
         </CardHeader>
         <CardContent className="flex items-center gap-3">
           <Input
-            defaultValue="https://your-app.com/webhooks/bettapay"
+            value={webhookUrl}
+            onChange={(e) => setWebhookUrl(e.target.value)}
             className="flex-1 h-10 border-border rounded-xl text-sm font-mono bg-muted"
           />
           <Button
@@ -204,7 +207,7 @@ export default function DevelopersPage() {
         </CardContent>
       </Card>
 
-      <WebhookTester />
+      <WebhookTester initialEndpointUrl={webhookUrl} />
 
       {/* New API Key Dialog */}
       <Dialog open={isCreateKeyOpen} onOpenChange={setIsCreateKeyOpen}>
