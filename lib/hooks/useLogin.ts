@@ -51,6 +51,8 @@ export function useLogin() {
       if (meRes.ok) {
         const merchantData = await meRes.json();
         if (merchantData.name === 'My Business') {
+          const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+          document.cookie = `merchant_onboarded=false; Path=/; SameSite=Lax; Max-Age=86400${secureFlag}`;
           router.push('/onboarding');
           return;
         }
@@ -59,6 +61,8 @@ export function useLogin() {
       // ignore
     }
 
+    const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+    document.cookie = `merchant_onboarded=true; Path=/; SameSite=Lax; Max-Age=86400${secureFlag}`;
     router.push(user.role === 'admin' ? '/overview' : '/dashboard');
   }, [apiBase, login, router, success, error]);
 
