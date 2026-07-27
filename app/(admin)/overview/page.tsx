@@ -16,10 +16,7 @@ const PlatformVolumeChart = dynamic(() => import('@/components/charts/PlatformVo
 import { Skeleton } from '@/components/ui';
 import { StatCard } from '@/components/shared';
 
-const PlatformVolumeChart = dynamic(() => import('@/components/charts/PlatformVolumeChart'), {
-  ssr: false,
-  loading: () => <Skeleton className="h-[300px] w-full rounded-xl" />,
-});
+
 
 // Memoised so future additions of state to the parent won't re-render the chart.
 const AdminChartSection = memo(function AdminChartSection() {
