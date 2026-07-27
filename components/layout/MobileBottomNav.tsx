@@ -1,9 +1,13 @@
 "use client";
 
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { merchantNavItems } from '@/lib/navigation/merchantNav';
+import { Menu } from 'lucide-react';
+
+const MOBILE_HREFS = ['/dashboard', '/payments', '/transactions', '/wallet'] as const;
 import { useState } from 'react';
 import { MoreHorizontal, X } from 'lucide-react';
 import { Button } from '@/components/ui';
@@ -16,6 +20,11 @@ const primaryNavItems = PRIMARY_HREFS.map((href) => {
   return { ...item, label: item.shortLabel || item.label };
 });
 
+interface MobileBottomNavProps {
+  onMoreClick?: () => void;
+}
+
+export const MobileBottomNav = ({ onMoreClick }: MobileBottomNavProps) => {
 const additionalNavItems = ADDITIONAL_HREFS.map((href) => {
   const item = merchantNavItems.find((n) => n.href === href)!;
   return { ...item, label: item.label };
@@ -34,6 +43,40 @@ export const MobileBottomNav = () => {
   };
 
   return (
+    <div className="fixed bottom-0 md:hidden left-0 right-0 z-40 bg-card border-t border-border px-2 pt-2 pb-safe sm:pb-3 flex items-center justify-around shadow-nav-bottom">
+      {mobileNavItems.map((item) => {
+        const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+        const Icon = item.icon;
+
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            aria-current={isActive ? 'page' : undefined}
+            className={cn(
+              "flex flex-col items-center justify-center w-[68px] gap-1 py-1.5 rounded-lg transition-all",
+              isActive
+                ? "text-primary bg-primary/10"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            <Icon className={cn("w-5 h-5", isActive ? "text-primary" : "text-muted-foreground")} />
+            <span className="text-[10px] font-medium tracking-tight">{item.label}</span>
+          </Link>
+        );
+      })}
+
+      <button
+        type="button"
+        onClick={onMoreClick}
+        className={cn(
+          "flex flex-col items-center justify-center w-[68px] gap-1 py-1.5 rounded-lg transition-all text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
+      >
+        <Menu className="w-5 h-5 text-muted-foreground" />
+        <span className="text-[10px] font-medium tracking-tight">More</span>
+      </button>
+    </div>
     <>
       <div className="fixed bottom-0 md:hidden left-0 right-0 z-40 bg-card border-t border-border px-2 pt-2 pb-safe sm:pb-3 flex items-center justify-around shadow-nav-bottom">
         {primaryNavItems.map((item) => {
@@ -127,3 +170,4 @@ export const MobileBottomNav = () => {
     </>
   );
 };
+
