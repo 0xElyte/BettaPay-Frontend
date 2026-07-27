@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Fraunces, DM_Sans } from "next/font/google";
 import { Toaster } from "@/components/ui";
 import { Providers } from "@/components/providers";
 import "./globals.css";
@@ -6,6 +7,20 @@ import { cn } from "@/lib/utils";
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { I18nProvider } from '@/components/i18n/I18nProvider';
 import { ensureCsrfCookie } from '@/lib/utils/csrf';
+
+
+const fraunces = Fraunces({
+  subsets: ["latin", "latin-ext"],
+  display: "swap",
+  variable: "--font-heading",
+});
+
+const dmSans = DM_Sans({
+  weight: ["400", "500", "600", "700"],
+  subsets: ["latin", "latin-ext"],
+  display: "swap",
+  variable: "--font-body",
+});
 
 
 export const metadata: Metadata = {
@@ -34,7 +49,7 @@ export default async function RootLayout({
   // missing so users still get an explanatory UI instead of a silent failure.
 
   return (
-    <html lang="en" className={cn("font-sans antialiased")}>
+    <html lang="en" className={cn("font-sans antialiased", fraunces.variable, dmSans.variable)}>
       <body className="min-h-screen bg-background text-foreground">
         <a
           href="#main-content"
