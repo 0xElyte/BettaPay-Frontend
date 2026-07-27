@@ -81,9 +81,20 @@ export default function WalletPage() {
     success("Balances updated");
   }, [refreshBalances, success]);
 
-  const primaryBalance = balances.length > 0
-    ? balances.reduce((max, b) => parseFloat(b.balance) > parseFloat(max.balance) ? b : max, balances[0])
-    : null;
+  const primaryBalance = useMemo(() => {
+    if (balances.length === 0) return null;
+    
+    const USDC_priority = balances.find((b) => b.assetCode === 'USDC');
+    if (USDC_priority) return USDC_priority;
+    
+    const USDT_priority = balances.find((b) => b.assetCode === 'USDT');
+    if (USDT_priority) return USDT_priority;
+    
+    return balances.reduce(
+      (max, b) => parseFloat(b.balance) > parseFloat(max.balance) ? b : max,
+      balances[0]
+    );
+  }, [balances]);
 
   if (balancesError) {
     return (
