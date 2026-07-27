@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from 'next/dynamic';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   Card,
   CardContent,
@@ -355,8 +356,13 @@ export default function WalletPage() {
             <DialogDescription>Scan to transfer Stellar assets</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center py-4 space-y-4">
-            <div className="w-48 h-48 bg-muted rounded-xl flex items-center justify-center border border-border">
-              <QrCode className="w-32 h-32 text-foreground/80" />
+            <div className="w-48 h-48 bg-white rounded-xl flex items-center justify-center border border-border p-2">
+              <QRCodeSVG
+                value={address ? `web+stellar:pay?destination=${address}` : ''}
+                size={160}
+                level="M"
+                includeMargin={false}
+              />
             </div>
             <p className="text-xs text-muted-foreground font-mono break-all max-w-full">
               {address}
