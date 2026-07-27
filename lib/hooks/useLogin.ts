@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/authStore';
 import { useNotify } from '@/lib/hooks/useNotify';
-import { signChallenge } from '@/lib/stellar/freighter';
+import { useWalletStore } from '@/lib/store/walletStore';
 
 export function useLogin() {
   const router = useRouter();
@@ -83,7 +83,9 @@ export function useLogin() {
       if (!challengeRes.ok) throw new Error('Failed to fetch challenge');
       const { challenge } = await challengeRes.json();
 
-      const signature = await signChallenge(address, challenge);
+      // Route signing through the store so it works for both Freighter and
+      // WalletConnect — the store dispatches to the correct connector.
+      const signature = await useWalletStore.getState().signMessage(challenge);
       if (!signature) throw new Error('User rejected or failed to sign challenge');
 
       const verifyRes = await fetch(`${apiBase}/api/auth/wallet/verify`, {
