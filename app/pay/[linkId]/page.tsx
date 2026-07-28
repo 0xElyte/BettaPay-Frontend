@@ -31,6 +31,16 @@ import { WalletModalFallback } from "@/components/wallet/WalletModalFallback";
 import { WalletModalErrorBoundary } from "@/components/wallet/WalletModalErrorBoundary";
 import { QRCodeModal } from "@/components/payments/QRCode";
 
+function hexToUint8Array(hexString: string): Uint8Array {
+  const cleanHex = hexString.startsWith('0x') ? hexString.slice(2) : hexString;
+  const len = cleanHex.length;
+  const result = new Uint8Array(len / 2);
+  for (let i = 0; i < len; i += 2) {
+    result[i / 2] = parseInt(cleanHex.substring(i, i + 2), 16);
+  }
+  return result;
+}
+
 export default function PaymentLinkPage() {
   const router = useRouter();
   const { isConnected, connect, address } = useWalletStore();
@@ -132,7 +142,7 @@ export default function PaymentLinkPage() {
           new Contract(contractId).call(
             "store_payment_reference",
             nativeToScVal(merchantAddress, { type: "address" }),
-            nativeToScVal(Buffer.from(referenceHex, "hex")),
+            nativeToScVal(hexToUint8Array(referenceHex)),
             nativeToScVal(stroopAmount, { type: "i128" }),
           ),
         )

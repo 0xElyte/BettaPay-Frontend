@@ -33,3 +33,14 @@ export const merchantProfileSchema = z.object({
 });
 
 export type MerchantProfileFormValues = z.infer<typeof merchantProfileSchema>;
+
+export const editPaymentLinkSchema = z.object({
+  label: z.string().min(1, 'Label is required'),
+  amount: z.string().optional(),
+  currency: z.enum(['USDC', 'XLM', 'USDT']).default('USDC'),
+  expiry: z.string().optional(),
+  redirectUrl: z.string().url('Invalid URL').or(z.literal('')).optional(),
+  reference: z.string().optional(),
+});
+
+export type EditPaymentLinkFormValues = z.infer<typeof editPaymentLinkSchema>;

@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { Menu } from 'lucide-react';
-import Header from '@/components/layout';
-import Footer from '@/components/layout';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
 import { docsSectionIds } from '@/lib/docs/navigation';
 import { useScrollSpy } from '@/lib/hooks/useScrollSpy';
 import { DocsSidebar } from './DocsSidebar';

@@ -75,5 +75,9 @@ export async function DELETE() {
     'Set-Cookie',
     `csrf_token=; Path=/; Max-Age=0; SameSite=Strict${secureFlag}`
   );
+  res.headers.append(
+    'Set-Cookie',
+    `merchant_onboarded=; Path=/; Max-Age=0; SameSite=Lax${secureFlag}`
+  );
   return res;
 }

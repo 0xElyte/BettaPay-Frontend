@@ -70,52 +70,64 @@ export default function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
-  const [passwordTouched, setPasswordTouched] = useState({
-    current: false,
-    new: false,
-    confirm: false,
-  });
+  const [passwordErrors, setPasswordErrors] = useState<{
+    current?: string;
+    newPass?: string;
+    confirm?: string;
+  }>({});
 
-  const isCurrentPasswordValid = currentPassword.trim().length > 0;
-  const isNewPasswordValid =
-    newPassword.length >= 8 &&
-    /[A-Z]/.test(newPassword) &&
-    /\d/.test(newPassword);
-  const isConfirmPasswordValid =
-    confirmNewPassword.length > 0 && confirmNewPassword === newPassword;
+  const validatePassword = useCallback(() => {
+    const errors: typeof passwordErrors = {};
 
-  const isPasswordFormValid =
-    isCurrentPasswordValid && isNewPasswordValid && isConfirmPasswordValid;
+    if (!currentPassword) {
+      errors.current = 'Current password is required';
+    }
 
-  const currentPasswordError =
-    passwordTouched.current && !isCurrentPasswordValid
-      ? 'Current password is required'
-      : '';
+    if (newPassword.length < 8) {
+      errors.newPass = 'Password must be at least 8 characters';
+    } else if (!/[0-9]/.test(newPassword)) {
+      errors.newPass = 'Password must contain at least one number';
+    } else if (!/[A-Z]/.test(newPassword)) {
+      errors.newPass = 'Password must contain at least one uppercase letter';
+    }
 
-  const getNewPasswordError = () => {
-    if (!passwordTouched.new || newPassword.length === 0) return '';
-    if (newPassword.length < 8) return 'Password must be at least 8 characters long';
-    if (!/[A-Z]/.test(newPassword)) return 'Password must contain at least one uppercase letter';
-    if (!/\d/.test(newPassword)) return 'Password must contain at least one number';
-    return '';
-  };
-  const newPasswordError = getNewPasswordError();
+    if (confirmNewPassword !== newPassword) {
+      errors.confirm = 'Passwords do not match';
+    }
 
-  const confirmPasswordError =
-    passwordTouched.confirm && confirmNewPassword.length > 0 && !isConfirmPasswordValid
-      ? 'Passwords do not match'
-      : passwordTouched.confirm && confirmNewPassword.length === 0
-      ? 'Please confirm your new password'
-      : '';
+    setPasswordErrors(errors);
+    return Object.keys(errors).length === 0;
+  }, [currentPassword, newPassword, confirmNewPassword]);
 
-  const handleUpdatePassword = () => {
-    if (!isPasswordFormValid) return;
-    notify.success('Password updated');
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmNewPassword('');
-    setPasswordTouched({ current: false, new: false, confirm: false });
-  };
+  const isPasswordValid = useMemo(() => {
+    return (
+      currentPassword.length > 0 &&
+      newPassword.length >= 8 &&
+      /[0-9]/.test(newPassword) &&
+      /[A-Z]/.test(newPassword) &&
+      confirmNewPassword === newPassword
+    );
+  }, [currentPassword, newPassword, confirmNewPassword]);
+
+  const handlePasswordChange = useCallback(async () => {
+    if (!validatePassword()) return;
+    setIsSubmitting(true);
+    try {
+      await apiClient.post('/api/auth/change-password', {
+        currentPassword,
+        newPassword,
+      });
+      notify.success('Password updated');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setPasswordErrors({});
+    } catch {
+      notify.error('Failed to update password');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [currentPassword, newPassword, validatePassword, notify]);
 
   const [notificationPreferences, setNotificationPreferences] = useState<Record<string, boolean>>({
     paymentReceived: true,
@@ -409,6 +421,8 @@ export default function SettingsPage() {
                   {currentPasswordError && (
                     <p className="text-xs text-destructive mt-1 font-medium">{currentPasswordError}</p>
                   )}
+                  <Input value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} type="password" placeholder="••••••••" className="h-10 border-border rounded-xl bg-card text-sm" />
+                  {passwordErrors.current && <p className="text-xs text-destructive mt-1">{passwordErrors.current}</p>}
                 </div>
 
                 <div className="space-y-1.5">
@@ -429,6 +443,8 @@ export default function SettingsPage() {
                   ) : (
                     <p className="text-xs text-muted-foreground mt-1">Must be at least 8 characters with 1 uppercase letter and 1 number</p>
                   )}
+                  <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} type="password" placeholder="••••••••" className="h-10 border-border rounded-xl bg-card text-sm" />
+                  {passwordErrors.newPass && <p className="text-xs text-destructive mt-1">{passwordErrors.newPass}</p>}
                 </div>
 
                 <div className="space-y-1.5">
@@ -447,12 +463,17 @@ export default function SettingsPage() {
                   {confirmPasswordError && (
                     <p className="text-xs text-destructive mt-1 font-medium">{confirmPasswordError}</p>
                   )}
+                  <Input value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} type="password" placeholder="••••••••" className="h-10 border-border rounded-xl bg-card text-sm" />
+                  {passwordErrors.confirm && <p className="text-xs text-destructive mt-1">{passwordErrors.confirm}</p>}
                 </div>
 
                 <Button
                   disabled={!isPasswordFormValid}
                   className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl h-10 px-6 text-sm disabled:opacity-50"
                   onClick={handleUpdatePassword}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl h-10 px-6 text-sm"
+                  onClick={handlePasswordChange}
+                  disabled={!isPasswordValid || isSubmitting}
                 >
                   Update Password
                 </Button>
