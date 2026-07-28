@@ -1,76 +1,138 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Check, X, Loader2, ExternalLink, ArrowLeft } from 'lucide-react';
-import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay';
+import { Card, CardContent } from '@/components/ui';
+import { Button } from '@/components/ui';
+import { Check, X, Loader2, ExternalLink, ArrowLeft, RefreshCw } from 'lucide-react';
+import { CurrencyDisplay } from '@/components/shared';
 import { truncateAddress } from '@/lib/utils/format';
 import { apiClient } from '@/lib/api/axios';
 
-type Status = 'processing' | 'success' | 'failed';
+type Status = 'processing' | 'success' | 'failed' | 'timeout';
+
+// ─── Polling config ───────────────────────────────────────────────────────────
+// Base interval: 3 s. Backoff multiplier: 1.5×. Cap: 30 s.
+// 60 attempts ≈ 3 minutes of total wall-clock time before giving up.
+const POLL_BASE_MS = 3_000;
+const POLL_BACKOFF = 1.5;
+const POLL_CAP_MS = 30_000;
+const POLL_MAX_ATTEMPTS = 60;
+
+function nextDelay(attempt: number): number {
+  const raw = POLL_BASE_MS * Math.pow(POLL_BACKOFF, attempt);
+  return Math.min(raw, POLL_CAP_MS);
+}
 
 export default function PaymentStatusPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
-  
+
   const txId = params.txId as string;
   const initialStatus = (searchParams.get('status') as Status) || 'processing';
-  
+
   const [status, setStatus] = useState<Status>(initialStatus);
   const [paymentData, setPaymentData] = useState<Record<string, unknown> | null>(null);
 
-  // Poll for status
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
+  // Refs so the polling closure always sees the latest values without
+  // needing to be re-created (avoids re-registering the effect).
+  const attemptRef = useRef(0);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const mountedRef = useRef(true);
 
-    const checkStatus = async () => {
-      try {
-        const response = await apiClient.get(`/api/payments/${txId}`);
-        const payment = response.data;
-        
-        if (payment) {
-          setPaymentData(payment);
-          
-          if (payment.status === 'success') {
-            setStatus('success');
-            return;
-          } else if (payment.status === 'failed') {
-            setStatus('failed');
-            return;
-          }
+  const clearTimer = () => {
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const checkStatus = useCallback(async () => {
+    if (!mountedRef.current) return;
+
+    try {
+      const response = await apiClient.get(`/api/payments/${txId}`);
+      const payment = response.data;
+
+      if (!mountedRef.current) return;
+
+      if (payment) {
+        setPaymentData(payment);
+
+        if (payment.status === 'success') {
+          setStatus('success');
+          return; // terminal — stop polling
         }
-      } catch (err) {
-        console.error('Failed to fetch payment status', err);
+        if (payment.status === 'failed') {
+          setStatus('failed');
+          return; // terminal — stop polling
+        }
       }
+    } catch (err) {
+      // Network / 5xx error — do NOT silently swallow and reschedule forever.
+      // The attempt counter still advances so backoff and the retry cap apply.
+      console.error('Failed to fetch payment status', err);
+    }
 
-      // Continue polling if still processing
-      if (status === 'processing') {
-        timer = setTimeout(checkStatus, 3000);
-      }
-    };
+    // Non-terminal: schedule the next attempt with exponential backoff,
+    // unless we have already exhausted the maximum retry budget.
+    if (!mountedRef.current) return;
+
+    attemptRef.current += 1;
+
+    if (attemptRef.current >= POLL_MAX_ATTEMPTS) {
+      setStatus('timeout');
+      return;
+    }
+
+    const delay = nextDelay(attemptRef.current);
+    timerRef.current = setTimeout(checkStatus, delay);
+  }, [txId]);
+
+  useEffect(() => {
+    mountedRef.current = true;
 
     if (status === 'processing') {
+      attemptRef.current = 0;
       checkStatus();
     }
 
-    return () => clearTimeout(timer);
-  }, [status, txId]);
+    return () => {
+      mountedRef.current = false;
+      clearTimer();
+    };
+    // checkStatus is stable (useCallback with [txId]); status intentionally
+    // omitted — we only want to (re-)start the loop when the parent renders
+    // this effect for the first time or when txId changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [txId]);
 
-  const mockData = paymentData ? {
-    amount: Number(paymentData.amount),
-    currency: (paymentData.asset as string) || 'USDC',
-    merchantName: 'BettaPay Merchant LLC',
-    txHash: '1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b' // Would come from indexer in prod
-  } : {
-    amount: 0,
-    currency: 'USDC',
-    merchantName: 'Merchant Corp',
-    txHash: '...'
-  };
+  // Allow the "Try Again" and manual-refresh buttons to restart polling cleanly.
+  const restartPolling = useCallback(() => {
+    clearTimer();
+    mountedRef.current = true;
+    attemptRef.current = 0;
+    setStatus('processing');
+    // Kick off a poll immediately after the state flush.
+    setTimeout(checkStatus, 0);
+  }, [checkStatus]);
+
+  const mockData = paymentData
+    ? {
+        amount: Number(paymentData.amount),
+        currency: (paymentData.asset as string) || 'USDC',
+        merchantName: 'BettaPay Merchant LLC',
+        txHash:
+          '1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b',
+      }
+    : {
+        amount: 0,
+        currency: 'USDC',
+        merchantName: 'Merchant Corp',
+        txHash: '...',
+      };
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
@@ -94,8 +156,57 @@ export default function PaymentStatusPage() {
               </div>
               <div>
                 <h2 className="text-xl font-semibold">Confirming Payment</h2>
-                <p className="text-muted-foreground mt-2">Waiting for Stellar network confirmation...</p>
+                <p className="text-muted-foreground mt-2">
+                  Waiting for Stellar network confirmation...
+                </p>
               </div>
+            </motion.div>
+          )}
+
+          {status === 'timeout' && (
+            <motion.div
+              key="timeout"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.1 }}
+              className="w-full"
+            >
+              <Card className="border bg-card shadow-sm rounded-xl overflow-hidden">
+                <div className="h-2 bg-warning w-full" />
+                <CardContent className="pt-8 pb-8 px-6 flex flex-col items-center text-center space-y-6">
+                  <div className="w-20 h-20 rounded-full bg-warning/10 border-2 border-warning flex items-center justify-center">
+                    <RefreshCw className="w-10 h-10 text-warning" />
+                  </div>
+
+                  <div>
+                    <h2 className="text-2xl font-bold">Still Confirming</h2>
+                    <p className="text-muted-foreground mt-1">
+                      The network is taking longer than expected. Your payment
+                      may still go through — check back in a few minutes.
+                    </p>
+                  </div>
+
+                  <div className="w-full bg-transparent rounded-lg p-4 space-y-3 text-sm border border-border text-left">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Transaction ID</span>
+                      <span className="font-mono">{truncateAddress(txId)}</span>
+                    </div>
+                  </div>
+
+                  <div className="w-full flex gap-3">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => router.back()}
+                    >
+                      <ArrowLeft className="w-4 h-4 mr-2" /> Back
+                    </Button>
+                    <Button className="flex-1" onClick={restartPolling}>
+                      <RefreshCw className="w-4 h-4 mr-2" /> Check Again
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             </motion.div>
           )}
 
@@ -107,24 +218,29 @@ export default function PaymentStatusPage() {
               className="w-full"
             >
               <Card className="border bg-card shadow-sm rounded-xl overflow-hidden">
-                <div className="h-2 bg-green-500 w-full" />
+                <div className="h-2 bg-success w-full" />
                 <CardContent className="pt-8 pb-8 px-6 flex flex-col items-center text-center space-y-6">
-                  <motion.div 
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", bounce: 0.5, delay: 0.2 }}
-                    className="w-20 h-20 rounded-full bg-green-500/10 border-2 border-green-500 flex items-center justify-center"
+                  <motion.div
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.4, ease: 'easeOut', delay: 0.2 }}
+                    className="w-20 h-20 rounded-full bg-success/10 border-2 border-success flex items-center justify-center"
                   >
-                    <Check className="w-10 h-10 text-green-500" />
+                    <Check className="w-10 h-10 text-success" />
                   </motion.div>
-                  
+
                   <div>
                     <h2 className="text-2xl font-bold">Payment Successful</h2>
-                    <p className="text-muted-foreground mt-1">To {mockData.merchantName}</p>
+                    <p className="text-muted-foreground mt-1">
+                      To {mockData.merchantName}
+                    </p>
                   </div>
 
                   <div className="text-4xl font-bold text-foreground">
-                    <CurrencyDisplay amount={mockData.amount} currency={mockData.currency} />
+                    <CurrencyDisplay
+                      amount={mockData.amount}
+                      currency={mockData.currency}
+                    />
                   </div>
 
                   <div className="w-full bg-transparent rounded-lg p-4 space-y-3 text-sm border border-border text-left">
@@ -134,14 +250,20 @@ export default function PaymentStatusPage() {
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">Network Hash</span>
-                      <a href="#" className="font-mono text-primary hover:underline flex items-center gap-1">
+                      <a
+                        href="#"
+                        className="font-mono text-primary hover:underline flex items-center gap-1"
+                      >
                         {truncateAddress(mockData.txHash)}
                         <ExternalLink className="w-3 h-3" />
                       </a>
                     </div>
                   </div>
 
-                  <Button className="w-full h-12" onClick={() => router.push('/')}>
+                  <Button
+                    className="w-full h-12"
+                    onClick={() => router.push('/')}
+                  >
                     Return to Merchant
                   </Button>
                 </CardContent>
@@ -159,25 +281,31 @@ export default function PaymentStatusPage() {
               <Card className="border bg-card shadow-sm rounded-xl overflow-hidden">
                 <div className="h-2 bg-destructive w-full" />
                 <CardContent className="pt-8 pb-8 px-6 flex flex-col items-center text-center space-y-6">
-                  <motion.div 
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", bounce: 0.5 }}
+                  <motion.div
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.4, ease: 'easeOut' }}
                     className="w-20 h-20 rounded-full bg-destructive/10 border-2 border-destructive flex items-center justify-center"
                   >
                     <X className="w-10 h-10 text-destructive" />
                   </motion.div>
-                  
+
                   <div>
                     <h2 className="text-2xl font-bold">Payment Failed</h2>
-                    <p className="text-muted-foreground mt-1">The transaction was rejected by the network.</p>
+                    <p className="text-muted-foreground mt-1">
+                      The transaction was rejected by the network.
+                    </p>
                   </div>
 
                   <div className="w-full flex gap-3 mt-4">
-                    <Button variant="outline" className="flex-1" onClick={() => router.back()}>
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => router.back()}
+                    >
                       <ArrowLeft className="w-4 h-4 mr-2" /> Back
                     </Button>
-                    <Button className="flex-1" onClick={() => setStatus('processing')}>
+                    <Button className="flex-1" onClick={restartPolling}>
                       Try Again
                     </Button>
                   </div>

@@ -1,4 +1,4 @@
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@/components/ui';
 import { PAYMENT_STATUS } from '@/lib/utils/constants';
 import { cn } from '@/lib/utils';
 import { CheckCircle2, Clock, XCircle, Loader2 } from 'lucide-react';
@@ -15,17 +15,22 @@ export const StatusBadge = ({ status, className }: StatusBadgeProps) => {
     [PAYMENT_STATUS.SUCCESS]: {
       label: 'Success',
       icon: CheckCircle2,
-      className: 'bg-green-500/10 text-green-500 hover:bg-green-500/20 border-green-500/20',
+      className: 'bg-success/10 text-success hover:bg-success/20 border-success/20',
+    },
+    completed: {
+      label: 'Completed',
+      icon: CheckCircle2,
+      className: 'bg-success/10 text-success hover:bg-success/20 border-success/20',
     },
     [PAYMENT_STATUS.PENDING]: {
       label: 'Pending',
       icon: Clock,
-      className: 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20 border-yellow-500/20',
+      className: 'bg-warning/10 text-warning hover:bg-warning/20 border-warning/20',
     },
     [PAYMENT_STATUS.PROCESSING]: {
       label: 'Processing',
       icon: Loader2,
-      className: 'bg-primary/10 text-primary hover:bg-primary/20 border-primary/20',
+      className: 'bg-info/10 text-info hover:bg-info/20 border-info/20',
     },
     [PAYMENT_STATUS.FAILED]: {
       label: 'Failed',
