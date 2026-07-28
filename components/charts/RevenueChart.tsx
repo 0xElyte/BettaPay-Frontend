@@ -137,18 +137,8 @@ const isAggregated = (
   data.length > 0 && (data[0] as RevenueChartPoint).name !== undefined;
 
 export default function RevenueChart({ height = 260, data }: RevenueChartProps) {
-  const [isMobile, setIsMobile] = useState(false);
-export default function RevenueChart({ height = 260 }: { height?: number }) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
-  const { data, isLoading, isError } = useQuery<ChartDataItem[]>(
-    ['revenue'],
-    async () => {
-      const res = await axios.get<ChartDataItem[]>('/api/revenue');
-      return res.data;
-    }
-  );
-
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 639px)');

@@ -4,8 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Gauge, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui";
+import { useRateLimitStore } from "@/lib/store/rateLimitStore";
 
-interface RateLimitStatus { limit: number; remaining: number; resetAt: number; }
+interface RateLimitStatus {
+  limit: number;
+  remaining: number;
+  resetAt: number;
+}
 
 function formatCountdown(seconds: number) {
   const hours = Math.floor(seconds / 3600);
@@ -15,10 +20,21 @@ function formatCountdown(seconds: number) {
 }
 
 export function RateLimitDisplay() {
+  const { rateLimitedUntil, secondsRemaining, endpoint, limit: storeLimit, tick } = useRateLimitStore();
+
   const [status, setStatus] = useState<RateLimitStatus | null>(null);
   const [secondsUntilReset, setSecondsUntilReset] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Tick the countdown using store's tick function when rate limited by 429
+  useEffect(() => {
+    if (rateLimitedUntil === 0) return;
+    const timer = window.setInterval(() => {
+      tick();
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [rateLimitedUntil, tick]);
 
   const loadStatus = useCallback(async () => {
     setIsLoading(true);
@@ -54,12 +70,15 @@ export function RateLimitDisplay() {
     return Math.min(100, Math.max(0, ((status.limit - status.remaining) / status.limit) * 100));
   }, [status]);
   const showWarning = usagePercentage >= 80;
+  const is429Active = secondsRemaining > 0;
 
   return (
     <Card className="border border-border bg-card shadow-sm">
       <CardHeader className="flex flex-row items-start justify-between gap-4">
         <div>
-          <CardTitle className="flex items-center gap-2 text-base font-semibold"><Gauge className="h-4 w-4 text-primary" /> API rate limit</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-base font-semibold">
+            <Gauge className="h-4 w-4 text-primary" /> API rate limit
+          </CardTitle>
           <CardDescription>Current request allowance for this API client.</CardDescription>
         </div>
         <Button variant="ghost" size="icon" onClick={() => void loadStatus()} disabled={isLoading} aria-label="Refresh rate limit status">
@@ -67,19 +86,55 @@ export function RateLimitDisplay() {
         </Button>
       </CardHeader>
       <CardContent className="space-y-4" aria-live="polite">
-        {error ? <p className="text-sm text-destructive">{error}</p> : status ? <>
-          <div className="flex items-end justify-between gap-4">
-            <div><p className="text-3xl font-bold tabular-nums">{status.remaining.toLocaleString()}</p><p className="text-xs text-muted-foreground">requests remaining of {status.limit.toLocaleString()}</p></div>
-            <div className="text-right"><p className="font-mono text-sm font-semibold tabular-nums">{formatCountdown(secondsUntilReset)}</p><p className="text-xs text-muted-foreground">until reset</p></div>
+        {is429Active && (
+          <div className="rounded-md bg-destructive/10 p-3 border border-destructive/20 text-destructive text-sm space-y-2" data-testid="rate-limit-429-banner">
+            <div className="flex items-center gap-2 font-semibold">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" />
+              <span>Rate Limit Exceeded (HTTP 429)</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-foreground/90">
+              <div>
+                <span className="text-muted-foreground block font-medium">Countdown Timer:</span>
+                <span className="font-mono text-sm font-bold text-destructive tabular-nums">{formatCountdown(secondsRemaining)}</span>
+                <span className="text-[11px] text-muted-foreground ml-1">({secondsRemaining}s remaining)</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground block font-medium">Rate-Limited Endpoint:</span>
+                <span className="font-mono text-xs font-semibold truncate block" title={endpoint || "All Endpoints"}>{endpoint || "All Endpoints"}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground block font-medium">Rate Limit Policy:</span>
+                <span className="font-semibold text-xs">{storeLimit ? `${storeLimit} max requests / window` : status ? `${status.limit} max requests / window` : "Standard Policy"}</span>
+              </div>
+            </div>
           </div>
-          <div className="h-2.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="API rate limit usage" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(usagePercentage)}>
-            <div className={`h-full rounded-full transition-all ${showWarning ? "bg-warning" : "bg-primary"}`} style={{ width: `${usagePercentage}%` }} />
-          </div>
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">{Math.round(usagePercentage)}% used</span>
-            {showWarning && <span className="flex items-center gap-1 font-medium text-warning"><AlertTriangle className="h-3.5 w-3.5" /> Approaching rate limit</span>}
-          </div>
-        </> : <p className="text-sm text-muted-foreground">Loading rate limit status…</p>}
+        )}
+
+        {error ? (
+          <p className="text-sm text-destructive">{error}</p>
+        ) : status ? (
+          <>
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="text-3xl font-bold tabular-nums">{status.remaining.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">requests remaining of {status.limit.toLocaleString()}</p>
+              </div>
+              <div className="text-right">
+                <p className="font-mono text-sm font-semibold tabular-nums">{formatCountdown(secondsUntilReset)}</p>
+                <p className="text-xs text-muted-foreground">until reset</p>
+              </div>
+            </div>
+            <div className="h-2.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="API rate limit usage" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(usagePercentage)}>
+              <div className={`h-full rounded-full transition-all ${showWarning ? "bg-warning" : "bg-primary"}`} style={{ width: `${usagePercentage}%` }} />
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">{Math.round(usagePercentage)}% used</span>
+              {showWarning && <span className="flex items-center gap-1 font-medium text-warning"><AlertTriangle className="h-3.5 w-3.5" /> Approaching rate limit</span>}
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">Loading rate limit status…</p>
+        )}
       </CardContent>
     </Card>
   );
