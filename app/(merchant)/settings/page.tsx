@@ -70,6 +70,64 @@ export default function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [passwordErrors, setPasswordErrors] = useState<{
+    current?: string;
+    newPass?: string;
+    confirm?: string;
+  }>({});
+
+  const validatePassword = useCallback(() => {
+    const errors: typeof passwordErrors = {};
+
+    if (!currentPassword) {
+      errors.current = 'Current password is required';
+    }
+
+    if (newPassword.length < 8) {
+      errors.newPass = 'Password must be at least 8 characters';
+    } else if (!/[0-9]/.test(newPassword)) {
+      errors.newPass = 'Password must contain at least one number';
+    } else if (!/[A-Z]/.test(newPassword)) {
+      errors.newPass = 'Password must contain at least one uppercase letter';
+    }
+
+    if (confirmNewPassword !== newPassword) {
+      errors.confirm = 'Passwords do not match';
+    }
+
+    setPasswordErrors(errors);
+    return Object.keys(errors).length === 0;
+  }, [currentPassword, newPassword, confirmNewPassword]);
+
+  const isPasswordValid = useMemo(() => {
+    return (
+      currentPassword.length > 0 &&
+      newPassword.length >= 8 &&
+      /[0-9]/.test(newPassword) &&
+      /[A-Z]/.test(newPassword) &&
+      confirmNewPassword === newPassword
+    );
+  }, [currentPassword, newPassword, confirmNewPassword]);
+
+  const handlePasswordChange = useCallback(async () => {
+    if (!validatePassword()) return;
+    setIsSubmitting(true);
+    try {
+      await apiClient.post('/api/auth/change-password', {
+        currentPassword,
+        newPassword,
+      });
+      notify.success('Password updated');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setPasswordErrors({});
+    } catch {
+      notify.error('Failed to update password');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [currentPassword, newPassword, validatePassword, notify]);
 
   const [notificationPreferences, setNotificationPreferences] = useState<Record<string, boolean>>({
     paymentReceived: true,
@@ -349,18 +407,22 @@ export default function SettingsPage() {
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Current Password</Label>
                   <Input value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} type="password" placeholder="••••••••" className="h-10 border-border rounded-xl bg-card text-sm" />
+                  {passwordErrors.current && <p className="text-xs text-destructive mt-1">{passwordErrors.current}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">New Password</Label>
                   <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} type="password" placeholder="••••••••" className="h-10 border-border rounded-xl bg-card text-sm" />
+                  {passwordErrors.newPass && <p className="text-xs text-destructive mt-1">{passwordErrors.newPass}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Confirm New Password</Label>
                   <Input value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} type="password" placeholder="••••••••" className="h-10 border-border rounded-xl bg-card text-sm" />
+                  {passwordErrors.confirm && <p className="text-xs text-destructive mt-1">{passwordErrors.confirm}</p>}
                 </div>
                 <Button
                   className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl h-10 px-6 text-sm"
-                  onClick={() => notify.success('Password updated')}
+                  onClick={handlePasswordChange}
+                  disabled={!isPasswordValid || isSubmitting}
                 >
                   Update Password
                 </Button>
