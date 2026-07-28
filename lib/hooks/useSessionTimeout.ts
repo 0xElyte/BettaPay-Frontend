@@ -2,12 +2,12 @@
 
 import { useEffect, useCallback, useRef, useState } from 'react';
 
-const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'scroll', 'touchstart'] as const;
+const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'scroll', 'click', 'touchstart'] as const;
 
 interface UseSessionTimeoutOptions {
   /** Inactivity threshold in ms before showing warning (default: 30 min) */
   timeoutMs?: number;
-  /** Grace period in ms after warning before auto-logout (default: 2 min) */
+  /** Grace period in ms after warning before auto-logout (default: 5 min) */
   gracePeriodMs?: number;
   /** Called when the session has timed out */
   onTimeout: () => void;
@@ -24,7 +24,7 @@ interface UseSessionTimeoutReturn {
 
 export function useSessionTimeout({
   timeoutMs = 30 * 60 * 1000,
-  gracePeriodMs = 2 * 60 * 1000,
+  gracePeriodMs = 5 * 60 * 1000,
   onTimeout,
 }: UseSessionTimeoutOptions): UseSessionTimeoutReturn {
   const [showWarning, setShowWarning] = useState(false);
@@ -85,10 +85,8 @@ export function useSessionTimeout({
     resetTimer();
 
     const handleActivity = () => {
-      // Only reset the inactivity timer if warning is not showing
-      if (!showWarning) {
-        resetTimer();
-      }
+      // Reset timer on any activity, whether modal is showing or not
+      resetTimer();
     };
 
     ACTIVITY_EVENTS.forEach((event) => {
@@ -101,7 +99,7 @@ export function useSessionTimeout({
         document.removeEventListener(event, handleActivity);
       });
     };
-  }, [resetTimer, clearAllTimers, showWarning]);
+  }, [resetTimer, clearAllTimers]);
 
   return { showWarning, secondsRemaining, dismissWarning };
 }

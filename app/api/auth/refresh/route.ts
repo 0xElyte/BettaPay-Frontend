@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { generateCsrfToken } from '@/lib/utils/csrf';
+import { generateCsrfToken, buildCsrfCookieHeader } from '@/lib/utils/csrf';
 
 export async function POST() {
   try {
@@ -9,17 +9,15 @@ export async function POST() {
     //
     // The real implementation should:
     // 1. Read and validate the existing auth_token
-    // 2. Generate a new token with extended expiry
-    // 3. Return the new token / set a new cookie
+    // 2. Call the backend refresh endpoint
+    // 3. Set the new auth_token cookie with the returned value
+
+    // Rotate the CSRF token on every access-token refresh so a stolen CSRF
+    // token from a previous session cannot be replayed after re-auth.
+    const csrfToken = generateCsrfToken();
 
     const res = NextResponse.json({ ok: true });
-
-    // Refresh CSRF token as well
-    const csrfToken = generateCsrfToken();
-    res.headers.set(
-      'Set-Cookie',
-      `csrf_token=${csrfToken}; Path=/; SameSite=Strict; Max-Age=86400`
-    );
+    res.headers.set('Set-Cookie', buildCsrfCookieHeader(csrfToken));
 
     return res;
   } catch (error) {
