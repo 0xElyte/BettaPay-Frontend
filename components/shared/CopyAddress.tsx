@@ -14,11 +14,11 @@ interface CopyAddressProps {
   truncate?: boolean;
 }
 
-export const CopyAddress = ({ 
-  address, 
-  showIconOnly = false, 
+export const CopyAddress = ({
+  address,
+  showIconOnly = false,
   className,
-  truncate = true 
+  truncate = true,
 }: CopyAddressProps) => {
   const [copied, setCopied] = useState(false);
   const { success, error } = useNotify();
