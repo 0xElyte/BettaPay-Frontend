@@ -2,14 +2,15 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/authStore';
 import { useNotify } from '@/lib/hooks/useNotify';
-import { signChallenge } from '@/lib/stellar/freighter';
 import { decodeJwtPayload } from '@/lib/utils/jwt';
+import { useWalletStore, WalletState } from '@/lib/store/walletStore';
 
 export function useLogin() {
   const router = useRouter();
   const { login } = useAuthStore();
   const [isWalletLoading, setIsWalletLoading] = useState(false);
-  const [walletModalOpen, setWalletModalOpen] = useState(false);
+  const walletModalOpen = useWalletStore((s: WalletState) => s.walletModalOpen);
+  const setWalletModalOpen = useWalletStore((s: WalletState) => s.setWalletModalOpen);
   const { success, error } = useNotify();
 
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';

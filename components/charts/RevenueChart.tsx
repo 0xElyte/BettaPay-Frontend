@@ -140,6 +140,7 @@ export default function RevenueChart({ height = 260, data }: RevenueChartProps) 
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const [isMobile, setIsMobile] = useState(false);
+
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 639px)');
     setIsMobile(mq.matches);

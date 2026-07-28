@@ -56,8 +56,8 @@ export default function LoginPage() {
 
   return (
     <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <Suspense fallback={<WalletModalFallback open={walletModalOpen} onOpenChange={setWalletModalOpen} />}>
-        <WalletModal open={walletModalOpen} onOpenChange={setWalletModalOpen} onConnected={onWalletConnected} />
+      <Suspense fallback={<WalletModalFallback />}>
+        <WalletModal onConnected={onWalletConnected} />
       </Suspense>
 
       {/* Heading */}
@@ -125,8 +125,8 @@ export default function LoginPage() {
                 <item.icon className="w-4 h-4 text-primary" />
               </div>
               <div>
-                <p className="text-sm font-medium text-foreground">{t(`login.benefits.${item.key}.title`)}</p>
-                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{t(`login.benefits.${item.key}.description`)}</p>
+                <p className="text-sm font-medium text-foreground">{t(`login.benefits.${item.key}.title` as any)}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{t(`login.benefits.${item.key}.description` as any)}</p>
               </div>
             </div>
           ))}

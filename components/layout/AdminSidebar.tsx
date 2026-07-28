@@ -60,7 +60,7 @@ export const AdminSidebar = () => {
                   : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 font-medium border border-transparent",
               )}
               style={
-                active
+                isActive
                   ? {
                       background:
                         "linear-gradient(90deg, rgba(124,58,237,0.25) 0%, rgba(79,70,229,0.12) 100%)",
@@ -73,13 +73,13 @@ export const AdminSidebar = () => {
                     }
               }
               onMouseEnter={(e) => {
-                if (!active) {
+                if (!isActive) {
                   (e.currentTarget as HTMLElement).style.background =
                     "rgba(255,255,255,0.04)";
                 }
               }}
               onMouseLeave={(e) => {
-                if (!active) {
+                if (!isActive) {
                   (e.currentTarget as HTMLElement).style.background = "";
                 }
               }}
@@ -98,7 +98,7 @@ export const AdminSidebar = () => {
               {item.label}
 
               {/* Active indicator dot */}
-              {active && (
+              {isActive && (
                 <span
                   className="ml-auto w-1.5 h-1.5 rounded-full flex-shrink-0"
                   style={{ background: "#7c3aed" }}
@@ -110,20 +110,7 @@ export const AdminSidebar = () => {
         })}
       </nav>
 
-      {/* User footer */}
-      <div className="p-4 border-t border-slate-800">
-        <div className="flex items-center gap-3 px-2 py-2">
-          <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-100 border border-slate-700 flex-shrink-0">
-            AD
-          </div>
-          <div className="flex flex-col min-w-0">
-            <span className="text-sm font-semibold text-slate-50 truncate">
-              System Admin
-            </span>
-            <span className="text-xs text-slate-400 flex items-center gap-1">
-      {/* ------------------------------------------------------------------ */}
-      {/* Footer — admin user identity                                         */}
-      {/* ------------------------------------------------------------------ */}
+      {/* Footer — admin user identity */}
       <div
         className="p-4 flex-shrink-0"
         style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
