@@ -6,6 +6,12 @@ import { truncateAddress } from '@/lib/utils/format';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface CopyAddressProps {
   address: string;
@@ -14,11 +20,11 @@ interface CopyAddressProps {
   truncate?: boolean;
 }
 
-export const CopyAddress = ({ 
-  address, 
-  showIconOnly = false, 
+export const CopyAddress = ({
+  address,
+  showIconOnly = false,
   className,
-  truncate = true 
+  truncate = true,
 }: CopyAddressProps) => {
   const [copied, setCopied] = useState(false);
 
@@ -40,33 +46,55 @@ export const CopyAddress = ({
 
   if (showIconOnly) {
     return (
-      <Button 
-        variant="ghost" 
-        size="icon" 
-        className={cn('h-8 w-8 text-muted-foreground hover:text-foreground', className)}
-        onClick={handleCopy}
-        title="Copy address"
-      >
-        {copied ? <Check className="h-4 w-4 text-brand-success" /> : <Copy className="h-4 w-4" />}
-      </Button>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn('h-8 w-8 text-muted-foreground hover:text-foreground', className)}
+              onClick={handleCopy}
+              aria-label={`Wallet address: ${address}`}
+            >
+              {copied ? <Check className="h-4 w-4 text-brand-success" /> : <Copy className="h-4 w-4" />}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{address}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     );
   }
 
   return (
-    <div 
-      className={cn(
-        'inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/50 border border-border/50 hover:bg-muted transition-colors cursor-pointer',
-        className
-      )}
-      onClick={handleCopy}
-      title="Click to copy full address"
-    >
-      <span className="font-mono text-sm">{displayAddress}</span>
-      {copied ? (
-        <Check className="h-3.5 w-3.5 text-brand-success" />
-      ) : (
-        <Copy className="h-3.5 w-3.5 text-muted-foreground" />
-      )}
-    </div>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            className={cn(
+              'inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/50 border border-border/50 hover:bg-muted transition-colors cursor-pointer',
+              className
+            )}
+            onClick={handleCopy}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleCopy(e as unknown as React.MouseEvent);
+              }
+            }}
+            aria-label={`Wallet address: ${address}`}
+          >
+            <span className="font-mono text-sm">{displayAddress}</span>
+            {copied ? (
+              <Check className="h-3.5 w-3.5 text-brand-success" />
+            ) : (
+              <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+            )}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>{address}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 };
