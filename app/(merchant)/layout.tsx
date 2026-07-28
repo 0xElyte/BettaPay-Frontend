@@ -55,9 +55,13 @@ export default function MerchantLayout({
   }, [logout, router, dismissWarning]);
 
   useEffect(() => {
-    router.prefetch("/transactions");
-    router.prefetch("/payments");
-  }, [router]);
+    try {
+      router.prefetch("/transactions");
+      router.prefetch("/payments");
+    } catch {
+      // Prefetch may throw during SSR or in edge environments
+    }
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">

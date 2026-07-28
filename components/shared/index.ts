@@ -6,3 +6,4 @@ export * from './ErrorDisplay';
 export * from './StatusBadge';
 export * from './CopyAddress';
 export * from './EmptyState';
+export * from './PageHeader';
