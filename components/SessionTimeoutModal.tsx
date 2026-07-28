@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui';
 import { announce } from '@/lib/utils/announce';
+import { AlertTriangle, Clock, LogOut, RefreshCcw } from 'lucide-react';
 
 interface SessionTimeoutModalProps {
   open: boolean;

@@ -4,7 +4,12 @@ import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui';
 import { Skeleton } from '@/components/ui';
 
-export function WalletModalFallback({ open, onOpenChange }: { open: boolean; onOpenChange?: (v: boolean) => void }) {
+import { useWalletStore, WalletState } from '@/lib/store/walletStore';
+
+export function WalletModalFallback() {
+  const open = useWalletStore((s: WalletState) => s.walletModalOpen);
+  const onOpenChange = useWalletStore((s: WalletState) => s.setWalletModalOpen);
+
   if (!open) return null;
   
   return (

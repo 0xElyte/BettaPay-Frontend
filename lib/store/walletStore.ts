@@ -25,7 +25,7 @@ interface ConnectError {
   freighterNetwork?: string;
 }
 
-interface WalletState {
+export interface WalletState {
   address: string | null;
   isConnected: boolean;
   connector: Connector;
@@ -42,6 +42,10 @@ interface WalletState {
   walletConnectPending: boolean;
   /** Stores the active session for later signing calls. */
   walletConnectSession: WalletConnectSession | null;
+
+  // ── WalletModal State ──────────────────────────────────────────────────────
+  walletModalOpen: boolean;
+  setWalletModalOpen: (open: boolean) => void;
 
   connect: (connector?: Connector) => Promise<void>;
   /** Called by WalletConnectModal once a session is fully established. */
@@ -66,6 +70,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
   isReconnecting: false,
   error: null,
   connectError: null,
+  walletModalOpen: false,
   walletConnectPending: false,
   walletConnectSession: null,
 
@@ -156,6 +161,14 @@ export const useWalletStore = create<WalletState>((set, get) => ({
 
   clearConnectError: () => {
     set({ connectError: null });
+  },
+
+  setWalletModalOpen: (open: boolean) => {
+    if (!open) {
+      set({ walletModalOpen: false, connectError: null, walletConnectPending: false });
+    } else {
+      set({ walletModalOpen: true });
+    }
   },
 
   setNetwork: (network: 'testnet' | 'public') => {
