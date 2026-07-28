@@ -9,21 +9,30 @@ import { StatusBadge } from '@/components/shared/StatusBadge';
 import { CopyAddress } from '@/components/shared/CopyAddress';
 import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { NetworkTooltip } from '@/components/shared/NetworkTooltip';
 import { mockTransactions } from '@/lib/mock/transactions';
 import { formatDate } from '@/lib/utils/format';
 import { Search, Download, Filter, SearchX } from 'lucide-react';
 import { TransactionDetail } from '@/components/transactions/TransactionDetail';
 import { Transaction } from '@/lib/mock/transactions';
+import { useOnlineStatus } from '@/lib/hooks/useOnlineStatus';
 
 export default function TransactionsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCount] = useState(0);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 
+  const isOnline = useOnlineStatus();
+
   const filteredTransactions = mockTransactions.filter(tx =>
     tx.txHash.toLowerCase().includes(searchTerm.toLowerCase()) ||
     tx.payerAddress.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleExportCsv = () => {
+    if (!isOnline) return;
+    // TODO: implement CSV export
+  };
 
   return (
     <div className="space-y-6">
@@ -59,10 +68,22 @@ export default function TransactionsPage() {
                 </span>
               )}
             </Button>
-            <Button variant="outline" className="flex-1 sm:flex-none border-border/50 bg-brand-surface">
-              <Download className="w-4 h-4 mr-2" />
-              Export CSV
-            </Button>
+
+            {/* Export CSV — disabled and explained via tooltip when offline */}
+            <NetworkTooltip isOnline={isOnline}>
+              <Button
+                id="export-csv-btn"
+                variant="outline"
+                className="flex-1 sm:flex-none border-border/50 bg-brand-surface"
+                disabled={!isOnline}
+                aria-label={isOnline ? undefined : "Export unavailable while offline"}
+                aria-disabled={!isOnline}
+                onClick={handleExportCsv}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export CSV
+              </Button>
+            </NetworkTooltip>
           </div>
         </div>
       </div>
