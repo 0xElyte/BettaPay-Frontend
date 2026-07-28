@@ -10,6 +10,16 @@ import { getAppRouter } from '../navigation/appRouter';
 // Deduplication: avoid showing multiple toasts for simultaneous errors
 const recentErrors = new Map<string, number>();
 const ERROR_DEDUP_WINDOW_MS = 3000;
+let pendingErrorBatch: {
+  count: number;
+  message?: string;
+  timer: ReturnType<typeof setTimeout> | null;
+} | null = null;
+
+function showErrorToast(message: string) {
+  toast.error(message, { duration: 5000 });
+  announce(message);
+}
 
 function notifyError(message: string, key?: string) {
   const dedupKey = key || message;
@@ -21,8 +31,25 @@ function notifyError(message: string, key?: string) {
   }
 
   recentErrors.set(dedupKey, now);
-  toast.error(message, { duration: 5000 });
-  announce(message);
+
+  if (pendingErrorBatch) {
+    pendingErrorBatch.count += 1;
+    return;
+  }
+
+  pendingErrorBatch = {
+    count: 1,
+    message,
+    timer: setTimeout(() => {
+      if (!pendingErrorBatch) {
+        return;
+      }
+
+      const summaryMessage = pendingErrorBatch.count > 1 ? 'Multiple errors occurred' : pendingErrorBatch.message || message;
+      showErrorToast(summaryMessage);
+      pendingErrorBatch = null;
+    }, 150),
+  };
 
   // Clean up old entries
   if (recentErrors.size > 50) {
@@ -164,15 +191,16 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 429) {
       const retryAfter = error.response?.headers?.['retry-after'];
       const seconds = parseInt(String(retryAfter), 10) || 30;
-      const endpoint = originalRequest?.url || error.config?.url;
+      const endpoint = originalRequest?.url || error.config?.url || 'unknown';
       const rawLimit = error.response?.headers?.['x-ratelimit-limit'] || error.response?.headers?.['X-RateLimit-Limit'];
       const limit = rawLimit ? parseInt(String(rawLimit), 10) : undefined;
       useRateLimitStore.getState().setRateLimited(seconds, endpoint, limit);
-      notifyError(`Too many attempts. Please try again in ${seconds} seconds.`);
+      notifyError(`Too many attempts. Please try again in ${seconds} seconds.`, `429_${endpoint}`);
     } else if (!error.response) {
       notifyError('Network error. Please check your connection.', 'network_error');
     } else if (error.response?.status >= 500) {
-      notifyError('A server error occurred. Please try again later.', `5xx_${error.response.status}`);
+      const endpoint = originalRequest?.url || error.config?.url || 'unknown';
+      notifyError('A server error occurred. Please try again later.', `5xx_${error.response.status}_${endpoint}`);
     }
 
     return Promise.reject(parseApiError(error));
