@@ -162,9 +162,12 @@ apiClient.interceptors.response.use(
 
     // Handle 429 rate limiting
     if (error.response?.status === 429) {
-      const retryAfter = error.response.headers['retry-after'];
-      const seconds = parseInt(retryAfter, 10) || 30;
-      useRateLimitStore.getState().setRateLimited(seconds);
+      const retryAfter = error.response?.headers?.['retry-after'];
+      const seconds = parseInt(String(retryAfter), 10) || 30;
+      const endpoint = originalRequest?.url || error.config?.url;
+      const rawLimit = error.response?.headers?.['x-ratelimit-limit'] || error.response?.headers?.['X-RateLimit-Limit'];
+      const limit = rawLimit ? parseInt(String(rawLimit), 10) : undefined;
+      useRateLimitStore.getState().setRateLimited(seconds, endpoint, limit);
       notifyError(`Too many attempts. Please try again in ${seconds} seconds.`);
     } else if (!error.response) {
       notifyError('Network error. Please check your connection.', 'network_error');
