@@ -3,13 +3,9 @@
 import { useCallback, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
-import { MerchantSidebar } from "@/components/layout";
+import { MerchantSidebar, MobileNavDrawer, Topbar, Footer, MobileBottomNav } from "@/components/layout";
 import { merchantNavItems } from "@/lib/navigation/merchantNav";
 import { PageTransition, ErrorBoundary } from "@/components/shared";
-import { MobileNavDrawer } from "@/components/layout";
-import { Topbar } from "@/components/layout";
-import Footer from "@/components/layout";
-import { MobileBottomNav } from "@/components/layout";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { useWalletStore } from "@/lib/store/walletStore";
 import { useAuthStore } from "@/lib/store/authStore";
@@ -55,9 +51,13 @@ export default function MerchantLayout({
   }, [logout, router, dismissWarning]);
 
   useEffect(() => {
-    router.prefetch("/transactions");
-    router.prefetch("/payments");
-  }, [router]);
+    try {
+      router.prefetch("/transactions");
+      router.prefetch("/payments");
+    } catch {
+      // Prefetch may throw during SSR or in edge environments
+    }
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">

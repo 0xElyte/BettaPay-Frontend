@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from 'react';
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { apiClient } from './axios';
 import type { MerchantProfile, MerchantBankAccount } from '../types';
@@ -192,10 +193,13 @@ export function useRates(): UseRatesResult {
   });
 
   const rates: ApiRate[] = query.data?.rates ?? [];
-  const primaryRate =
-    query.data?.usdcNgn ??
-    rates.find((r) => r.from === 'USDC' && r.to === 'NGN')?.rate ??
-    null;
+  const primaryRate = useMemo(
+    () =>
+      query.data?.usdcNgn ??
+      rates.find((r) => r.from === 'USDC' && r.to === 'NGN')?.rate ??
+      null,
+    [query.data, rates],
+  );
 
   return {
     data: rates,
