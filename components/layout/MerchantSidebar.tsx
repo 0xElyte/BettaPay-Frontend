@@ -1,63 +1,85 @@
 "use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { cn } from '@/lib/utils';
-import { 
-  LayoutDashboard, 
-  Link as LinkIcon, 
-  ListOrdered, 
-  Wallet, 
-  RefreshCcw, 
-  Settings, 
-  Code2,
-  ShieldCheck,
-  Building2
-} from 'lucide-react';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { merchantNavItems } from "@/lib/navigation/merchantNav";
+import { useAuthStore } from "@/lib/store/authStore";
+import Image from 'next/image';
 
-const navItems = [
-  { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-  { href: '/payments', label: 'Payments', icon: LinkIcon },
-  { href: '/transactions', label: 'Transactions', icon: ListOrdered },
-  { href: '/settlement', label: 'Settlement', icon: Building2 },
-  { href: '/wallet', label: 'Wallet', icon: Wallet },
-  { href: '/fx', label: 'FX Rates', icon: RefreshCcw },
-  { href: '/developers', label: 'Developers', icon: Code2 },
-  { href: '/settings', label: 'Settings', icon: Settings },
-];
+function getInitials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+const KYB_STATUS_LABEL: Record<string, { label: string; color: string }> = {
+  approved: { label: "Verified", color: "text-success" },
+  pending: { label: "Pending Review", color: "text-warning" },
+  rejected: { label: "Rejected", color: "text-destructive" },
+  none: { label: "Not Verified", color: "text-muted-foreground" },
+};
 
 export const MerchantSidebar = () => {
   const pathname = usePathname();
+  const user = useAuthStore((s) => s.user);
+  const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
+
+  const businessName = user?.businessName ?? user?.name ?? "";
+  const initials = businessName ? getInitials(businessName) : "MP";
+  const kyb = KYB_STATUS_LABEL[user?.kybStatus ?? "none"] ?? KYB_STATUS_LABEL.none;
 
   return (
-    <aside className="flex h-full w-64 flex-col bg-white border-r border-slate-100 hidden md:flex" aria-label="Primary">
+    <aside
+      className="flex h-full w-64 flex-col bg-card border-r border-border hidden md:flex"
+      role="navigation"
+      aria-label="Main navigation"
+    >
       {/* Logo */}
-      <div className="p-5 border-b border-slate-100">
+      <div className="p-5 border-b border-border">
         <Link href="/dashboard" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-amber-500 flex items-center justify-center shadow-sm shadow-amber-200">
-            <ShieldCheck className="w-4.5 h-4.5 text-white" />
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center p-1 shadow-sm">
+            <Image src="/logo.png" alt="BettaPay Logo" width={24} height={24} className="w-full h-full object-contain" />
           </div>
-          <span className="font-bold text-xl tracking-tight text-slate-900">BettaPay</span>
+          <span className="font-bold text-xl tracking-tight text-foreground">
+            BettaPay
+          </span>
         </Link>
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+        {merchantNavItems.map((item) => {
+          const isActive =
+            pathname === item.href || pathname.startsWith(item.href + "/");
           const Icon = item.icon;
-          
+
           return (
             <Link
               key={item.href}
               href={item.href}
+              aria-current={isActive ? 'page' : undefined}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
-                isActive 
-                  ? "bg-amber-50 text-amber-700 border border-amber-200/80" 
-                  : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all",
+                isActive
+                  ? "bg-primary/10 text-primary border border-primary/30 font-semibold shadow-sm"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground font-medium border border-transparent",
               )}
             >
-              <Icon className={cn("w-4.5 h-4.5", isActive ? "text-amber-600" : "text-slate-400")} />
+              <div className="relative flex items-center">
+                <Icon
+                  className={cn(
+                    "w-5 h-5 transition-colors",
+                    isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
+                  )}
+                />
+                {isActive && (
+                  <span className="absolute -right-1 -top-1 w-2 h-2 rounded-full bg-primary" />
+                )}
+              </div>
               {item.label}
             </Link>
           );
@@ -65,19 +87,33 @@ export const MerchantSidebar = () => {
       </nav>
 
       {/* User footer */}
-      <div className="p-4 border-t border-slate-100">
-        <div className="flex items-center gap-3 px-2 py-2">
-          <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
-            MC
+      <div className="p-4 border-t border-border">
+        {isLoggedIn && user ? (
+          <div className="flex items-center gap-3 px-2 py-2">
+            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-primary-foreground flex-shrink-0">
+              {initials}
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-semibold text-foreground truncate">
+                {businessName || "Merchant"}
+              </span>
+              <span className={cn("text-xs flex items-center gap-1 font-medium", kyb.color)}>
+                {user.kybStatus === "approved" && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+                )}
+                {kyb.label}
+              </span>
+            </div>
           </div>
-          <div className="flex flex-col min-w-0">
-            <span className="text-sm font-semibold text-slate-900 truncate">Merchant Corp</span>
-            <span className="text-xs text-emerald-600 flex items-center gap-1 font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
-              Verified
-            </span>
+        ) : (
+          <div className="flex items-center gap-3 px-2 py-2">
+            <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
+            <div className="flex flex-col gap-1.5 min-w-0 flex-1">
+              <div className="h-3 w-24 bg-muted rounded animate-pulse" />
+              <div className="h-2.5 w-16 bg-muted rounded animate-pulse" />
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </aside>
   );
