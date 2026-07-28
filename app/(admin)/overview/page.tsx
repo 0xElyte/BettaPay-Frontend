@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay';
+import { SystemHealthCard } from '@/components/admin/SystemHealthCard';
 import { Users, AlertTriangle, ArrowUpRight, Activity, DollarSign } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 
@@ -122,58 +123,7 @@ export default function AdminOverviewPage() {
           </CardContent>
         </Card>
 
-        <Card className="col-span-3 bg-card border shadow-sm">
-          <CardHeader>
-            <CardTitle>System Health</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                  <div>
-                    <p className="text-sm font-medium">Stellar Horizon API</p>
-                    <p className="text-xs text-muted-foreground">Operational</p>
-                  </div>
-                </div>
-                <span className="text-xs font-mono text-muted-foreground">14ms ping</span>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                  <div>
-                    <p className="text-sm font-medium">Soroban RPC</p>
-                    <p className="text-xs text-muted-foreground">Operational</p>
-                  </div>
-                </div>
-                <span className="text-xs font-mono text-muted-foreground">42ms ping</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                  <div>
-                    <p className="text-sm font-medium">SEP-24 Anchor (NGN)</p>
-                    <p className="text-xs text-muted-foreground">Operational</p>
-                  </div>
-                </div>
-                <span className="text-xs font-mono text-muted-foreground">Syncing</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-                  <div>
-                    <p className="text-sm font-medium">PostgreSQL Database</p>
-                    <p className="text-xs text-muted-foreground">High Load</p>
-                  </div>
-                </div>
-                <span className="text-xs font-mono text-yellow-500">82% CPU</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <SystemHealthCard />
       </div>
     </div>
   );
