@@ -127,7 +127,7 @@ export default function OnboardingPage() {
           {step === 2 && <StepSettlement data={data} errors={errors} onChange={updateData} />}
           {step === 3 && <StepWebhook data={data} errors={errors} onChange={updateData} />}
           {step === 4 && <StepReview data={data} onEdit={setStep} />}
-          <div className="flex flex-col-reverse gap-3 border-t pt-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col-reverse gap-3 p-2 border-t pt-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex gap-2">
               {step > 0 && <Button variant="outline" onClick={() => setStep(step - 1)} disabled={isSubmitting}><ArrowLeft className="mr-2 h-4 w-4" />Back</Button>}
               <Button variant="ghost" onClick={skip} disabled={isSubmitting}>Complete later</Button>
