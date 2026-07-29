@@ -34,6 +34,8 @@ export function announce(message: string): void {
         el.textContent = '';
       }, 1000);
     }, 100);
+  }, 500);
+
   latestMessage = message;
 
   if (debounceTimer) {

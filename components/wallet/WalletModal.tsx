@@ -4,7 +4,7 @@ import React, { useCallback, useEffect } from 'react';
 import { ExternalLink, AlertTriangle, Info, RotateCcw } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui';
 import { Button } from '@/components/ui';
-import { useWalletStore } from '@/lib/store/walletStore';
+import { useWalletStore, WalletState } from '@/lib/store/walletStore';
 import { useNotify } from '@/lib/hooks/useNotify';
 import { WalletConnectModal } from './WalletConnectModal';
 import { WalletConnectSession } from '@/lib/stellar/walletconnect';
@@ -25,7 +25,7 @@ function ConnectErrorAlert({
           <div className="flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400 mt-0.5 shrink-0" />
             <div>
-              <p className="font-medium text-orange-800 dark:text-orange-300">
+              <p className="font-medium text-orange-850 dark:text-orange-300">
                 Please install Freighter browser extension
               </p>
               <p className="text-orange-700 dark:text-orange-400 mt-1">
@@ -63,7 +63,7 @@ function ConnectErrorAlert({
             <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400 mt-0.5 shrink-0" />
             <div>
               <p className="font-medium text-yellow-800 dark:text-yellow-300">Network mismatch</p>
-              <p className="text-yellow-700 dark:text-yellow-400 mt-1">
+              <p className="text-yellow-705 dark:text-yellow-400 mt-1">
                 Please switch Freighter to{' '}
                 <strong>{connectError.expectedNetwork}</strong> (currently set to{' '}
                 <strong>{connectError.freighterNetwork}</strong>).
@@ -99,21 +99,18 @@ function ConnectErrorAlert({
 }
 
 export function WalletModal({
-  open,
-  onOpenChange,
   onConnected,
 }: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
   onConnected?: (address: string) => void;
 }) {
   const { success } = useNotify();
-  const connect = useWalletStore((s) => s.connect);
-  const resolveWalletConnect = useWalletStore((s) => s.resolveWalletConnect);
-  const connectError = useWalletStore((s) => s.connectError);
-  const clearConnectError = useWalletStore((s) => s.clearConnectError);
+  const connect = useWalletStore((s: WalletState) => s.connect);
+  const resolveWalletConnect = useWalletStore((s: WalletState) => s.resolveWalletConnect);
+  const connectError = useWalletStore((s: WalletState) => s.connectError);
   // True while waiting for the user to complete the WC QR flow
-  const walletConnectPending = useWalletStore((s) => s.walletConnectPending);
+  const walletConnectPending = useWalletStore((s: WalletState) => s.walletConnectPending);
+  const open = useWalletStore((s: WalletState) => s.walletModalOpen);
+  const onOpenChange = useWalletStore((s: WalletState) => s.setWalletModalOpen);
 
   const handleFreighter = useCallback(async () => {
     try {
@@ -163,30 +160,15 @@ export function WalletModal({
     [],
   );
 
-  const handleOpenChange = useCallback(
-    (v: boolean) => {
-      if (!v) clearConnectError();
-      onOpenChange(v);
-    },
-    [clearConnectError, onOpenChange],
-  );
-
-  // Reset pending state whenever the outer modal is closed
-  useEffect(() => {
-    if (!open) {
-      useWalletStore.setState({ walletConnectPending: false });
-    }
-  }, [open]);
-
   return (
     <>
       {/* ── Connector selection sheet ── */}
-      <Dialog open={open && !walletConnectPending} onOpenChange={handleOpenChange}>
+      <Dialog open={open && !walletConnectPending} onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Connect a Wallet</DialogTitle>
           </DialogHeader>
-
+ 
           <div className="space-y-4 pt-2">
             {connectError && (
               <ConnectErrorAlert connectError={connectError} onRetry={handleFreighter} />

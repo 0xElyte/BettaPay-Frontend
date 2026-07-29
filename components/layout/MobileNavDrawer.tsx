@@ -141,7 +141,6 @@ export const MobileNavDrawer = ({
         </div>
 
         {/* Scrollable Navigation Items */}
-        <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
         <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');

@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { trimInput } from '@/lib/utils/sanitize';
 import { useNotify } from '@/lib/hooks/useNotify';
 import { usePayments, type ApiPayment } from '@/lib/api/hooks';
+import { apiClient } from '@/lib/api/axios';
 import Link from 'next/link';
 
 type PaymentLink = ApiPayment;
@@ -99,7 +100,7 @@ const PaymentLinkCard = memo(function PaymentLinkCard({ link, onEdit, onDelete, 
 
 export default function PaymentsPage() {
   const { data: links, isLoading, error: fetchError, refetch } = usePayments();
-  const { success: notifySuccess, info: notifyInfo } = useNotify();
+  const { success: notifySuccess, info: notifyInfo, error: notifyError } = useNotify();
 
   // Filter & Search states
   const [searchTerm, setSearchTerm] = useState('');
@@ -116,6 +117,7 @@ export default function PaymentsPage() {
   const [deletingLink, setDeletingLink] = useState<PaymentLink | null>(null);
   const [selectedQrLink, setSelectedQrLink] = useState<PaymentLink | null>(null);
   const [linksError, setLinksError] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   // Form states
   const [labelValue, setLabelValue] = useState('');
@@ -156,7 +158,7 @@ export default function PaymentsPage() {
     return filteredLinks.slice(start, start + pageSize);
   }, [filteredLinks, currentPage, pageSize]);
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     const sanitizedLabel = trimInput(labelValue);
     if (!sanitizedLabel) {
@@ -164,9 +166,42 @@ export default function PaymentsPage() {
       return;
     }
     setLabelError('');
-    notifySuccess('Payment link created successfully');
-    setIsCreateOpen(false);
-    resetForm();
+
+    const payload: Record<string, unknown> = {
+      label: sanitizedLabel,
+      currency: currencyValue,
+      mode: currencyMode,
+      reference: referenceValue || undefined,
+      expiry: expiryValue || undefined,
+      redirectUrl: redirectUrlValue || undefined,
+    };
+
+    if (currencyMode === 'single') {
+      payload.amount = amountValue ? parseFloat(amountValue) : undefined;
+    } else {
+      const amounts: Record<string, number> = {};
+      for (const [code, val] of Object.entries(multiCurrencyAmounts)) {
+        if (val) amounts[code] = parseFloat(val);
+      }
+      payload.amounts = Object.keys(amounts).length > 0 ? amounts : undefined;
+      payload.currencies = selectedCurrencies;
+    }
+
+    setIsCreating(true);
+    try {
+      await apiClient.post('/api/payment-links', payload);
+      notifySuccess('Payment link created successfully');
+      setIsCreateOpen(false);
+      resetForm();
+      refetch();
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+        'Failed to create payment link';
+      notifyError(message);
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const { register: registerEdit, handleSubmit: handleEditSubmitForm, reset: resetEditForm, formState: { errors: editErrors } } = useForm<EditPaymentLinkFormValues>({
@@ -375,7 +410,9 @@ export default function PaymentsPage() {
 
                 <DialogFooter className="pt-4">
                   <Button type="button" variant="ghost" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-                  <Button type="submit">Create Link</Button>
+                  <Button type="submit" disabled={isCreating}>
+                    {isCreating ? 'Creating...' : 'Create Link'}
+                  </Button>
                 </DialogFooter>
               </form>
             </DialogContent>

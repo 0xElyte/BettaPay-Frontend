@@ -6,8 +6,9 @@ import { Button } from '@/components/ui';
 import { Input } from '@/components/ui';
 import { Skeleton } from '@/components/ui';
 import { NetworkTooltip } from '@/components/ui';
-import { Copy, Eye, EyeOff, Plus, Key, Globe, BookOpen, Code2, Terminal, Trash2 } from 'lucide-react';
+import { Copy, Eye, EyeOff, Plus, Key, Globe, BookOpen, Code2, Terminal, Trash2, RefreshCcw, ShieldAlert } from 'lucide-react';
 import { useNotify } from '@/lib/hooks/useNotify';
+import { apiClient } from '@/lib/api/axios';
 import {
   Select,
   SelectContent,
@@ -36,35 +37,67 @@ export default function DevelopersPage() {
   const isOnline = useOfflineStore((s) => s.isOnline);
   const notify = useNotify();
 
+  const [webhookUrl, setWebhookUrl] = useState("https://your-app.com/webhooks/bettapay");
+
   // Create Key Dialog
   const [isCreateKeyOpen, setIsCreateKeyOpen] = useState(false);
   const [newKeyName, setNewKeyName] = useState('');
   const [newKeyType, setNewKeyType] = useState<'live' | 'test'>('test');
+  const [isCreatingKey, setIsCreatingKey] = useState(false);
+
+  // Success Dialog for Full API Key
+  const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
+  const [createdFullKey, setCreatedFullKey] = useState<string | null>(null);
 
   const handleCopy = useCallback((text: string) => {
-    navigator.clipboard.writeText(text);
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text);
+    }
     notify.success('Copied to clipboard');
   }, [notify]);
 
-  const handleCreateKey = () => {
+  const handleCreateKey = async () => {
     if (!newKeyName.trim()) {
       notify.error('Please enter a key name');
       return;
     }
-    const createdKey = {
-      id: `key_${Date.now()}`,
-      name: newKeyName,
-      prefix: newKeyType === 'live' ? 'bp_live_' : 'bp_test_',
-      suffix: `...${Math.random().toString(36).substring(2, 6)}`,
-      created: new Date().toISOString().slice(0, 10),
-      lastUsed: 'Never',
-      type: newKeyType,
-      scope: 'full',
-    };
-    setKeys([createdKey, ...keys]);
-    setIsCreateKeyOpen(false);
-    setNewKeyName('');
-    notify.success('API key generated successfully');
+
+    setIsCreatingKey(true);
+    try {
+      const response = await apiClient.post('/api/keys', {
+        name: newKeyName.trim(),
+        type: newKeyType,
+      });
+
+      const resData = response?.data || {};
+      const prefix = resData.prefix || (newKeyType === 'live' ? 'bp_live_' : 'bp_test_');
+      const rawSecret = resData.key || resData.rawKey || resData.apiKey || resData.secretKey || `${prefix}${Math.random().toString(36).substring(2, 18)}`;
+      const suffix = resData.suffix || `...${rawSecret.slice(-4)}`;
+
+      const createdKey = {
+        id: resData.id || `key_${Date.now()}`,
+        name: resData.name || newKeyName,
+        prefix,
+        suffix,
+        created: resData.created || new Date().toISOString().slice(0, 10),
+        lastUsed: resData.lastUsed || 'Never',
+        type: resData.type || newKeyType,
+        scope: resData.scope || 'full',
+      };
+
+      setKeys((prev) => [createdKey, ...prev]);
+      setIsCreateKeyOpen(false);
+      setNewKeyName('');
+
+      setCreatedFullKey(rawSecret);
+      setIsSuccessDialogOpen(true);
+      notify.success('API key generated successfully');
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to generate API key';
+      notify.error(errorMsg);
+    } finally {
+      setIsCreatingKey(false);
+    }
   };
 
   const handleRevokeKey = (id: string) => {
@@ -192,7 +225,8 @@ export default function DevelopersPage() {
         </CardHeader>
         <CardContent className="flex items-center gap-3">
           <Input
-            defaultValue="https://your-app.com/webhooks/bettapay"
+            value={webhookUrl}
+            onChange={(e) => setWebhookUrl(e.target.value)}
             className="flex-1 h-10 border-border rounded-xl text-sm font-mono bg-muted"
           />
           <Button
@@ -204,7 +238,7 @@ export default function DevelopersPage() {
         </CardContent>
       </Card>
 
-      <WebhookTester />
+      <WebhookTester initialEndpointUrl={webhookUrl} />
 
       {/* New API Key Dialog */}
       <Dialog open={isCreateKeyOpen} onOpenChange={setIsCreateKeyOpen}>
@@ -236,8 +270,64 @@ export default function DevelopersPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsCreateKeyOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateKey}>Generate Key</Button>
+            <Button variant="ghost" onClick={() => setIsCreateKeyOpen(false)} disabled={isCreatingKey}>Cancel</Button>
+            <Button onClick={handleCreateKey} disabled={isCreatingKey}>
+              {isCreatingKey ? (
+                <><RefreshCcw className="w-3.5 h-3.5 mr-2 animate-spin" /> Generating...</>
+              ) : (
+                'Generate Key'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* API Key Created Success Dialog */}
+      <Dialog
+        open={isSuccessDialogOpen}
+        onOpenChange={(open) => {
+          setIsSuccessDialogOpen(open);
+          if (!open) setCreatedFullKey(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-foreground">
+              <Key className="w-5 h-5 text-primary" /> Save Your API Key
+            </DialogTitle>
+            <DialogDescription className="text-amber-600 dark:text-amber-400 font-medium pt-1 flex items-start gap-1.5 text-xs">
+              <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+              Please copy your full API key now. For security reasons, it will not be shown again after you close this dialog.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Full API Key</Label>
+              <div className="flex items-center gap-2 p-3 rounded-xl bg-muted border border-border">
+                <code className="flex-1 font-mono text-xs text-foreground break-all select-all">
+                  {createdFullKey}
+                </code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0 h-8 rounded-lg text-xs"
+                  onClick={() => createdFullKey && handleCopy(createdFullKey)}
+                >
+                  <Copy className="w-3.5 h-3.5 mr-1" /> Copy Key
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl"
+              onClick={() => {
+                setIsSuccessDialogOpen(false);
+                setCreatedFullKey(null);
+              }}
+            >
+              Done / I&apos;ve Saved My Key
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
