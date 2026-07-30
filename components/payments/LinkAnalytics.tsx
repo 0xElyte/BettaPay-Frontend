@@ -13,6 +13,7 @@ import { formatCurrency } from "@/lib/utils/format";
 import dynamic from "next/dynamic";
 import { Skeleton } from "@/components/ui";
 import { subDays, format } from "date-fns";
+import { ErrorBoundary } from '@/components/shared';
 
 const ClicksChart = dynamic(
   () => import("@/components/charts/ClicksChart"),
@@ -191,7 +192,9 @@ export function LinkAnalytics({
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
+          <ErrorBoundary>
             <ClicksChart data={analyticsData.viewsTimeline} height={260} />
+          </ErrorBoundary>
           </CardContent>
         </Card>
 
