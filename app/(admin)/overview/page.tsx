@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/components
 import { CurrencyDisplay, ErrorDisplay, StatCard } from '@/components/shared';
 import { Users, AlertTriangle, ArrowUpRight, Activity, DollarSign } from 'lucide-react';
 import { useAdminStats } from '@/lib/api/hooks';
+import { ErrorBoundary } from '@/components/shared';
 
 
 
@@ -18,7 +19,9 @@ const AdminChartSection = memo(function AdminChartSection() {
       </CardHeader>
       <CardContent className="pl-2">
         <div className="mt-4">
-          <PlatformVolumeChart height={300} />
+          <ErrorBoundary>
+            <PlatformVolumeChart height={300} />
+          </ErrorBoundary>
         </div>
       </CardContent>
     </Card>
