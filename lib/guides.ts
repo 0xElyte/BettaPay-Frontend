@@ -136,6 +136,13 @@ export function getAdjacentGuides(slug: string): {
   };
 }
 
+/** Human-readable label for each difficulty level. */
+export const difficultyLabels: Record<GuideDifficulty, string> = {
+  beginner: "Beginner",
+  intermediate: "Intermediate",
+  advanced: "Advanced",
+};
+
 /** Tailwind classes for each difficulty badge, matched to the theme tokens. */
 export const difficultyBadgeStyles: Record<GuideDifficulty, string> = {
   beginner:

@@ -82,13 +82,6 @@ const SAMPLE_PAYLOADS: Record<string, JsonValue> = {
   },
 };
 
-const MOCK_HEADERS: Record<string, string> = {
-  "content-type": "application/json",
-  "x-signature": "sig_live_abc123def456...",
-  "x-webhook-id": "wh_001",
-  "x-delivery-attempt": "0",
-};
-
 interface DeliveryLogEntry {
   id: string;
   timestamp: Date;
@@ -97,7 +90,51 @@ interface DeliveryLogEntry {
   statusCode: number;
 }
 
-export function WebhookTester() {
+async function computeHmacSignature(secret: string, payloadStr: string): Promise<string> {
+  if (typeof window !== "undefined" && window.crypto?.subtle) {
+    try {
+      const encoder = new TextEncoder();
+      const key = await window.crypto.subtle.importKey(
+        "raw",
+        encoder.encode(secret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
+      );
+      const signatureBytes = await window.crypto.subtle.sign(
+        "HMAC",
+        key,
+        encoder.encode(payloadStr)
+      );
+      const hex = Array.from(new Uint8Array(signatureBytes))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+      return `sha256=${hex}`;
+    } catch {
+      // Fallback below
+    }
+  }
+
+  try {
+    const cryptoModule = await import("crypto");
+    const hex = cryptoModule.createHmac("sha256", secret).update(payloadStr).digest("hex");
+    return `sha256=${hex}`;
+  } catch {
+    return "";
+  }
+}
+
+interface WebhookTesterProps {
+  initialEndpointUrl?: string;
+  initialWebhookSecret?: string;
+}
+
+export function WebhookTester({
+  initialEndpointUrl = "https://your-app.com/webhooks/bettapay",
+  initialWebhookSecret = "whsec_test_secret123",
+}: WebhookTesterProps = {}) {
+  const [endpointUrl, setEndpointUrl] = useState(initialEndpointUrl);
+  const [webhookSecret, setWebhookSecret] = useState(initialWebhookSecret);
   const [selectedEvent, setSelectedEvent] = useState<string>("payment.completed");
   const [isSending, setIsSending] = useState(false);
   const [response, setResponse] = useState<{
@@ -117,39 +154,105 @@ export function WebhookTester() {
 
   const notify = useNotify();
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
+    if (!endpointUrl.trim()) {
+      notify.error("Please enter a valid webhook endpoint URL");
+      return;
+    }
+
     setIsSending(true);
     setResponse(null);
 
     const payload = SAMPLE_PAYLOADS[selectedEvent];
-    const timestamp = new Date();
+    const bodyString = JSON.stringify(payload);
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const eventId = (payload as { id?: string })?.id || `evt_${Date.now()}`;
 
-    setTimeout(() => {
-      const status = 200;
+    try {
+      const signature = await computeHmacSignature(webhookSecret, bodyString);
+
+      const res = await fetch(endpointUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-BettaPay-Signature": signature,
+          "X-BettaPay-Timestamp": timestamp,
+          "X-BettaPay-Event-Id": eventId,
+        },
+        body: bodyString,
+      });
+
+      const responseStatusCode = res.status;
+      const responseHeaders: Record<string, string> = {};
+
+      if (res.headers && typeof res.headers.forEach === "function") {
+        res.headers.forEach((value, key) => {
+          responseHeaders[key] = value;
+        });
+      }
+
+      let responseBody: JsonValue;
+      const contentType = res.headers?.get("content-type") || "";
+      const responseText = await res.text();
+
+      if (contentType.includes("application/json")) {
+        try {
+          responseBody = JSON.parse(responseText);
+        } catch {
+          responseBody = responseText;
+        }
+      } else {
+        responseBody = responseText || responseStatusCode;
+      }
+
       setResponse({
-        status,
-        headers: { ...MOCK_HEADERS },
+        status: responseStatusCode,
+        headers: responseHeaders,
+        body: responseBody,
+      });
+
+      const isSuccess = responseStatusCode >= 200 && responseStatusCode < 300;
+      setDeliveryLog((prev) => [
+        {
+          id: `del_${Date.now()}`,
+          timestamp: new Date(),
+          eventType: selectedEvent,
+          status: isSuccess ? "success" : "failed",
+          statusCode: responseStatusCode,
+        },
+        ...prev,
+      ]);
+
+      if (isSuccess) {
+        notify.success(`Test webhook sent successfully (${responseStatusCode})`);
+      } else {
+        notify.error(`Webhook endpoint returned status ${responseStatusCode}`);
+      }
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "Failed to deliver webhook";
+      setResponse({
+        status: 0,
+        headers: {},
         body: {
-          success: true,
-          received: true,
-          event_id: payload.id,
-          message: "Webhook delivered and acknowledged",
+          error: errorMsg,
+          message: "Could not connect to webhook endpoint. Check URL accessibility or CORS policy.",
         },
       });
       setDeliveryLog((prev) => [
         {
           id: `del_${Date.now()}`,
-          timestamp,
+          timestamp: new Date(),
           eventType: selectedEvent,
-          status: "success",
-          statusCode: status,
+          status: "failed",
+          statusCode: 0,
         },
         ...prev,
       ]);
+      notify.error(`Webhook request failed: ${errorMsg}`);
+    } finally {
       setIsSending(false);
-      notify.success("Test webhook sent successfully");
-    }, 1200);
-  }, [selectedEvent, notify]);
+    }
+  }, [endpointUrl, webhookSecret, selectedEvent, notify]);
 
   const handleCopyPayload = useCallback(() => {
     navigator.clipboard.writeText(JSON.stringify(SAMPLE_PAYLOADS[selectedEvent], null, 2));
@@ -215,6 +318,28 @@ export function WebhookTester() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Webhook Endpoint URL</Label>
+              <Input
+                value={endpointUrl}
+                onChange={(e) => setEndpointUrl(e.target.value)}
+                placeholder="https://your-app.com/webhooks/bettapay"
+                className="h-10 border-border rounded-xl bg-muted font-mono text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Webhook Secret</Label>
+              <Input
+                type="password"
+                value={webhookSecret}
+                onChange={(e) => setWebhookSecret(e.target.value)}
+                placeholder="whsec_..."
+                className="h-10 border-border rounded-xl bg-muted font-mono text-sm"
+              />
+            </div>
+          </div>
+
           <div className="flex flex-col sm:flex-row gap-4 items-end">
             <div className="flex-1 space-y-2">
               <Label>Event Type</Label>
@@ -259,13 +384,13 @@ export function WebhookTester() {
           {response && (
             <div className="space-y-4 rounded-xl border border-border bg-muted/30 p-4 animate-in fade-in slide-in-from-top-2 duration-300">
               <div className="flex items-center gap-2">
-                {response.status === 200 ? (
+                {response.status >= 200 && response.status < 300 ? (
                   <CheckCircle2 className="w-5 h-5 text-success" />
                 ) : (
                   <AlertCircle className="w-5 h-5 text-destructive" />
                 )}
                 <span className="text-sm font-semibold">
-                  Response: {response.status} {response.status === 200 ? "OK" : "Error"}
+                  Response: {response.status === 0 ? "0 (Network Error)" : `${response.status} ${response.status === 200 ? "OK" : ""}`}
                 </span>
               </div>
 

@@ -20,12 +20,18 @@ describe('StatusBadge', () => {
     expect(screen.getByText('Pending').closest('span')).toHaveClass('text-warning');
   });
 
-  it('renders a processing badge with the processing label and primary styling', () => {
+  it('renders a processing badge with the processing label and blue styling', () => {
     const { container } = render(<StatusBadge status={PAYMENT_STATUS.PROCESSING} />);
 
     expect(screen.getByText('Processing')).toBeInTheDocument();
     expect(container.querySelector('svg')).toBeInTheDocument();
-    expect(screen.getByText('Processing').closest('span')).toHaveClass('text-primary');
+    expect(screen.getByText('Processing').closest('span')).toHaveClass('text-info');
+  });
+
+  it('spins the icon while processing', () => {
+    const { container } = render(<StatusBadge status={PAYMENT_STATUS.PROCESSING} />);
+
+    expect(container.querySelector('svg')).toHaveClass('animate-spin');
   });
 
   it('renders a failed badge with the failed label and destructive styling', () => {

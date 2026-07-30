@@ -89,10 +89,14 @@ const config: Config = {
         "surface-xl": "var(--shadow-xl)",
       },
       fontFamily: {
+        // Resolves the `font-sans` utility for body text.
+        // Reads from the --font-body CSS variable set by next/font/google (DM Sans),
+        // with a clean system-ui fallback.
+        sans: ["var(--font-body)", "system-ui", "sans-serif"],
         // Resolves the `font-heading` utility used in card.tsx and dialog.tsx.
-        // Reads from the --font-heading CSS variable set in globals.css (Inter),
-        // with a safe system-ui fallback.
-        heading: ["var(--font-heading)", "system-ui", "sans-serif"],
+        // Reads from the --font-heading CSS variable set by next/font/google (Fraunces),
+        // with a safe serif fallback.
+        heading: ["var(--font-heading)", "Georgia", "serif"],
       },
     },
   },

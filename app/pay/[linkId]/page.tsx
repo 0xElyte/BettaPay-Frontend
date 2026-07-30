@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui";
 import { Input } from "@/components/ui";
-import { useWalletStore } from "@/lib/store/walletStore";
+import { useWalletStore, WalletState } from "@/lib/store/walletStore";
 import { CurrencyDisplay } from "@/components/shared";
 import { CurrencySelector } from "@/components/payments/CurrencySelector";
 import { ArrowRight, QrCode } from "lucide-react";
@@ -31,11 +31,22 @@ import { WalletModalFallback } from "@/components/wallet/WalletModalFallback";
 import { WalletModalErrorBoundary } from "@/components/wallet/WalletModalErrorBoundary";
 import { QRCodeModal } from "@/components/payments/QRCode";
 
+function hexToUint8Array(hexString: string): Uint8Array {
+  const cleanHex = hexString.startsWith('0x') ? hexString.slice(2) : hexString;
+  const len = cleanHex.length;
+  const result = new Uint8Array(len / 2);
+  for (let i = 0; i < len; i += 2) {
+    result[i / 2] = parseInt(cleanHex.substring(i, i + 2), 16);
+  }
+  return result;
+}
+
 export default function PaymentLinkPage() {
   const router = useRouter();
   const { isConnected, connect, address } = useWalletStore();
   const { error: notifyError } = useNotify();
-  const [walletModalOpen, setWalletModalOpen] = useState(false);
+  const walletModalOpen = useWalletStore((s: WalletState) => s.walletModalOpen);
+  const setWalletModalOpen = useWalletStore((s: WalletState) => s.setWalletModalOpen);
   const [qrModalOpen, setQrModalOpen] = useState(false);
   // Bumping this recreates the `dynamic()` import below with a fresh promise,
   // so retrying after a chunk-load failure re-fetches the chunk instead of
@@ -132,7 +143,7 @@ export default function PaymentLinkPage() {
           new Contract(contractId).call(
             "store_payment_reference",
             nativeToScVal(merchantAddress, { type: "address" }),
-            nativeToScVal(Buffer.from(referenceHex, "hex")),
+            nativeToScVal(hexToUint8Array(referenceHex)),
             nativeToScVal(stroopAmount, { type: "i128" }),
           ),
         )
@@ -177,16 +188,10 @@ export default function PaymentLinkPage() {
         >
           <Suspense
             fallback={
-              <WalletModalFallback
-                open={walletModalOpen}
-                onOpenChange={setWalletModalOpen}
-              />
+              <WalletModalFallback />
             }
           >
-            <WalletModal
-              open={walletModalOpen}
-              onOpenChange={setWalletModalOpen}
-            />
+            <WalletModal />
           </Suspense>
         </WalletModalErrorBoundary>
 

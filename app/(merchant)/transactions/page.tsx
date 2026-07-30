@@ -1,29 +1,9 @@
 "use client";
 
-import { useState } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { StatusBadge } from '@/components/shared/StatusBadge';
-import { CopyAddress } from '@/components/shared/CopyAddress';
-import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay';
-import { mockTransactions, Transaction } from '@/lib/mock/transactions';
-import { formatDate } from '@/lib/utils/format';
-import { Search, Download, Filter } from 'lucide-react';
-import { generateCSV, CSVColumn } from '@/lib/utils/csv';
-import { useState, memo, useMemo, useRef } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { useDebounceValue } from 'usehooks-ts';
-import { Card, CardContent } from '@/components/ui';
-import { Input } from '@/components/ui';
-import { Button } from '@/components/ui';
-import { Skeleton } from '@/components/ui';
-import { NetworkTooltip } from '@/components/ui';
-import { StatusBadge } from '@/components/shared';
-import { CopyAddress } from '@/components/shared';
-import { CurrencyDisplay } from '@/components/shared';
-import { ErrorDisplay } from '@/components/shared';
-import { EmptyState } from '@/components/shared';
+import { Card, CardContent, Input, Button, Skeleton, NetworkTooltip, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui';
+import { StatusBadge, CopyAddress, CurrencyDisplay, ErrorDisplay, EmptyState } from '@/components/shared';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { usePayments, type ApiPayment } from '@/lib/api/hooks';
 import { formatDate } from '@/lib/utils/format';
@@ -34,7 +14,6 @@ import { getStellarExplorerTxUrl } from '@/lib/utils/explorer';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { TransactionDrawer } from '@/components/transactions/TransactionDrawer';
 import { useOfflineStore } from '@/lib/store/offlineStore';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui';
 import { useNotify } from '@/lib/hooks/useNotify';
 
 type Transaction = ApiPayment;
@@ -59,34 +38,6 @@ interface TransactionCardProps {
   onClick: (tx: Transaction) => void;
 }
 
-  const handleExportCSV = () => {
-    const columns: CSVColumn<Transaction>[] = [
-      { header: 'Date', key: (tx) => formatDate(tx.timestamp) },
-      { header: 'Payer', key: 'payerAddress' },
-      { header: 'Tx Hash', key: 'txHash' },
-      { header: 'Source', key: 'source' },
-      { header: 'Amount (USDC)', key: 'amountUsdc' },
-      { header: 'Amount (NGN)', key: 'amountNgn' },
-      { header: 'FX Rate', key: 'fxRate' },
-      { header: 'Status', key: 'status' }
-    ];
-
-    const csvContent = generateCSV(filteredTransactions, columns);
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    
-    // Format date as YYYY-MM-DD
-    const dateStr = new Date().toISOString().split('T')[0];
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', `bettapay-transactions-${dateStr}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
 const TransactionCard = memo(function TransactionCard({ tx, onClick }: TransactionCardProps) {
   return (
     <div
@@ -102,15 +53,6 @@ const TransactionCard = memo(function TransactionCard({ tx, onClick }: Transacti
           <span className="text-xs text-muted-foreground">Payer</span>
           <CopyAddress address={tx.payerAddress ?? ''} />
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="border-border/50 bg-brand-surface">
-            <Filter className="w-4 h-4 mr-2" />
-            Filter
-          </Button>
-          <Button onClick={handleExportCSV} variant="outline" className="border-border/50 bg-brand-surface">
-            <Download className="w-4 h-4 mr-2" />
-            Export CSV
-          </Button>
         <div className="flex items-center justify-between">
           <span className="text-xs text-muted-foreground">Tx Hash</span>
           <div className="flex items-center gap-2">
@@ -147,12 +89,73 @@ const TransactionCard = memo(function TransactionCard({ tx, onClick }: Transacti
   );
 });
 
+interface TransactionRowProps {
+  tx: Transaction;
+  translateY: number;
+  onClick: (tx: Transaction) => void;
+}
+
+// Rendered inline inside virtualItems.map(...) previously — every row got a
+// brand-new inline JSX subtree on each parent render (e.g. every keystroke
+// in the search input), so React re-rendered the entire visible table body
+// even though debouncedSearch hadn't changed yet. Extracting a memoized row
+// component gives React a props-based bailout, mirroring TransactionCard.
+const TransactionRow = memo(function TransactionRow({ tx, translateY, onClick }: TransactionRowProps) {
+  return (
+    <tr
+      className="border-border/50 hover:bg-muted/30 cursor-pointer border-b"
+      onClick={() => onClick(tx)}
+      style={{ transform: `translateY(${translateY}px)` }}
+    >
+      <td className="text-muted-foreground whitespace-nowrap px-4 py-2 text-sm">
+        {formatDate(tx.createdAt)}
+      </td>
+      <td className="px-4 py-2 text-sm">
+        <CopyAddress address={tx.payerAddress ?? ''} />
+      </td>
+      <td className="px-4 py-2 text-sm">
+        <CopyAddress address={tx.txHash ?? ''} />
+      </td>
+      <td className="text-muted-foreground px-4 py-2 text-sm">
+        {tx.source ?? '—'}
+      </td>
+      <td className="text-right font-medium px-4 py-2 text-sm">
+        <CurrencyDisplay amount={tx.amountUsdc} currency="USDC" />
+      </td>
+      <td className="text-right text-muted-foreground px-4 py-2 text-sm">
+        <CurrencyDisplay amount={tx.amountNgn ?? 0} currency="NGN" showDecimals={false} />
+      </td>
+      <td className="text-center px-4 py-2 text-sm">
+        <StatusBadge status={tx.status} />
+      </td>
+      <td className="w-[80px] text-center px-4 py-2 text-sm">
+        {tx.txHash && (
+          <a
+            href={getStellarExplorerTxUrl(tx.txHash)}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="View on Stellar Explorer"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Button variant="ghost" size="icon" className="min-h-[44px] min-w-[44px] rounded-lg">
+              <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
+            </Button>
+          </a>
+        )}
+      </td>
+    </tr>
+  );
+});
+
 export default function TransactionsPage() {
   const { data: payments, isLoading, error: fetchError, refetch } = usePayments();
   const notify = useNotify();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const sanitizedOnChange = (value: string) => setSearchTerm(sanitizeSearchQuery(value));
+  const sanitizedOnChange = useCallback(
+    (value: string) => setSearchTerm(sanitizeSearchQuery(value)),
+    [],
+  );
   const [debouncedSearch] = useDebounceValue(searchTerm, 300);
 
   const [statusFilter, setStatusFilter] = useState('all');
@@ -194,6 +197,12 @@ export default function TransactionsPage() {
   }, [payments, debouncedSearch, statusFilter, assetFilter, dateRangeFilter]);
 
   const activeFilterCount = (statusFilter !== 'all' ? 1 : 0) + (assetFilter !== 'all' ? 1 : 0) + (dateRangeFilter !== 'all' ? 1 : 0);
+
+  const handleClearFilters = () => {
+    setStatusFilter('all');
+    setAssetFilter('all');
+    setDateRangeFilter('all');
+  };
 
   const handleExportCsv = () => {
     if (filteredTransactions.length === 0) {
@@ -319,6 +328,16 @@ export default function TransactionsPage() {
                   </SelectContent>
                 </Select>
 
+                {activeFilterCount > 0 && (
+                  <Button
+                    variant="ghost"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={handleClearFilters}
+                  >
+                    Clear all filters
+                  </Button>
+                )}
+
                 <NetworkTooltip show={!isOnline}>
                   <Button
                     variant="outline"
@@ -403,51 +422,12 @@ export default function TransactionsPage() {
                               {virtualItems.map((virtualItem) => {
                                 const tx = filteredTransactions[virtualItem.index];
                                 return (
-                                  <tr
+                                  <TransactionRow
                                     key={virtualItem.key}
-                                    className="border-border/50 hover:bg-muted/30 cursor-pointer border-b"
-                                    onClick={() => setSelectedTx(tx)}
-                                    style={{
-                                      transform: `translateY(${virtualItem.start}px)`,
-                                    }}
-                                  >
-                                    <td className="text-muted-foreground whitespace-nowrap px-4 py-2 text-sm">
-                                      {formatDate(tx.createdAt)}
-                                    </td>
-                                    <td className="px-4 py-2 text-sm">
-                                      <CopyAddress address={tx.payerAddress ?? ''} />
-                                    </td>
-                                    <td className="px-4 py-2 text-sm">
-                                      <CopyAddress address={tx.txHash ?? ''} />
-                                    </td>
-                                    <td className="text-muted-foreground px-4 py-2 text-sm">
-                                      {tx.source ?? '—'}
-                                    </td>
-                                    <td className="text-right font-medium px-4 py-2 text-sm">
-                                      <CurrencyDisplay amount={tx.amountUsdc} currency="USDC" />
-                                    </td>
-                                    <td className="text-right text-muted-foreground px-4 py-2 text-sm">
-                                      <CurrencyDisplay amount={tx.amountNgn ?? 0} currency="NGN" showDecimals={false} />
-                                    </td>
-                                    <td className="text-center px-4 py-2 text-sm">
-                                      <StatusBadge status={tx.status} />
-                                    </td>
-                                    <td className="w-[80px] text-center px-4 py-2 text-sm">
-                                      {tx.txHash && (
-                                        <a
-                                          href={getStellarExplorerTxUrl(tx.txHash)}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          aria-label="View on Stellar Explorer"
-                                          onClick={(e) => e.stopPropagation()}
-                                        >
-                                          <Button variant="ghost" size="icon" className="min-h-[44px] min-w-[44px] rounded-lg">
-                                            <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
-                                          </Button>
-                                        </a>
-                                      )}
-                                    </td>
-                                  </tr>
+                                    tx={tx}
+                                    translateY={virtualItem.start}
+                                    onClick={setSelectedTx}
+                                  />
                                 );
                               })}
                             </tbody>

@@ -268,8 +268,6 @@ export default function FxRatesPage() {
               <Bell className="w-4 h-4 text-primary" /> Create Rate Alert
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <FxRateChart height={240} />
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

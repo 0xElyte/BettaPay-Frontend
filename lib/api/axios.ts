@@ -7,14 +7,73 @@ import { announce } from '@/lib/utils/announce';
 import { parseApiError } from '../utils/apiError';
 import { getAppRouter } from '../navigation/appRouter';
 
-function notifyError(message: string) {
+// Deduplication: avoid showing multiple toasts for simultaneous errors
+const recentErrors = new Map<string, number>();
+const ERROR_DEDUP_WINDOW_MS = 3000;
+let pendingErrorBatch: {
+  count: number;
+  message?: string;
+  timer: ReturnType<typeof setTimeout> | null;
+} | null = null;
+
+function showErrorToast(message: string) {
   toast.error(message, { duration: 5000 });
   announce(message);
 }
 
+function notifyError(message: string, key?: string) {
+  const dedupKey = key || message;
+  const now = Date.now();
+  const lastShown = recentErrors.get(dedupKey);
+
+  if (lastShown && now - lastShown < ERROR_DEDUP_WINDOW_MS) {
+    return;
+  }
+
+  recentErrors.set(dedupKey, now);
+
+  if (pendingErrorBatch) {
+    pendingErrorBatch.count += 1;
+    return;
+  }
+
+  pendingErrorBatch = {
+    count: 1,
+    message,
+    timer: setTimeout(() => {
+      if (!pendingErrorBatch) {
+        return;
+      }
+
+      const summaryMessage = pendingErrorBatch.count > 1 ? 'Multiple errors occurred' : pendingErrorBatch.message || message;
+      showErrorToast(summaryMessage);
+      pendingErrorBatch = null;
+    }, 150),
+  };
+
+  // Clean up old entries
+  if (recentErrors.size > 50) {
+    for (const [k, v] of recentErrors) {
+      if (now - v > ERROR_DEDUP_WINDOW_MS) {
+        recentErrors.delete(k);
+      }
+    }
+  }
+}
+
 // Use cookie-based auth (HttpOnly cookie set by the server). Do not read tokens from localStorage.
+const apiBaseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+if (!process.env.NEXT_PUBLIC_API_URL && typeof window !== 'undefined') {
+  console.warn(
+    '[API Client] NEXT_PUBLIC_API_URL is not set. Defaulting to http://localhost:3001. ' +
+    'This will cause API calls to fail in production. Please set NEXT_PUBLIC_API_URL environment variable.'
+  );
+}
+
 export const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
+  baseURL: apiBaseURL,
+  timeout: 15000, // 15 seconds for normal requests
   headers: {
     'Content-Type': 'application/json',
   },
@@ -41,6 +100,15 @@ apiClient.interceptors.request.use((config) => {
       config.headers.set(CSRF_HEADER_NAME, csrfToken);
     }
   }
+
+  // Use 30 second timeout for payment submission endpoints, 15 seconds for others
+  const url = config.url || '';
+  if (url.includes('/payments') || url.includes('/settlements')) {
+    config.timeout = 30000;
+  } else {
+    config.timeout = 15000;
+  }
+
   return config;
 });
 
@@ -121,15 +189,18 @@ apiClient.interceptors.response.use(
 
     // Handle 429 rate limiting
     if (error.response?.status === 429) {
-      const retryAfter = error.response.headers['retry-after'];
-      const seconds = parseInt(retryAfter, 10) || 30;
-      useRateLimitStore.getState().setRateLimited(seconds);
-      notifyError(`Too many attempts. Please try again in ${seconds} seconds.`);
+      const retryAfter = error.response?.headers?.['retry-after'];
+      const seconds = parseInt(String(retryAfter), 10) || 30;
+      const endpoint = originalRequest?.url || error.config?.url || 'unknown';
+      const rawLimit = error.response?.headers?.['x-ratelimit-limit'] || error.response?.headers?.['X-RateLimit-Limit'];
+      const limit = rawLimit ? parseInt(String(rawLimit), 10) : undefined;
+      useRateLimitStore.getState().setRateLimited(seconds, endpoint, limit);
+      notifyError(`Too many attempts. Please try again in ${seconds} seconds.`, `429_${endpoint}`);
     } else if (!error.response) {
-      // Show toast for network errors
-      notifyError('Network error. Please check your connection.');
+      notifyError('Network error. Please check your connection.', 'network_error');
     } else if (error.response?.status >= 500) {
-      notifyError('A server error occurred. Please try again later.');
+      const endpoint = originalRequest?.url || error.config?.url || 'unknown';
+      notifyError('A server error occurred. Please try again later.', `5xx_${error.response.status}_${endpoint}`);
     }
 
     return Promise.reject(parseApiError(error));

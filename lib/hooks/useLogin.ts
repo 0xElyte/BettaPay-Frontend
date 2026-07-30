@@ -2,14 +2,15 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/authStore';
 import { useNotify } from '@/lib/hooks/useNotify';
-import { signChallenge } from '@/lib/stellar/freighter';
 import { decodeJwtPayload } from '@/lib/utils/jwt';
+import { useWalletStore, WalletState } from '@/lib/store/walletStore';
 
 export function useLogin() {
   const router = useRouter();
   const { login } = useAuthStore();
   const [isWalletLoading, setIsWalletLoading] = useState(false);
-  const [walletModalOpen, setWalletModalOpen] = useState(false);
+  const walletModalOpen = useWalletStore((s: WalletState) => s.walletModalOpen);
+  const setWalletModalOpen = useWalletStore((s: WalletState) => s.setWalletModalOpen);
   const { success, error } = useNotify();
 
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
@@ -51,6 +52,8 @@ export function useLogin() {
       if (meRes.ok) {
         const merchantData = await meRes.json();
         if (merchantData.name === 'My Business') {
+          const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+          document.cookie = `merchant_onboarded=false; Path=/; SameSite=Lax; Max-Age=86400${secureFlag}`;
           router.push('/onboarding');
           return;
         }
@@ -59,6 +62,8 @@ export function useLogin() {
       // ignore
     }
 
+    const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+    document.cookie = `merchant_onboarded=true; Path=/; SameSite=Lax; Max-Age=86400${secureFlag}`;
     router.push(user.role === 'admin' ? '/overview' : '/dashboard');
   }, [apiBase, login, router, success, error]);
 
@@ -89,7 +94,9 @@ export function useLogin() {
       if (!challengeRes.ok) throw new Error('Failed to fetch challenge');
       const { challenge } = await challengeRes.json();
 
-      const signature = await signChallenge(address, challenge);
+      // Route signing through the store so it works for both Freighter and
+      // WalletConnect — the store dispatches to the correct connector.
+      const signature = await useWalletStore.getState().signMessage(challenge);
       if (!signature) throw new Error('User rejected or failed to sign challenge');
 
       const verifyRes = await fetch(`${apiBase}/api/auth/wallet/verify`, {

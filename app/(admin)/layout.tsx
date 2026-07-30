@@ -7,7 +7,7 @@ import { adminNavItems } from '@/lib/navigation/adminNav';
 import { PageTransition, ErrorBoundary } from '@/components/shared';
 import { MobileNavDrawer } from '@/components/layout';
 import { Topbar } from '@/components/layout';
-import Footer from '@/components/layout';
+import Footer from '@/components/layout/Footer';
 import Image from 'next/image';
 import { useAuthStore } from '@/lib/store/authStore';
 
@@ -67,6 +67,19 @@ export default function AdminLayout({
             </div>
             BettaPay <span className="text-primary text-sm font-normal ml-0.5">ADMIN</span>
           </span>
+        }
+        userFooter={
+          <div className="flex items-center gap-3 px-3 py-2">
+            <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs font-bold text-secondary-foreground border border-border/30">
+              AD
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-sidebar-foreground">System Admin</span>
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                Superuser
+              </span>
+            </div>
+          </div>
         }
       />
       
