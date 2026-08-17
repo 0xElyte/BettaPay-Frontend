@@ -4,7 +4,7 @@ import { useRateLimitStore } from '../store/rateLimitStore';
 import { getCsrfTokenFromCookie, CSRF_HEADER_NAME } from '../utils/csrf';
 import { toast } from 'sonner';
 import { announce } from '@/lib/utils/announce';
-import { parseApiError } from '../utils/apiError';
+import { parseApiError, isTimeoutError } from '../utils/apiError';
 import { getAppRouter } from '../navigation/appRouter';
 
 // Deduplication: avoid showing multiple toasts for simultaneous errors
@@ -64,6 +64,14 @@ function notifyError(message: string, key?: string) {
 // Use cookie-based auth (HttpOnly cookie set by the server). Do not read tokens from localStorage.
 const apiBaseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+// Default timeout for all requests unless a longer one is needed (e.g. payment submission).
+export const DEFAULT_TIMEOUT_MS = 15000;
+// Payment submission endpoints (charge creation, settlement processing) can take longer
+// than standard reads because they may wait for provider confirmation.
+export const PAYMENT_TIMEOUT_MS = 30000;
+// URLs matching these paths get the extended payment timeout.
+const PAYMENT_TIMEOUT_PATHS: ReadonlyArray<string> = ['/payments', '/settlements'];
+
 if (!process.env.NEXT_PUBLIC_API_URL && typeof window !== 'undefined') {
   console.warn(
     '[API Client] NEXT_PUBLIC_API_URL is not set. Defaulting to http://localhost:3001. ' +
@@ -73,7 +81,7 @@ if (!process.env.NEXT_PUBLIC_API_URL && typeof window !== 'undefined') {
 
 export const apiClient = axios.create({
   baseURL: apiBaseURL,
-  timeout: 15000, // 15 seconds for normal requests
+  timeout: DEFAULT_TIMEOUT_MS,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -92,6 +100,15 @@ const refreshClient = axios.create({
 // Attach CSRF token to all state-changing requests (double-submit cookie pattern)
 const STATE_METHODS = ['post', 'put', 'patch', 'delete'] as const;
 
+// Resolve the timeout for a request. Payment submission endpoints get the extended
+// timeout; everything else uses the default. Note that Axios merges the instance
+// default into every request config, so the URL match is the authoritative signal
+// here and cannot be distinguished from a caller-provided value at this point.
+function resolveRequestTimeout(url: string | undefined): number {
+  const safeUrl = url || '';
+  return PAYMENT_TIMEOUT_PATHS.some((path) => safeUrl.includes(path)) ? PAYMENT_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
+}
+
 apiClient.interceptors.request.use((config) => {
   const method = (config.method || '').toLowerCase();
   if (STATE_METHODS.includes(method as (typeof STATE_METHODS)[number])) {
@@ -101,13 +118,7 @@ apiClient.interceptors.request.use((config) => {
     }
   }
 
-  // Use 30 second timeout for payment submission endpoints, 15 seconds for others
-  const url = config.url || '';
-  if (url.includes('/payments') || url.includes('/settlements')) {
-    config.timeout = 30000;
-  } else {
-    config.timeout = 15000;
-  }
+  config.timeout = resolveRequestTimeout(config.url);
 
   return config;
 });
@@ -196,6 +207,11 @@ apiClient.interceptors.response.use(
       const limit = rawLimit ? parseInt(String(rawLimit), 10) : undefined;
       useRateLimitStore.getState().setRateLimited(seconds, endpoint, limit);
       notifyError(`Too many attempts. Please try again in ${seconds} seconds.`, `429_${endpoint}`);
+    } else if (isTimeoutError(error)) {
+      // Axios aborts timed-out requests and surfaces an ECONNABORTED error.
+      // Avoid the generic network message so the user knows the request was
+      // given ample time and can retry.
+      notifyError('The request timed out. Please try again.', `timeout_${originalRequest?.url || 'unknown'}`);
     } else if (!error.response) {
       notifyError('Network error. Please check your connection.', 'network_error');
     } else if (error.response?.status >= 500) {
