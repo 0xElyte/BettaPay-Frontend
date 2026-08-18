@@ -1,5 +1,15 @@
 import { AxiosError } from 'axios';
 
+export const REQUEST_TIMED_OUT_CODE = 'ECONNABORTED';
+export const REQUEST_TIMED_OUT_MESSAGE = 'The request timed out. Please try again.';
+
+export function isTimeoutError(error: unknown): boolean {
+  if (error && typeof error === 'object' && 'code' in error) {
+    return (error as { code?: string }).code === REQUEST_TIMED_OUT_CODE;
+  }
+  return false;
+}
+
 export interface ApiErrorResponse {
   message: string;
   code?: string;
@@ -60,7 +70,8 @@ export function parseApiError(error: unknown): ApiError {
   if (error && typeof error === 'object' && 'isAxiosError' in error) {
     const axiosError = error as AxiosError<{ message?: string; error?: string; code?: string; details?: unknown }>;
     const data = axiosError.response?.data;
-    const message = data?.message || data?.error || axiosError.message || 'An unexpected error occurred';
+    const message =
+      REQUEST_TIMED_OUT_CODE === axiosError.code ? REQUEST_TIMED_OUT_MESSAGE : data?.message || data?.error || axiosError.message || 'An unexpected error occurred';
     const code = data?.code || axiosError.code;
     const status = axiosError.response?.status;
     const details = data?.details;
