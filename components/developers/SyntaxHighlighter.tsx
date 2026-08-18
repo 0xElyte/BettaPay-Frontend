@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { type Language } from './codeSnippets';
-import { getHighlighter, type Highlighter } from 'shiki';
+import { createHighlighter, type Highlighter } from 'shiki';
 
 interface SyntaxHighlighterProps {
   code: string;
@@ -23,7 +23,7 @@ export function SyntaxHighlighter({ code, language }: SyntaxHighlighterProps) {
   useEffect(() => {
     const initHighlighter = async () => {
       try {
-        const hl = await getHighlighter({
+        const hl = await createHighlighter({
           themes: ['github-light', 'github-dark'],
           langs: ['js', 'py', 'php', 'go'],
         });
