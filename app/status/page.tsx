@@ -1,7 +1,6 @@
 "use client";
 
-import Header from "@/components/layout";
-import Footer from "@/components/layout";
+import { Header, Footer } from "@/components/layout";
 import { OverallBanner } from "@/components/status/OverallBanner";
 import { ComponentStatusGrid } from "@/components/status/ComponentStatus";
 import { IncidentTimeline } from "@/components/status/IncidentTimeline";

@@ -20,8 +20,6 @@ type Period = typeof PERIOD_OPTIONS[number];
 interface RevenueChartSectionProps {
   chartError: boolean;
   onRetry: () => void;
-  /** Payments from `usePayments` — the chart falls back to mock data when omitted. */
-  data?: RevenuePayment[];
 }
 
 /**
@@ -31,7 +29,6 @@ interface RevenueChartSectionProps {
 export const RevenueChartSection = memo(function RevenueChartSection({
   chartError,
   onRetry,
-  data,
 }: RevenueChartSectionProps) {
   const [activePeriod, setActivePeriod] = useState<Period>('7D');
 

@@ -91,8 +91,6 @@ interface ChartTooltipProps {
 }
 
 const ChartTooltip = ({ active, payload, label }: ChartTooltipProps) => {
-  const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === 'dark';
   if (active && payload && payload.length) {
     const daily = payload.find((p) => p.dataKey === "total")?.value;
     const cumulative = payload.find((p) => p.dataKey === "volume")?.value;

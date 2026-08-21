@@ -3,18 +3,16 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { useDebounceValue } from 'usehooks-ts';
 import { Card, CardContent, Input, Button, Skeleton, NetworkTooltip, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui';
-import { StatusBadge, CopyAddress, CurrencyDisplay, ErrorDisplay, EmptyState } from '@/components/shared';
+import { StatusBadge, CopyAddress, CurrencyDisplay, ErrorDisplay, EmptyState, ExportMenu } from '@/components/shared';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { usePayments, type ApiPayment } from '@/lib/api/hooks';
 import { formatDate } from '@/lib/utils/format';
 import { sanitizeSearchQuery } from '@/lib/utils/sanitize';
-import { buildCsv, escapeCsvField } from '@/lib/utils/csv';
-import { Search, Download, SearchX, ExternalLink } from 'lucide-react';
+import { Search, SearchX, ExternalLink } from 'lucide-react';
 import { getStellarExplorerTxUrl } from '@/lib/utils/explorer';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { TransactionDrawer } from '@/components/transactions/TransactionDrawer';
 import { useOfflineStore } from '@/lib/store/offlineStore';
-import { useNotify } from '@/lib/hooks/useNotify';
 
 type Transaction = ApiPayment;
 
@@ -149,7 +147,6 @@ const TransactionRow = memo(function TransactionRow({ tx, translateY, onClick }:
 
 export default function TransactionsPage() {
   const { data: payments, isLoading, error: fetchError, refetch } = usePayments();
-  const notify = useNotify();
 
   const [searchTerm, setSearchTerm] = useState('');
   const sanitizedOnChange = useCallback(
@@ -204,38 +201,21 @@ export default function TransactionsPage() {
     setDateRangeFilter('all');
   };
 
-  const handleExportCsv = () => {
-    if (filteredTransactions.length === 0) {
-      notify.error("No transactions to export");
-      return;
-    }
-    // CSV field escaping follows RFC 4180: wrap text in double quotes and
-    // double any embedded `"` so embedded quotes cannot break parsing.
-    // Numeric columns stay unquoted so spreadsheets preserve their type.
-    const headers = "Date,Payer,TxHash,Source,AmountUSDC,AmountNGN,Status\n";
-    const rows = filteredTransactions.map(tx =>
-      [
-        escapeCsvField(tx.createdAt),
-        escapeCsvField(tx.payerAddress),
-        escapeCsvField(tx.txHash),
-        escapeCsvField(tx.source),
+  // Export the FULL filtered dataset — never the virtualized visible slice —
+  // so the downloaded CSV matches exactly what the filters/search show.
+  const exportRows = useMemo(
+    () =>
+      filteredTransactions.map((tx) => [
+        tx.createdAt,
+        tx.payerAddress,
+        tx.txHash,
+        tx.source,
         tx.amountUsdc,
         tx.amountNgn ?? 0,
-        escapeCsvField(tx.status),
-      ].join(",")
-    );
-    // The BOM in buildCsv() makes Excel recognise the file as UTF-8 so the
-    // ₦ glyph in NGN amounts renders without manual encoding selection.
-    const csv = buildCsv(headers, rows);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `bettapay_transactions_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    notify.success(`Exported ${filteredTransactions.length} transactions`);
-  };
+        tx.status,
+      ]),
+    [filteredTransactions],
+  );
 
   const virtualizer = useVirtualizer({
     count: filteredTransactions.length,
@@ -339,16 +319,14 @@ export default function TransactionsPage() {
                 )}
 
                 <NetworkTooltip show={!isOnline}>
-                  <Button
-                    variant="outline"
+                  <ExportMenu
+                    id="export-csv-btn"
+                    filename="transactions"
+                    headers={['Date', 'Payer', 'TxHash', 'Source', 'AmountUSDC', 'AmountNGN', 'Status']}
+                    rows={exportRows}
                     disabled={!isOnline}
-                    aria-disabled={!isOnline}
-                    onClick={handleExportCsv}
                     className="border-border/50 bg-card"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Export CSV
-                  </Button>
+                  />
                 </NetworkTooltip>
 
                 <Button
