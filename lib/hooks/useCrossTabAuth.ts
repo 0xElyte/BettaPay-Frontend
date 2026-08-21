@@ -14,7 +14,6 @@ interface AuthChannelMessage {
 
 export function useCrossTabAuth() {
   const router = useRouter();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const channelRef = useRef<BroadcastChannel | null>(null);
 
   useEffect(() => {

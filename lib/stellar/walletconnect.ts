@@ -106,13 +106,6 @@ async function exportRawKey(key: CryptoKey): Promise<Uint8Array> {
   return new Uint8Array(raw);
 }
 
-async function importRawKey(raw: Uint8Array): Promise<CryptoKey> {
-  return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM', length: 256 }, false, [
-    'encrypt',
-    'decrypt',
-  ]);
-}
-
 async function encrypt(plaintext: string, key: CryptoKey): Promise<WCEncryptedEnvelope> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encoded = new TextEncoder().encode(plaintext);
@@ -129,7 +122,11 @@ async function encrypt(plaintext: string, key: CryptoKey): Promise<WCEncryptedEn
 async function decrypt(envelope: WCEncryptedEnvelope, key: CryptoKey): Promise<string> {
   const iv = fromBase64url(envelope.iv);
   const ciphertext = fromBase64url(envelope.message);
-  const plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+  const plainBuf = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: iv as unknown as BufferSource },
+    key,
+    ciphertext as unknown as BufferSource,
+  );
   return new TextDecoder().decode(plainBuf);
 }
 

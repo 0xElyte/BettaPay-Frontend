@@ -7,15 +7,8 @@ import { adminNavItems } from '@/lib/navigation/adminNav';
 import Image from 'next/image';
 
 // ---------------------------------------------------------------------------
-// Active-link helper — mirrors MerchantSidebar's exact match + sub-path logic
-// ---------------------------------------------------------------------------
-
-function isNavItemActive(pathname: string, href: string): boolean {
-  return pathname === href || pathname.startsWith(href + "/");
-}
-
-// ---------------------------------------------------------------------------
-// AdminSidebar
+// AdminSidebar — active-link logic (exact match + sub-path) is inlined below,
+// mirroring MerchantSidebar.
 // ---------------------------------------------------------------------------
 
 export const AdminSidebar = () => {

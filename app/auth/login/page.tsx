@@ -29,7 +29,6 @@ export default function LoginPage() {
 
   const {
     isWalletLoading,
-    walletModalOpen,
     setWalletModalOpen,
     onGoogleSuccess,
     onWalletConnected,
@@ -125,8 +124,8 @@ export default function LoginPage() {
                 <item.icon className="w-4 h-4 text-primary" />
               </div>
               <div>
-                <p className="text-sm font-medium text-foreground">{t(`login.benefits.${item.key}.title` as any)}</p>
-                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{t(`login.benefits.${item.key}.description` as any)}</p>
+                <p className="text-sm font-medium text-foreground">{t(`login.benefits.${item.key}.title` as never)}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{t(`login.benefits.${item.key}.description` as never)}</p>
               </div>
             </div>
           ))}
