@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, Skeleton, Input } from '@/components/ui';
 import { Button } from '@/components/ui';
 import { ErrorBoundary, ErrorDisplay } from '@/components/shared';
