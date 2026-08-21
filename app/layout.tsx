@@ -6,6 +6,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { I18nProvider } from '@/components/i18n/I18nProvider';
+import { TranslationCoveragePanel } from '@/components/i18n/TranslationCoveragePanel';
 import { ensureCsrfCookie } from '@/lib/utils/csrf';
 
 
@@ -64,6 +65,7 @@ export default async function RootLayout({
               <Toaster />
               <div id="announcer" aria-live="polite" aria-atomic="true" className="sr-only" />
             </Providers>
+            <TranslationCoveragePanel />
           </I18nProvider>
         </GoogleOAuthProvider>
       </body>
