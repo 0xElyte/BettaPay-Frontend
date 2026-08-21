@@ -1,5 +1,11 @@
 import { cn } from '@/lib/utils';
-import { formatCurrency, truncateAddress, formatDate } from '@/lib/utils/format';
+import {
+  formatCurrency,
+  truncateAddress,
+  formatDate,
+  formatNumber,
+  getActiveLocale,
+} from '@/lib/utils/format';
 
 describe('utils/format', () => {
   describe('cn()', () => {
@@ -88,6 +94,88 @@ describe('utils/format', () => {
       }).format(d);
 
       expect(formatDate(d)).toBe(expected);
+    });
+  });
+
+  describe('active-locale formatting (AC4)', () => {
+    afterEach(() => {
+      // Reset so locale-dependent tests never leak into the default-locale ones.
+      document.documentElement.lang = '';
+    });
+
+    it('formatCurrency USDC renders numbers in an explicit locale', () => {
+      const value = new Intl.NumberFormat('fr-FR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(1234.56);
+      expect(formatCurrency(1234.56, 'USDC', 'fr')).toBe(`USDC ${value}`);
+    });
+
+    it('formatCurrency NGN renders numbers in an explicit locale', () => {
+      const expected = new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'NGN',
+        minimumFractionDigits: 0,
+      }).format(1234.56);
+      expect(formatCurrency(1234.56, 'NGN', 'pt')).toBe(expected);
+    });
+
+    it('formatDate renders in an explicit locale', () => {
+      const input = '2024-01-02T03:04:00.000Z';
+      const expected = new Intl.DateTimeFormat('pt-BR', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      }).format(new Date(input));
+      expect(formatDate(input, 'pt')).toBe(expected);
+    });
+
+    it('formatNumber renders in an explicit locale', () => {
+      const expected = new Intl.NumberFormat('fr-FR').format(1234567.89);
+      expect(formatNumber(1234567.89, 'fr')).toBe(expected);
+    });
+
+    it('uses document.documentElement.lang when no locale is passed', () => {
+      document.documentElement.lang = 'fr';
+      const value = new Intl.NumberFormat('fr-FR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(1234.56);
+      expect(formatCurrency(1234.56, 'USDC')).toBe(`USDC ${value}`);
+    });
+
+    it('falls back to en (en-US) for an unsupported document lang', () => {
+      document.documentElement.lang = 'de';
+      expect(formatCurrency(100, 'USDC')).toBe('USDC 100.00');
+      expect(formatDate('2024-01-02T03:04:00.000Z')).toBe(
+        new Intl.DateTimeFormat('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        }).format(new Date('2024-01-02T03:04:00.000Z')),
+      );
+    });
+  });
+
+  describe('getActiveLocale()', () => {
+    afterEach(() => {
+      document.documentElement.lang = '';
+    });
+
+    it('returns the supported document language', () => {
+      document.documentElement.lang = 'pt';
+      expect(getActiveLocale()).toBe('pt');
+    });
+
+    it('falls back to en for an empty or unsupported language', () => {
+      document.documentElement.lang = '';
+      expect(getActiveLocale()).toBe('en');
+      document.documentElement.lang = 'xx';
+      expect(getActiveLocale()).toBe('en');
     });
   });
 });

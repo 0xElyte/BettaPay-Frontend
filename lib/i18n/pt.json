@@ -1,7 +1,47 @@
 {
-  "common": { "language": "Idioma", "skipToContent": "Ir para o conteúdo principal" },
-  "languages": { "en": "Inglês", "fr": "Francês", "pt": "Português", "sw": "Suaíli" },
-  "navigation": { "features": "Recursos", "developers": "Desenvolvedores", "company": "Empresa", "login": "Entrar", "getStarted": "Começar" },
-  "landing": { "badge": "Disponível na testnet Soroban", "headline": "Liquide globalmente.", "headlineAccent": "Instantaneamente e sem custódia.", "primaryCta": "Começar a aceitar cripto", "secondaryCta": "Explorar recursos" },
-  "login": { "title": "Bem-vindo de volta", "or": "ou", "connectWallet": "Conectar carteira Freighter", "learnMore": "Saiba mais sobre a BettaPay" }
+  "common": {
+    "brand": "BettaPay",
+    "language": "Idioma",
+    "skipToContent": "Ir para o conteúdo principal"
+  },
+  "languages": {
+    "en": "Inglês",
+    "fr": "Francês",
+    "pt": "Português",
+    "sw": "Suaíli"
+  },
+  "navigation": {
+    "features": "Recursos",
+    "developers": "Desenvolvedores",
+    "company": "Empresa",
+    "login": "Entrar",
+    "getStarted": "Começar"
+  },
+  "landing": {
+    "badge": "Disponível na testnet Soroban",
+    "headline": "Liquide globalmente.",
+    "headlineAccent": "Instantaneamente e sem custódia.",
+    "description": "A plataforma de pagamentos de próxima geração para empresas africanas. Aceite USDC, converta automaticamente via âncoras SEP-24 e receba a liquidação diretamente no seu banco.",
+    "primaryCta": "Começar a aceitar cripto",
+    "secondaryCta": "Explorar recursos",
+    "featuresTitle": "Impulsionado por Stellar e Soroban",
+    "featuresDescription": "Infraestrutura de pagamentos de nível empresarial projetada para velocidade, taxas baixas e transparência perfeita.",
+    "features": {
+      "settlement": { "title": "Liquidação instantânea", "description": "As transações são liquidadas em 3 a 5 segundos. Sem mais espera de dias por transferências internacionais." },
+      "offRamps": { "title": "Saídas fiat SEP-24", "description": "Roteamento automatizado para âncoras Stellar para pagamentos diretos em naira nigeriana na conta bancária." },
+      "fees": { "title": "Divisão inteligente de taxas", "description": "Os contratos Soroban calculam e roteiam automaticamente as taxas da plataforma de forma confiável e on-chain." }
+    }
+  },
+  "login": {
+    "title": "Bem-vindo de volta",
+    "description": "Entre para gerenciar seus pagamentos, ver liquidações e aceitar cripto de clientes do mundo todo.",
+    "or": "ou",
+    "connectWallet": "Conectar carteira Freighter",
+    "learnMore": "Saiba mais sobre a BettaPay",
+    "benefits": {
+      "settlement": { "title": "Liquidação instantânea", "description": "As transações são liquidadas em segundos na Stellar Soroban" },
+      "currency": { "title": "Multimoeda", "description": "Aceite USDC e converta automaticamente para moeda local" },
+      "custody": { "title": "Não custodial", "description": "Você sempre controla seus fundos e chaves" }
+    }
+  }
 }

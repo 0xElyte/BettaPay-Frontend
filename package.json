@@ -9,7 +9,8 @@
     "lint": "next lint",
     "test": "jest --passWithNoTests",
     "test:watch": "jest --watch",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "i18n:check": "node scripts/check-locale-parity.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
