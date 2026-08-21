@@ -3,9 +3,11 @@ import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 
 // next/link needs no router context in these unit tests; render a plain anchor.
 jest.mock('next/link', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const React = require('react');
   return {
     __esModule: true,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     default: ({ href, children, ...props }: any) =>
       React.createElement('a', { href, ...props }, children),
   };

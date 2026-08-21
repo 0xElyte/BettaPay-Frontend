@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect, useState } from "react";
 import { createInstance } from "i18next";
-import { initReactI18next } from "react-i18next";
+import { I18nextProvider, initReactI18next } from "react-i18next";
 import HttpBackend from "i18next-http-backend";
 
 import { defaultLocale, detectPreferredLocale, fallbackResources } from "@/lib/i18n/config";

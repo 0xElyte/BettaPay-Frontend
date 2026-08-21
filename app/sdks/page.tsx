@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import Header from "@/components/layout";
-import Footer from "@/components/layout";
+import { Header, Footer } from "@/components/layout";
 import SDKCard from "@/components/sdks/SDKCard";
 import { ExternalLink } from "lucide-react";
 

@@ -122,7 +122,7 @@ async function mockFreighter(page: import('@playwright/test').Page, options?: {
   await page.addInitScript(
     ({ address, network, signError, balance }) => {
       // Freighter API mock
-      (window as Record<string, unknown>)['freighter'] = {
+      (window as unknown as Record<string, unknown>)['freighter'] = {
         isConnected: async () => true,
         getNetwork: async () => ({ network, networkPassphrase: 'Test SDF Network ; September 2015' }),
         getAddress: async () => address,

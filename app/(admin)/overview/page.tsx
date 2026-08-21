@@ -1,12 +1,11 @@
 "use client";
 
 import { memo } from 'react';
-import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/components/ui';
-import { CurrencyDisplay, ErrorDisplay, StatCard } from '@/components/shared';
+import { CurrencyDisplay, ErrorDisplay, StatCard, ErrorBoundary } from '@/components/shared';
 import { Users, AlertTriangle, ArrowUpRight, Activity, DollarSign } from 'lucide-react';
 import { useAdminStats } from '@/lib/api/hooks';
-import { ErrorBoundary } from '@/components/shared';
+import PlatformVolumeChart from '@/components/charts/PlatformVolumeChart';
 
 
 

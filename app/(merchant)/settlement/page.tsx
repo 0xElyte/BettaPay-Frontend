@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui';
 import { Button } from '@/components/ui';
 import { NetworkTooltip } from '@/components/ui';
@@ -13,13 +13,11 @@ import {
   AlertCircle,
   Banknote,
   ChevronRight,
-  Download,
   Receipt,
   ExternalLink,
 } from 'lucide-react';
 import { getStellarExplorerTxUrl } from '@/lib/utils/explorer';
-import { EmptyState } from '@/components/shared';
-import { ErrorDisplay } from '@/components/shared';
+import { EmptyState, ErrorDisplay, ExportMenu } from '@/components/shared';
 import { useOfflineStore } from '@/lib/store/offlineStore';
 import { useAuthStore } from '@/lib/store/authStore';
 import { SettlementConfirmation } from '@/components/settlement/SettlementConfirmation';
@@ -81,6 +79,22 @@ export default function SettlementPage() {
   const pending = settlements.filter(s => s.status === 'PROCESSING').reduce((sum, s) => sum + s.amountUsdc, 0);
   const totalSettled = settlements.filter(s => s.status === 'COMPLETED').reduce((sum, s) => sum + s.amountUsdc, 0);
   const availableNgn = settlements.filter(s => s.status === 'PENDING').reduce((sum, s) => sum + (s.amountNgn ?? 0), 0);
+
+  // Export the complete settlement history (no paging on this view), so the
+  // CSV contains every row shown by the history list.
+  const exportRows = useMemo(
+    () =>
+      settlements.map((s) => [
+        s.createdAt,
+        s.bankName,
+        s.accountNumber,
+        s.amountUsdc,
+        s.amountNgn ?? 0,
+        s.status,
+        s.txHash,
+      ]),
+    [settlements],
+  );
 
   return (
     <div className="space-y-8 pb-8">
@@ -147,14 +161,15 @@ export default function SettlementPage() {
           <div className="flex items-center gap-2">
             <BatchInvoiceDownload settlements={settlements} />
             <NetworkTooltip show={!isOnline}>
-              <Button
-                variant="outline"
+              <ExportMenu
+                filename="settlements"
+                headers={['Date', 'Bank', 'AccountNumber', 'AmountUSDC', 'AmountNGN', 'Status', 'TxHash']}
+                rows={exportRows}
+                label="Export CSV"
+                size="sm"
                 disabled={!isOnline}
-                aria-disabled={!isOnline}
-                className="border-border text-muted-foreground rounded-xl text-xs h-8 px-3"
-              >
-                <Download className="w-3 h-3 mr-1.5" /> Export
-              </Button>
+                className="border-border text-muted-foreground rounded-xl"
+              />
             </NetworkTooltip>
           </div>
         </CardHeader>

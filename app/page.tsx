@@ -4,8 +4,7 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { Button } from '@/components/ui';
-import Header from '@/components/layout';
-import Footer from '@/components/layout';
+import { Header, Footer } from '@/components/layout';
 import { useAppTranslation } from '@/lib/i18n/useAppTranslation';
 import { landingFeatures } from '@/lib/landing';
 import type { LucideIcon } from 'lucide-react';
@@ -100,10 +99,10 @@ export default function LandingPage() {
 
                   <div className="relative z-10">
                     <h3 className={`font-bold mb-3 text-foreground ${i === 0 ? 'text-3xl lg:text-4xl' : 'text-xl'}`}>
-                      {t(`landing.features.${feature.titleKey}.title`)}
+                      {t(`landing.features.${feature.titleKey}.title` as never)}
                     </h3>
                     <p className={`text-muted-foreground leading-relaxed ${i === 0 ? 'text-lg max-w-xl' : 'text-base'}`}>
-                      {t(`landing.features.${feature.descriptionKey}.description`)}
+                      {t(`landing.features.${feature.descriptionKey}.description` as never)}
                     </p>
                   </div>
                 </div>
