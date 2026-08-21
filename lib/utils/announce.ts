@@ -1,5 +1,5 @@
-let timeoutId: any = null;
-let clearAnnouncerTimeoutId: any = null;
+let timeoutId: ReturnType<typeof setTimeout> | null = null;
+let clearAnnouncerTimeoutId: ReturnType<typeof setTimeout> | null = null;
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let latestMessage = '';
 

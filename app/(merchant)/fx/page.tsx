@@ -1,23 +1,11 @@
 "use client";
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { RefreshCcw, TrendingUp, TrendingDown, Info } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { ErrorBoundary } from '@/components/shared';
-
-const FxRateChart = dynamic(() => import('@/components/charts/FxRateChart'), {
-  ssr: false,
-  loading: () => <div className="h-[240px] bg-slate-50 animate-pulse rounded-xl w-full" />
-});
-import { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, Skeleton, Input } from '@/components/ui';
 import { Button } from '@/components/ui';
-import { ErrorDisplay } from '@/components/shared';
+import { ErrorBoundary, ErrorDisplay } from '@/components/shared';
 import { RefreshCcw, TrendingUp, TrendingDown, Info, Bell, BellRing, Trash2, Plus, ArrowRightLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
-import { Skeleton } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { useNotify } from '@/lib/hooks/useNotify';
 import {
@@ -27,18 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from '@/components/ui';
 import { useRates } from '@/lib/api/hooks';
 import { useRateAlertStore } from '@/lib/store/rateAlertStore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui';
 
-
-
-const pairs = [
-  { from: 'USDC', to: 'NGN', rate: '₦1,550', change: +1.6, trend: 'up' },
-  { from: 'XLM', to: 'NGN', rate: '₦324.5', change: -0.8, trend: 'down' },
-  { from: 'USDC', to: 'XLM', rate: '4.78 XLM', change: +2.3, trend: 'up' },
-];
 
 
 const FxRateChart = dynamic(() => import('@/components/charts/FxRateChart'), {

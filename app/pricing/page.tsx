@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import Header from '@/components/layout';
-import Footer from '@/components/layout';
+import { Header, Footer } from '@/components/layout';
 import { TierCard } from '@/components/pricing/TierCard';
 import { ComparisonTable } from '@/components/pricing/ComparisonTable';
 import { VolumeCalculator } from '@/components/pricing/VolumeCalculator';

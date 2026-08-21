@@ -37,9 +37,8 @@ jest.mock('next/link', () => {
 
 // Mock Header and Footer to isolate the page test
 jest.mock('@/components/layout', () => {
-  return function MockLayout() {
-    return <div data-testid="layout-component" />;
-  };
+  const MockLayout = () => <div data-testid="layout-component" />;
+  return { Header: MockLayout, Footer: MockLayout };
 });
 
 describe('Landing Page Integration Tests', () => {
