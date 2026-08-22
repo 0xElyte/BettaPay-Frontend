@@ -17,13 +17,13 @@ export default function PlatformVolumeChart({ height = 300 }: { height?: number 
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
-  const { data, isLoading, isError } = useQuery<ChartDataItem[]>(
-    ['platform-volume'],
-    async () => {
+  const { data, isLoading, isError } = useQuery<ChartDataItem[]>({
+    queryKey: ['platform-volume'],
+    queryFn: async () => {
       const response = await axios.get<ChartDataItem[]>('/api/platform-volume');
       return response.data;
-    }
-  );
+    },
+  });
 
   if (isLoading) {
     return <Skeleton className="h-[300px] w-full rounded-xl" />;

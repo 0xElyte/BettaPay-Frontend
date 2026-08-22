@@ -449,7 +449,10 @@ export function WebhookTester({
                     </TableCell>
                     <TableCell className="font-medium">{entry.eventType}</TableCell>
                     <TableCell>
-                      <Badge variant={entry.status === "success" ? "success" : "destructive"}>
+                      <Badge
+                        variant={entry.status === "success" ? "outline" : "destructive"}
+                        className={entry.status === "success" ? "text-success border-success/30" : undefined}
+                      >
                         {entry.status === "success" ? "Delivered" : "Failed"}
                       </Badge>
                     </TableCell>

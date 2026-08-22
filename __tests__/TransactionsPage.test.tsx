@@ -1,48 +1,109 @@
 /**
  * __tests__/TransactionsPage.test.tsx
  *
- * Verifies the offline UX for the Export CSV button on the Transactions page:
- *  - Button is disabled and has aria-label when offline
- *  - NetworkTooltip renders with the correct message when offline
- *  - NetworkTooltip is NOT rendered when online
- *  - Button is enabled and has no offline aria-label when online
- *  - Export handler fires when online but is a no-op when offline
+ * Verifies the Transactions page and its CSV export (shared `ExportMenu`):
+ *  - Export button is disabled + aria-disabled when offline, enabled online
+ *  - NetworkTooltip renders the offline message only when offline
+ *  - Clicking export downloads a CSV of the FULL filtered dataset and toasts
+ *  - The page renders its search / filters / empty state
  *
- * Module structure under test:
- *   app/(merchant)/transactions/page.tsx
- *     └─ useOnlineStatus              (mocked)
- *     └─ NetworkTooltip               (mocked — stub preserving data-testid)
- *     └─ mockTransactions             (mocked — empty array for render tests)
+ * The page is data-backed through `usePayments` (React Query), which is
+ * mocked here so no network or QueryClient provider is required.
  */
 
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
 // ---------------------------------------------------------------------------
 // Module mocks — declared before imports that depend on them
 // ---------------------------------------------------------------------------
 
-// ── useOnlineStatus ──────────────────────────────────────────────────────────
 const mockIsOnline = jest.fn<boolean, []>().mockReturnValue(true);
-jest.mock("@/lib/hooks/useOnlineStatus", () => ({
-  useOnlineStatus: () => mockIsOnline(),
+
+// ── offline store ────────────────────────────────────────────────────────────
+jest.mock("@/lib/store/offlineStore", () => ({
+  useOfflineStore: (selector: (state: { isOnline: boolean }) => unknown) =>
+    selector({ isOnline: mockIsOnline() }),
 }));
 
-// ── NetworkTooltip ───────────────────────────────────────────────────────────
-// Stub that renders a visible tooltip-content div only when offline (isOnline=false).
-jest.mock("@/components/shared/NetworkTooltip", () => ({
+// ── API hooks ────────────────────────────────────────────────────────────────
+const mockPayments = [
+  {
+    id: 'pay_1',
+    txHash: '1a2b3c4d',
+    payerAddress: 'GBX...4Q3',
+    merchantId: 'm_1',
+    amountUsdc: 1500,
+    amountNgn: 2325000,
+    fxRate: 1550,
+    status: 'completed',
+    source: 'Payment Link',
+    createdAt: '2026-08-01T10:00:00Z',
+  },
+  {
+    id: 'pay_2',
+    txHash: '2b3c4d5e',
+    payerAddress: 'GCY...8R2',
+    merchantId: 'm_1',
+    amountUsdc: 45.5,
+    amountNgn: 70525,
+    fxRate: 1550,
+    status: 'pending',
+    source: 'QR Code',
+    createdAt: '2026-08-02T10:00:00Z',
+  },
+];
+
+jest.mock("@/lib/api/hooks", () => ({
+  usePayments: () => ({
+    data: mockPayments,
+    isLoading: false,
+    error: null,
+    refetch: jest.fn(),
+  }),
+}));
+
+// ── useDebounceValue (immediate passthrough) ────────────────────────────────
+jest.mock("usehooks-ts", () => ({
+  useDebounceValue: (value: string) => [value],
+}));
+
+// ── react-virtual ────────────────────────────────────────────────────────────
+jest.mock("@tanstack/react-virtual", () => ({
+  useVirtualizer: () => ({
+    getVirtualItems: () => [],
+    getTotalSize: () => 0,
+  }),
+}));
+
+// ── TransactionDrawer ────────────────────────────────────────────────────────
+jest.mock("@/components/transactions/TransactionDrawer", () => ({
+  TransactionDrawer: () => null,
+}));
+
+// ── useNotify ────────────────────────────────────────────────────────────────
+jest.mock("@/lib/hooks/useNotify", () => ({
+  useNotify: jest.fn(),
+}));
+import { useNotify } from "@/lib/hooks/useNotify";
+const mockUseNotify = useNotify as jest.Mock;
+
+// ── NetworkTooltip (stub preserving data-testid) ─────────────────────────────
+// The page imports NetworkTooltip through the `@/components/ui` barrel, which
+// re-exports this module — mock the underlying module so the barrel picks it up.
+jest.mock("@/components/ui/network-tooltip", () => ({
   NetworkTooltip: ({
-    isOnline,
+    show,
     message = "Export unavailable while offline.",
     children,
   }: {
-    isOnline: boolean;
+    show: boolean;
     message?: string;
     children: React.ReactNode;
   }) => (
     <>
       {children}
-      {!isOnline && (
+      {show && (
         <div data-testid="network-tooltip-content" role="tooltip">
           {message}
         </div>
@@ -50,11 +111,6 @@ jest.mock("@/components/shared/NetworkTooltip", () => ({
     </>
   ),
   OFFLINE_MESSAGE: "Export unavailable while offline.",
-}));
-
-// ── mockTransactions ─────────────────────────────────────────────────────────
-jest.mock("@/lib/mock/transactions", () => ({
-  mockTransactions: [],
 }));
 
 // ── next/navigation (not used in page but required by deps) ──────────────────
@@ -77,6 +133,8 @@ jest.mock("lucide-react", () => {
     Download: icon("Download"),
     Filter: icon("Filter"),
     SearchX: icon("SearchX"),
+    ExternalLink: icon("ExternalLink"),
+    Loader2: icon("Loader2"),
   };
 });
 
@@ -93,40 +151,6 @@ jest.mock("@/lib/utils/format", () => ({
 }));
 
 // ── @/components/ui/* ─────────────────────────────────────────────────────────
-jest.mock("@/components/ui/button", () => ({
-  Button: ({
-    children,
-    disabled,
-    onClick,
-    className,
-    "aria-label": ariaLabel,
-    "aria-disabled": ariaDisabled,
-    id,
-    ...rest
-  }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
-    "aria-label"?: string;
-    "aria-disabled"?: boolean;
-  }) => (
-    <button
-      id={id}
-      disabled={disabled}
-      onClick={onClick}
-      className={className}
-      aria-label={ariaLabel}
-      aria-disabled={ariaDisabled}
-      {...rest}
-    >
-      {children}
-    </button>
-  ),
-}));
-
-jest.mock("@/components/ui/input", () => ({
-  Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => (
-    <input {...props} />
-  ),
-}));
-
 jest.mock("@/components/ui/card", () => ({
   Card: ({ children, className }: { children: React.ReactNode; className?: string }) => (
     <div className={className}>{children}</div>
@@ -135,6 +159,23 @@ jest.mock("@/components/ui/card", () => ({
     <div className={className}>{children}</div>
   ),
 }));
+
+// ── @/components/ui/select (base-ui Select crashes in jsdom) ─────────────────
+jest.mock("@/components/ui/select", () => {
+  const passthrough =
+    (Tag: string) =>
+    ({ children, ...rest }: React.HTMLAttributes<HTMLElement>) =>
+      React.createElement(Tag, { ...rest }, children);
+  return {
+    Select: passthrough("div"),
+    SelectTrigger: passthrough("button"),
+    SelectContent: passthrough("div"),
+    SelectItem: passthrough("div"),
+    SelectValue: ({ placeholder }: { placeholder?: string }) => (
+      <span>{placeholder}</span>
+    ),
+  };
+});
 
 jest.mock("@/components/ui/table", () => {
   const passthrough =
@@ -164,9 +205,32 @@ jest.mock("@/components/shared/CurrencyDisplay", () => ({
 jest.mock("@/components/shared/EmptyState", () => ({
   EmptyState: ({ title }: { title: string }) => <div>{title}</div>,
 }));
-jest.mock("@/components/transactions/TransactionDetail", () => ({
-  TransactionDetail: () => null,
-}));
+
+// ── Browser download plumbing (for the CSV export tests) ─────────────────────
+let lastBlob: Blob | null = null;
+const createObjectURL = jest.fn((blob: Blob) => {
+  lastBlob = blob;
+  return "blob:mock";
+});
+const revokeObjectURL = jest.fn();
+beforeAll(() => {
+  Object.defineProperty(URL, "createObjectURL", { writable: true, value: createObjectURL });
+  Object.defineProperty(URL, "revokeObjectURL", { writable: true, value: revokeObjectURL });
+});
+
+async function readBlobText(blob: Blob): Promise<string> {
+  // jsdom's Blob lacks .text()/.arrayBuffer(), and FileReader.readAsText
+  // strips a leading BOM — read as an ArrayBuffer and decode manually with
+  // ignoreBOM so the test can assert on the BOM itself.
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      resolve(new TextDecoder("utf-8", { ignoreBOM: true }).decode(reader.result as ArrayBuffer));
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(blob);
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Component import — after all mocks
@@ -174,20 +238,23 @@ jest.mock("@/components/transactions/TransactionDetail", () => ({
 
 import TransactionsPage from "@/app/(merchant)/transactions/page";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+function makeNotify() {
+  return { success: jest.fn(), error: jest.fn(), info: jest.fn(), silent: jest.fn() };
+}
+
+let notify: ReturnType<typeof makeNotify>;
 
 const renderPage = () => render(<TransactionsPage />);
 
-// When offline, aria-label overrides the computed accessible name, so we
-// locate the button by its stable id rather than by accessible name.
 const getExportButton = () =>
   document.getElementById("export-csv-btn") as HTMLButtonElement;
 
-// ---------------------------------------------------------------------------
-// Tests: Offline state
-// ---------------------------------------------------------------------------
+beforeEach(() => {
+  jest.clearAllMocks();
+  lastBlob = null;
+  notify = makeNotify();
+  mockUseNotify.mockReturnValue(notify);
+});
 
 describe("TransactionsPage — Export CSV (offline)", () => {
   beforeEach(() => {
@@ -197,14 +264,6 @@ describe("TransactionsPage — Export CSV (offline)", () => {
   it("renders a disabled Export CSV button when offline", () => {
     renderPage();
     expect(getExportButton()).toBeDisabled();
-  });
-
-  it("has aria-label 'Export unavailable while offline' on the button", () => {
-    renderPage();
-    expect(getExportButton()).toHaveAttribute(
-      "aria-label",
-      "Export unavailable while offline"
-    );
   });
 
   it("has aria-disabled=true on the button when offline", () => {
@@ -225,16 +284,12 @@ describe("TransactionsPage — Export CSV (offline)", () => {
   });
 
   it("clicking the disabled button does NOT trigger the export", () => {
-    // Button is disabled so onClick should not fire; verify no error thrown.
     renderPage();
     const btn = getExportButton();
     expect(() => fireEvent.click(btn)).not.toThrow();
+    expect(createObjectURL).not.toHaveBeenCalled();
   });
 });
-
-// ---------------------------------------------------------------------------
-// Tests: Online state
-// ---------------------------------------------------------------------------
 
 describe("TransactionsPage — Export CSV (online)", () => {
   beforeEach(() => {
@@ -246,11 +301,10 @@ describe("TransactionsPage — Export CSV (online)", () => {
     expect(getExportButton()).not.toBeDisabled();
   });
 
-  it("does NOT have an offline aria-label when online", () => {
+  it("has aria-disabled=false when online", () => {
     renderPage();
     const btn = getExportButton();
-    // When online, aria-label is not set — attribute value is null
-    expect(btn.getAttribute("aria-label")).toBeNull();
+    expect(btn.getAttribute("aria-disabled")).toBe("false");
   });
 
   it("does NOT render the offline NetworkTooltip when online", () => {
@@ -266,9 +320,24 @@ describe("TransactionsPage — Export CSV (online)", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Tests: Connectivity transition (online → offline → online)
-// ---------------------------------------------------------------------------
+describe("TransactionsPage — CSV export downloads the filtered dataset", () => {
+  beforeEach(() => {
+    mockIsOnline.mockReturnValue(true);
+  });
+
+  it("exports every row of the dataset and toasts the row count", async () => {
+    renderPage();
+    fireEvent.click(getExportButton());
+
+    await waitFor(() => expect(notify.success).toHaveBeenCalledWith("Exported 2 rows"));
+
+    const csv = await readBlobText(lastBlob as Blob);
+    expect(csv.startsWith("\ufeff")).toBe(true);
+    expect(csv).toContain('"Date","Payer","TxHash","Source","AmountUSDC","AmountNGN","Status"');
+    expect(csv).toContain('"2026-08-01T10:00:00Z","GBX...4Q3","1a2b3c4d","Payment Link",1500,2325000,"completed"');
+    expect(csv).toContain('"2026-08-02T10:00:00Z","GCY...8R2","2b3c4d5e","QR Code",45.5,70525,"pending"');
+  });
+});
 
 describe("TransactionsPage — connectivity transitions", () => {
   it("button transitions from disabled (offline) to enabled (online) on re-render", () => {
@@ -294,10 +363,6 @@ describe("TransactionsPage — connectivity transitions", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Tests: Existing page functionality (regression guard)
-// ---------------------------------------------------------------------------
-
 describe("TransactionsPage — existing functionality", () => {
   beforeEach(() => {
     mockIsOnline.mockReturnValue(true);
@@ -313,17 +378,13 @@ describe("TransactionsPage — existing functionality", () => {
   it("renders the search input", () => {
     renderPage();
     expect(
-      screen.getByPlaceholderText(/search by hash or address/i)
+      screen.getByPlaceholderText(/search by hash, address, or label/i)
     ).toBeInTheDocument();
   });
 
-  it("renders the Filter button", () => {
+  it("renders rows from the payments dataset", () => {
     renderPage();
-    expect(screen.getByRole("button", { name: /filter/i })).toBeInTheDocument();
-  });
-
-  it("renders the empty state when there are no transactions", () => {
-    renderPage();
-    expect(screen.getByText(/no transactions found/i)).toBeInTheDocument();
+    expect(screen.getByText("GBX...4Q3")).toBeInTheDocument();
+    expect(screen.getByText("GCY...8R2")).toBeInTheDocument();
   });
 });

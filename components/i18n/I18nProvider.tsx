@@ -2,26 +2,23 @@
 
 import { ReactNode, useEffect, useState } from "react";
 import { createInstance } from "i18next";
-import { initReactI18next } from "react-i18next";
+import { I18nextProvider, initReactI18next } from "react-i18next";
 import HttpBackend from "i18next-http-backend";
 
 import { defaultLocale, detectPreferredLocale, fallbackResources } from "@/lib/i18n/config";
+import { supportedLocales } from "@/lib/i18n/locales";
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [i18n] = useState(() => {
     const instance = createInstance();
     void instance
-      .use(HttpBackend)
       .use(initReactI18next)
       .init({
         fallbackLng: defaultLocale,
-        supportedLngs: ["en", "fr", "pt", "sw"],
+        supportedLngs: [...supportedLocales],
         ns: ["translation"],
         defaultNS: "translation",
-        backend: {
-          loadPath: "/locales/{{lng}}/{{ns}}.json",
-          crossOrigin: true,
-        },
+        // Dictionaries are bundled directly; no runtime HTTP fetching.
         resources: fallbackResources,
         interpolation: { escapeValue: false },
         initAsync: false,

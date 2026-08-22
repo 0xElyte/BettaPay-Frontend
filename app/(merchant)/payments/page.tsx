@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, memo, useMemo, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { editPaymentLinkSchema, type EditPaymentLinkFormValues } from '@/lib/utils/validation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, Button, Input, Label } from '@/components/ui';
-import { CopyAddress, EmptyState, ErrorDisplay } from '@/components/shared';
+import { CopyAddress, EmptyState, ErrorDisplay, ExportMenu } from '@/components/shared';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { QRCodeModal } from '@/components/payments/QRCode';
 import { CurrencySelector } from '@/components/payments/CurrencySelector';
+import { CardGridSkeleton } from '@/components/skeletons/CardGridSkeleton';
 import { Plus, QrCode, Link2, Search, Edit3, Trash2 } from 'lucide-react';
 import {
   Dialog,
@@ -158,6 +159,21 @@ export default function PaymentsPage() {
     return filteredLinks.slice(start, start + pageSize);
   }, [filteredLinks, currentPage, pageSize]);
 
+  // Export the FULL filtered dataset — never just the current page — so the
+  // downloaded CSV matches exactly what the search/status/asset filters show.
+  const exportRows = useMemo(
+    () =>
+      filteredLinks.map((link) => [
+        link.source,
+        link.id,
+        link.url ?? '',
+        link.amountUsdc,
+        link.status,
+        link.createdAt,
+      ]),
+    [filteredLinks],
+  );
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     const sanitizedLabel = trimInput(labelValue);
@@ -205,7 +221,10 @@ export default function PaymentsPage() {
   };
 
   const { register: registerEdit, handleSubmit: handleEditSubmitForm, reset: resetEditForm, formState: { errors: editErrors } } = useForm<EditPaymentLinkFormValues>({
-    resolver: zodResolver(editPaymentLinkSchema),
+    // The schema marks `currency` with a default, so its input type makes it
+    // optional while the inferred form type requires it. Cast through unknown
+    // so the resolver matches the form's output type.
+    resolver: zodResolver(editPaymentLinkSchema) as unknown as Resolver<EditPaymentLinkFormValues>,
   });
 
   useEffect(() => {
@@ -221,7 +240,7 @@ export default function PaymentsPage() {
     }
   }, [editingLink, resetEditForm]);
 
-  const handleEditSubmit = (data: EditPaymentLinkFormValues) => {
+  const handleEditSubmit = () => {
     notifySuccess('Payment link updated successfully');
     setEditingLink(null);
   };
@@ -251,6 +270,12 @@ export default function PaymentsPage() {
         description="Create and manage links to accept crypto payments."
         actions={
           <>
+          <ExportMenu
+            filename="payment-links"
+            headers={['Title', 'Reference', 'URL', 'AmountUSDC', 'Status', 'CreatedAt']}
+            rows={exportRows}
+            className="w-full sm:w-auto"
+          />
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger render={
               <Button className="w-full sm:w-auto">

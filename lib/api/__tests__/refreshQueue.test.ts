@@ -13,6 +13,7 @@ describe('axios token-refresh queue', () => {
     hits = {};
     // Require axios fresh in this module registry generation so the SUT (also
     // required below) shares the exact instance we configure the adapter on.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const axios = require('axios');
 
     const makeResponse = (config: any, status: number, data: any) => ({
@@ -51,6 +52,7 @@ describe('axios token-refresh queue', () => {
     };
 
     axios.defaults.adapter = adapter;
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     apiClient = require('@/lib/api/axios').apiClient;
   });
 

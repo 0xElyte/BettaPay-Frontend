@@ -1,18 +1,33 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
-import HttpBackend from "i18next-http-backend";
 
 import en from "./en.json";
 import fr from "./fr.json";
 import pt from "./pt.json";
 import sw from "./sw.json";
+import {
+  defaultLocale,
+  isSupportedLocale,
+  localeStorageKey,
+  supportedLocales,
+  type Locale,
+} from "./locales";
 
-export const supportedLocales = ["en", "fr", "pt", "sw"] as const;
-export type Locale = (typeof supportedLocales)[number];
-export const defaultLocale: Locale = "en";
-export const localeStorageKey = "bettapay-language";
+// Re-export the shared locale constants so existing importers that reference
+// them from "@/lib/i18n/config" keep working. New code may import directly
+// from "@/lib/i18n/locales" to avoid pulling in the i18next runtime.
+export { defaultLocale, isSupportedLocale, localeStorageKey, supportedLocales };
+export type { Locale };
 
-/** Directly imported resources used as fallback when HTTP backend is unavailable. */
+/**
+ * Bundled translation resources — the single source of truth for every locale.
+ *
+ * Dictionaries live only under `lib/i18n/<locale>.json` (one file per locale,
+ * each the `translation` namespace) and are compiled into the bundle. There is
+ * no separate `public/locales` copy to drift out of sync, and a CI parity check
+ * (`npm run i18n:check`) fails the build if any locale's key set diverges from
+ * `en.json`.
+ */
 export const fallbackResources = {
   en: { translation: en },
   fr: { translation: fr },
@@ -20,17 +35,7 @@ export const fallbackResources = {
   sw: { translation: sw },
 };
 
-/**
- * Backend configuration for loading translation JSON files from
- * public/locales/{{lng}}/{{ns}}.json via HTTP at runtime.
- *
- * Falls back to bundled resources when the backend request fails (e.g.
- * during SSR, offline, or when files are not deployed to public/locales).
- */
-const isServer = typeof window === "undefined";
-
 i18n
-  .use(HttpBackend)
   .use(initReactI18next)
   .init({
     fallbackLng: defaultLocale,
@@ -38,29 +43,16 @@ i18n
     ns: ["translation"],
     defaultNS: "translation",
 
-    // Backend plugin configuration — loads .json from public/locales
-    backend: {
-      loadPath: "/locales/{{lng}}/{{ns}}.json",
-      crossOrigin: true,
-      allowMultiLoading: false,
-      reloadInterval: 0, // No auto-reload
-      // Cache translations in browser to reduce network requests
-      cache: {
-        enabled: true,
-        prefix: "i18n_",
-        expirationTime: 24 * 60 * 60 * 1000, // 24 hours
-      },
-    },
-
-    // Use direct imports as fallback when backend fails
-    resources: isServer ? fallbackResources : undefined,
+    // Dictionaries are bundled directly; no runtime HTTP fetching.
+    resources: fallbackResources,
 
     // Don't escape values for HTML (React handles this)
     interpolation: {
       escapeValue: false,
     },
 
-    // Return empty string for missing keys instead of dev warning
+    // Return the key itself for a missing translation so the raw key is never
+    // rendered as a blank string; the dev coverage panel surfaces these.
     parseMissingKeyHandler: (key: string) => key,
 
     // React-specific: skip suspending on initial load
@@ -70,10 +62,6 @@ i18n
   });
 
 export const resources = fallbackResources;
-
-export function isSupportedLocale(value: string | null | undefined): value is Locale {
-  return supportedLocales.includes(value as Locale);
-}
 
 export function detectPreferredLocale(): Locale {
   if (typeof window === "undefined") return defaultLocale;

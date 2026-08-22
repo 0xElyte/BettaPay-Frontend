@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Header from "@/components/layout";
-import Footer from "@/components/layout";
+import { Header, Footer } from "@/components/layout";
 import { Hero } from "@/components/about/Hero";
 import { Team } from "@/components/about/Team";
 import { Investors } from "@/components/about/Investors";
