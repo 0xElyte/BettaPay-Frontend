@@ -6,11 +6,13 @@ import {
   RefreshCcw,
   ShieldAlert,
   Settings,
+  Activity,
 } from "lucide-react";
 import type { NavItem } from "./types";
 
 export const adminNavItems: NavItem[] = [
   { href: "/overview", label: "Platform Overview", icon: BarChart3 },
+  { href: "/admin/performance", label: "Performance", icon: Activity },
   { href: "/merchants", label: "Merchants", icon: Users },
   { href: "/admin/transactions", label: "Transactions", icon: ListOrdered },
   { href: "/anchors", label: "Anchors (SEP-24)", icon: Anchor },
