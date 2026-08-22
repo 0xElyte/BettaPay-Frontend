@@ -6,6 +6,7 @@ import { Button } from '@/components/ui';
 import { DashboardSkeleton } from '@/components/skeletons/DashboardSkeleton';
 import { CurrencyDisplay, StatCard, ErrorDisplay } from '@/components/shared';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { OnboardingChecklist } from '@/components/dashboard/OnboardingChecklist';
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -127,6 +128,9 @@ export default function DashboardPage() {
           </>
         }
       />
+
+      {/* ── Onboarding Checklist ── */}
+      <OnboardingChecklist />
 
       {/* ── KPI Stat Cards (memoised — not affected by period changes) ── */}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
