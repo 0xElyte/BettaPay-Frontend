@@ -9,6 +9,9 @@ import { useSessionCheck } from "@/lib/hooks/useSessionCheck";
 import { useCrossTabAuth } from "@/lib/hooks/useCrossTabAuth";
 import { setAppRouter } from "@/lib/navigation/appRouter";
 import { OfflineBanner } from "@/components/ui";
+import { initRum } from "@/lib/rum";
+import { useRouteChange } from "@/lib/rum/useRouteChange";
+import { useHydrationCapture } from "@/lib/rum/useHydrationCapture";
 
 export function Providers({ children }: { children: ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -52,6 +55,14 @@ export function Providers({ children }: { children: ReactNode }) {
     wasAuthenticatedRef.current = isAuthenticated;
   }, [isAuthenticated, queryClient]);
 
+  // Initialize RUM collection once per browser session
+  useEffect(() => {
+    const cleanup = initRum();
+    return cleanup;
+  }, []);
+
+  useRouteChange();
+  useHydrationCapture();
   useSessionCheck();
   useCrossTabAuth();
 
