@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui';
 import { Button } from '@/components/ui';
 import { Input } from '@/components/ui';
@@ -135,6 +135,50 @@ export default function SettingsPage() {
     failedTransactions: true,
     fxRateChanges: true,
   });
+
+  useEffect(() => {
+    const syncPreferences = async () => {
+      try {
+        const response = await fetch('/api/notifications', { cache: 'no-store' });
+        const payload = await response.json();
+
+        if (payload?.preferences) {
+          setNotificationPreferences({
+            paymentReceived: payload.preferences.settlement ?? true,
+            settlementProcessed: payload.preferences.settlement ?? true,
+            failedTransactions: payload.preferences.webhook_failure ?? true,
+            fxRateChanges: payload.preferences.rate_alert ?? true,
+          });
+        }
+      } catch {
+        // ignore failed sync; keep client defaults
+      }
+    };
+
+    syncPreferences();
+  }, []);
+
+  const handleNotificationPreferenceToggle = useCallback(async (id: string) => {
+    const nextPreferences = {
+      ...notificationPreferences,
+      [id]: !notificationPreferences[id],
+    };
+
+    setNotificationPreferences(nextPreferences);
+
+    const mappedPreferences = {
+      settlement: nextPreferences.paymentReceived || nextPreferences.settlementProcessed,
+      webhook_failure: nextPreferences.failedTransactions,
+      rate_alert: nextPreferences.fxRateChanges,
+      kyc: true,
+    };
+
+    await fetch('/api/notifications', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'set_preferences', preferences: mappedPreferences }),
+    });
+  }, [notificationPreferences]);
 
   const handleLogout = useCallback(() => {
     logout();
@@ -390,7 +434,7 @@ export default function SettingsPage() {
                     <Toggle
                       checked={notificationPreferences[id]}
                       label={label}
-                      onClick={() => setNotificationPreferences(curr => ({ ...curr, [id]: !curr[id] }))}
+                      onClick={() => handleNotificationPreferenceToggle(id)}
                     />
                   </div>
                 ))}
