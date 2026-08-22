@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Bell, Search, Menu, LogOut, Settings, KeyRound, Moon, Sun, Monitor, Repeat } from "lucide-react";
+import { Search, Menu, LogOut, Settings, KeyRound, Moon, Sun, Monitor, Repeat } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui";
 import { Input } from "@/components/ui";
@@ -18,6 +18,7 @@ import { useAuthStore } from "@/lib/store/authStore";
 import { useWalletStore } from "@/lib/store/walletStore";
 import { useRouter } from "next/navigation";
 import { useNotify } from "@/lib/hooks/useNotify";
+import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 
 interface TopbarProps {
   onMenuClick?: () => void;
@@ -33,10 +34,6 @@ export const Topbar = ({ onMenuClick, isMenuOpen, title, unreadNotificationCount
   const router = useRouter();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [isMounted, setIsMounted] = useState(false);
-  const notificationLabel =
-    unreadNotificationCount > 0
-      ? `Notifications (${unreadNotificationCount} unread)`
-      : "Notifications";
 
   const handleLogout = useCallback(() => {
     logout();
@@ -153,16 +150,9 @@ export const Topbar = ({ onMenuClick, isMenuOpen, title, unreadNotificationCount
         </div>
 
         {/* Notifications */}
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={notificationLabel}
-          className="relative text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl min-h-[44px] min-w-[44px]"
-        >
-          <Bell className="h-4.5 w-4.5" />
-          <span aria-hidden="true" className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive border-2 border-background"></span>
-        </Button>
+        <NotificationCenter unreadNotificationCount={unreadNotificationCount} />
 
+        {/* Theme toggle */}
         <Button
           variant="ghost"
           size="icon"
