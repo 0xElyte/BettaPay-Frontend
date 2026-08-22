@@ -376,11 +376,11 @@ export default function TransactionsPage() {
                   {filteredTransactions.length === 0 ? (
                     <EmptyState
                       icon={SearchX}
-                      title={searchTerm || activeFilterCount > 0 ? 'No transactions match filters' : 'No transactions found'}
+                      title={searchTerm || activeFilterCount > 0 ? 'No transactions match filters' : 'No transactions yet'}
                       description={
                         searchTerm || activeFilterCount > 0
                           ? 'Try adjusting your search terms or clearing active filters.'
-                          : 'Transactions will appear here once payments are received.'
+                          : 'Transactions will appear here once you receive payments through your payment links.'
                       }
                       action={
                         searchTerm || activeFilterCount > 0

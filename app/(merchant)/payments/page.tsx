@@ -478,7 +478,7 @@ export default function PaymentsPage() {
         <EmptyState
           icon={Link2}
           title={searchTerm ? "No payment links match your search" : "No payment links yet"}
-          description={searchTerm ? "Try clearing search or filters to see all links." : "Create your first payment link to start accepting crypto payments."}
+          description={searchTerm ? "Try clearing search or filters to see all links." : "Create your first payment link to start accepting crypto payments from customers."}
           action={{ label: 'New Payment Link', onClick: () => setIsCreateOpen(true) }}
         />
       ) : (

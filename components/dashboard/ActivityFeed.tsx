@@ -4,7 +4,7 @@ import { memo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import { Button } from "@/components/ui";
 import { Skeleton } from "@/components/ui";
-import { ErrorDisplay } from "@/components/shared";
+import { EmptyState, ErrorDisplay } from "@/components/shared";
 import {
   useActivityFeed,
   type ActivityEvent,
@@ -235,13 +235,12 @@ export function ActivityFeed({ className }: ActivityFeedProps) {
         ) : isLoading ? (
           <FeedSkeleton />
         ) : events.length === 0 ? (
-          <div className="py-8 text-center">
-            <Clock className="w-8 h-8 text-muted-foreground/50 mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">No activity yet</p>
-            <p className="text-xs text-muted-foreground/70 mt-0.5">
-              Events will appear as they happen
-            </p>
-          </div>
+          <EmptyState
+            icon={Clock}
+            title="No activity yet"
+            description="Events will appear here as payments, settlements, and webhook deliveries occur."
+            compact
+          />
         ) : (
           <div className="space-y-1">
             {events.map((event) => (

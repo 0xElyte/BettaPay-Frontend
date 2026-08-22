@@ -301,7 +301,7 @@ export default function WalletPage() {
             <EmptyState
               icon={Wallet}
               title="No assets found"
-              description="This account has no balances yet. Fund it with XLM or add a trustline to get started."
+              description="This account has no balances yet. Fund it with XLM or add a trustline to start receiving payments."
               action={{ label: "Refresh Balances", onClick: handleRefresh }}
             />
           </CardContent>

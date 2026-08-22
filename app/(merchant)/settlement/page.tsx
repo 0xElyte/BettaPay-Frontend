@@ -174,7 +174,8 @@ export default function SettlementPage() {
             <EmptyState
               icon={Receipt}
               title="No settlements yet"
-              description="Your USDC → NGN conversion history will appear here once you initiate a settlement."
+              description="Your USDC → NGN conversion history will appear here once you initiate a settlement. Set up your bank account in Settings first."
+              action={{ label: 'Initiate Settlement', onClick: () => setSettlementOpen(true) }}
             />
           ) : (
             <div className="space-y-3">
