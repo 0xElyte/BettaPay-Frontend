@@ -18,14 +18,14 @@ export interface ApiErrorResponse {
 }
 
 export class ApiError extends Error {
-  code?: string;
+  code: string;
   status?: number;
   details?: unknown;
   fieldErrors?: Record<string, string>;
 
   constructor(
     message: string,
-    code?: string,
+    code: string,
     status?: number,
     details?: unknown,
     fieldErrors?: Record<string, string>
@@ -72,7 +72,7 @@ export function parseApiError(error: unknown): ApiError {
     const data = axiosError.response?.data;
     const message =
       REQUEST_TIMED_OUT_CODE === axiosError.code ? REQUEST_TIMED_OUT_MESSAGE : data?.message || data?.error || axiosError.message || 'An unexpected error occurred';
-    const code = data?.code || axiosError.code;
+    const code = data?.code || axiosError.code || 'UNKNOWN_ERROR';
     const status = axiosError.response?.status;
     const details = data?.details;
     const fieldErrors = extractFieldErrors(data);
@@ -81,10 +81,10 @@ export function parseApiError(error: unknown): ApiError {
   }
 
   if (error instanceof Error) {
-    return new ApiError(error.message);
+    return new ApiError(error.message, 'UNKNOWN_ERROR');
   }
 
-  return new ApiError('An unexpected error occurred');
+  return new ApiError('An unexpected error occurred', 'UNKNOWN_ERROR');
 }
 
 export function getErrorMessage(error: unknown): string {
