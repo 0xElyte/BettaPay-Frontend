@@ -1,9 +1,14 @@
 "use client";
 
 import { useMemo } from 'react';
-import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { apiClient } from './axios';
-import type { MerchantProfile, MerchantBankAccount } from '../types';
+import type {
+  AuthSession,
+  AuthSessionsResponse,
+  MerchantProfile,
+  MerchantBankAccount,
+} from '../types';
 import { getErrorMessage } from '../utils/apiError';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -53,6 +58,11 @@ export interface ApiRate {
   rate: number;
   change: number;
   trend: 'up' | 'down';
+}
+
+export interface AuthSessionsState {
+  active: AuthSession[];
+  history: AuthSession[];
 }
 
 // Response envelopes used by the backend. Both shapes are accepted so
@@ -105,9 +115,58 @@ export const queryKeys = {
   payments: ['payments'] as const,
   settlements: ['settlements'] as const,
   rates: ['rates'] as const,
+  authSessions: ['auth', 'sessions'] as const,
   merchant: (id?: string) => ['merchant', id ?? null] as const,
   adminStats: ['admin', 'stats'] as const,
 };
+
+// ─── useAuthSessions ─────────────────────────────────────────────────────────
+
+export function useAuthSessions(): {
+  data: AuthSessionsState;
+  isLoading: boolean;
+  error: string | null;
+  refetch: () => void;
+  revokeSession: (sessionId: string) => Promise<void>;
+  isRevoking: boolean;
+} {
+  const queryClient = useQueryClient();
+  const query = useQuery<AuthSessionsResponse, Error>({
+    queryKey: queryKeys.authSessions,
+    queryFn: async () => {
+      const res = await apiClient.get<
+        AuthSessionsResponse | { data: AuthSessionsResponse }
+      >('/api/auth/sessions');
+      const payload = res.data;
+
+      if ('active' in payload && 'history' in payload) {
+        return payload;
+      }
+
+      return payload.data;
+    },
+  });
+
+  const revokeMutation = useMutation<void, Error, string>({
+    mutationFn: async (sessionId) => {
+      await apiClient.delete(`/api/auth/sessions/${encodeURIComponent(sessionId)}`);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.authSessions });
+    },
+  });
+
+  return {
+    data: query.data ?? { active: [], history: [] },
+    isLoading: query.isLoading,
+    error: query.isError ? getErrorMessage(query.error) : null,
+    refetch: () => {
+      void query.refetch();
+    },
+    revokeSession: (sessionId) => revokeMutation.mutateAsync(sessionId),
+    isRevoking: revokeMutation.isPending,
+  };
+}
 
 // ─── useAdminStats ────────────────────────────────────────────────────────────
 
