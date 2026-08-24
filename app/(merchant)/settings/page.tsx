@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui';
 import { Button } from '@/components/ui';
 import { Input } from '@/components/ui';
@@ -47,6 +47,25 @@ export default function SettingsPage() {
     refetch: refetchProfile,
   } = useMerchantProfile(user?.id);
 
+  // Track whether any non-profile tab has unsaved changes so we can guard
+  // against accidental navigation. ProfileEditor tracks its own dirty state
+  // internally via react-hook-form isDirty; we surface a parallel flag here
+  // for the fee/webhook tabs which use uncontrolled local state.
+  const tabDirtyRef = useRef(false);
+
+  // Register a beforeunload guard that fires when the user closes the tab or
+  // navigates away via the browser address bar.
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (tabDirtyRef.current) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
   // Fee Rules State
   const [feeType, setFeeType] = useState<'percentage' | 'flat'>('percentage');
   const [feeRate, setFeeRate] = useState('0.5');
@@ -56,7 +75,6 @@ export default function SettingsPage() {
   const [webhookUrl, setWebhookUrl] = useState('https://example.com/webhooks/bettapay');
   const [webhookSecret, setWebhookSecret] = useState('whsec_live_9876543210abcdef');
   const [showSecret, setShowSecret] = useState(false);
-
   // API Keys State
   const [apiKeys, setApiKeys] = useState([
     { id: 'key_1', name: 'Production Backend', prefix: 'bp_live_', scopes: ['read', 'write'], created: '2026-06-01' },
@@ -122,8 +140,13 @@ export default function SettingsPage() {
       setNewPassword('');
       setConfirmNewPassword('');
       setPasswordErrors({});
-    } catch {
-      notify.error('Failed to update password');
+    } catch (err: unknown) {
+      const apiMessage =
+        (err as { response?: { data?: { error?: string; message?: string } } })
+          ?.response?.data?.error ??
+        (err as { response?: { data?: { error?: string; message?: string } } })
+          ?.response?.data?.message;
+      notify.error(apiMessage ?? 'Current password is incorrect or the request failed');
     } finally {
       setIsSubmitting(false);
     }
@@ -187,6 +210,15 @@ export default function SettingsPage() {
   }, [logout, notify, router]);
 
   const handleTabChange = useCallback((id: string) => {
+    // Guard against switching tabs when fee/webhook state is dirty.
+    // ProfileEditor handles its own dirty guard internally.
+    if (tabDirtyRef.current) {
+      const confirmed = window.confirm(
+        'You have unsaved changes. Leave this tab and discard them?'
+      );
+      if (!confirmed) return;
+      tabDirtyRef.current = false;
+    }
     setActiveTab(id);
   }, []);
 
@@ -197,8 +229,13 @@ export default function SettingsPage() {
       await apiClient.patch(`/api/merchants/${user.id}`, data);
       notify.success('Profile updated');
       refetchProfile();
-    } catch {
-      notify.error('Failed to update profile');
+    } catch (err: unknown) {
+      const apiMessage =
+        (err as { response?: { data?: { error?: string; message?: string } } })
+          ?.response?.data?.error ??
+        (err as { response?: { data?: { error?: string; message?: string } } })
+          ?.response?.data?.message;
+      notify.error(apiMessage ?? 'Failed to update profile — please try again');
     } finally {
       setIsSubmitting(false);
     }
@@ -296,7 +333,7 @@ export default function SettingsPage() {
               <CardContent className="space-y-5">
                 <div className="space-y-2">
                   <Label className="text-xs font-semibold text-foreground">Fee Deduction Model</Label>
-                  <Select value={feeType} onValueChange={(val) => setFeeType(val as 'percentage' | 'flat')}>
+                  <Select value={feeType} onValueChange={(val) => { setFeeType(val as 'percentage' | 'flat'); tabDirtyRef.current = true; }}>
                     <SelectTrigger className="h-10 border-border rounded-xl">
                       <SelectValue />
                     </SelectTrigger>
@@ -313,7 +350,7 @@ export default function SettingsPage() {
                     <Input
                       type="number"
                       value={feeRate}
-                      onChange={(e) => setFeeRate(e.target.value)}
+                      onChange={(e) => { setFeeRate(e.target.value); tabDirtyRef.current = true; }}
                       className="h-10 border-border rounded-xl"
                     />
                   </div>
@@ -322,7 +359,7 @@ export default function SettingsPage() {
                     <Input
                       type="number"
                       value={minThreshold}
-                      onChange={(e) => setMinThreshold(e.target.value)}
+                      onChange={(e) => { setMinThreshold(e.target.value); tabDirtyRef.current = true; }}
                       className="h-10 border-border rounded-xl"
                     />
                   </div>
@@ -330,7 +367,20 @@ export default function SettingsPage() {
 
                 <Button
                   className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl h-10 px-6"
-                  onClick={() => notify.success('Fee rules updated')}
+                  onClick={async () => {
+                    try {
+                      await apiClient.patch('/api/merchants/fee-rules', { feeType, feeRate, minThreshold });
+                      notify.success('Fee rules updated');
+                      tabDirtyRef.current = false;
+                    } catch (err: unknown) {
+                      const apiMessage =
+                        (err as { response?: { data?: { error?: string; message?: string } } })
+                          ?.response?.data?.error ??
+                        (err as { response?: { data?: { error?: string; message?: string } } })
+                          ?.response?.data?.message;
+                      notify.error(apiMessage ?? 'Failed to save fee rules — please try again');
+                    }
+                  }}
                 >
                   Save Fee Rules
                 </Button>
@@ -349,7 +399,7 @@ export default function SettingsPage() {
                   <Label className="text-xs font-semibold text-foreground">Webhook Endpoint URL</Label>
                   <Input
                     value={webhookUrl}
-                    onChange={(e) => setWebhookUrl(e.target.value)}
+                    onChange={(e) => { setWebhookUrl(e.target.value); tabDirtyRef.current = true; }}
                     className="h-10 border-border rounded-xl font-mono text-sm"
                   />
                 </div>
@@ -373,7 +423,23 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="flex items-center gap-3 pt-2">
-                  <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl h-10 px-6" onClick={() => notify.success('Webhook URL saved')}>
+                  <Button
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl h-10 px-6"
+                    onClick={async () => {
+                      try {
+                        await apiClient.patch('/api/merchants/webhook', { url: webhookUrl });
+                        notify.success('Webhook URL saved');
+                        tabDirtyRef.current = false;
+                      } catch (err: unknown) {
+                        const apiMessage =
+                          (err as { response?: { data?: { error?: string; message?: string } } })
+                            ?.response?.data?.error ??
+                          (err as { response?: { data?: { error?: string; message?: string } } })
+                            ?.response?.data?.message;
+                        notify.error(apiMessage ?? 'Failed to save webhook URL — ensure it is a valid HTTPS endpoint');
+                      }
+                    }}
+                  >
                     Save Webhook Config
                   </Button>
                   <Button variant="outline" onClick={handleTestWebhook} className="rounded-xl h-10 px-4 text-xs font-semibold">
