@@ -23,6 +23,7 @@ export function middleware(request: NextRequest) {
   const isAdminRoute = request.nextUrl.pathname.startsWith('/admin') ||
                        request.nextUrl.pathname === '/overview' ||
                        request.nextUrl.pathname === '/merchants' ||
+                       request.nextUrl.pathname.startsWith('/merchants/kyb') ||
                        request.nextUrl.pathname === '/anchors' ||
                        request.nextUrl.pathname === '/fx-management' ||
                        request.nextUrl.pathname === '/compliance';

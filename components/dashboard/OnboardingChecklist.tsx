@@ -21,6 +21,8 @@ export function OnboardingChecklist() {
     setLocalDismissed(true);
   }, []);
 
+  // handleRestore is available for future use (e.g. a "show again" button)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleRestore = useCallback(() => {
     setDismissed(false);
     setLocalDismissed(false);

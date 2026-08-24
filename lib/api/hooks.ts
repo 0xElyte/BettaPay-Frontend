@@ -277,3 +277,86 @@ export function useMerchantProfile(
     },
   };
 }
+
+// ─── KYB types ────────────────────────────────────────────────────────────────
+
+export interface KybDocument {
+  id: string;
+  type: string;
+  label: string;
+  url: string | null;
+  uploadedAt: string;
+  verified: boolean;
+}
+
+export interface MerchantKybProfile {
+  merchantId: string;
+  businessName: string;
+  businessType: string;
+  country: string;
+  industry: string;
+  contactEmail: string;
+  phoneNumber: string | null;
+  registrationNumber: string | null;
+  taxId: string | null;
+  websiteUrl: string | null;
+  kybStatus: 'unverified' | 'pending' | 'approved' | 'rejected';
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+  rejectionReason: string | null;
+  documents: KybDocument[];
+}
+
+export interface AuditLogEntry {
+  id: string;
+  entityType: 'MERCHANT';
+  entityId: string;
+  action: 'KYB_APPROVED' | 'KYB_REJECTED' | 'KYB_REVIEW';
+  reviewerId: string;
+  reviewerEmail: string;
+  decision: 'approved' | 'rejected';
+  note: string | null;
+  createdAt: string;
+}
+
+// ─── useKybMerchants ──────────────────────────────────────────────────────────
+
+export function useKybMerchants(status?: string): HookShape<MerchantKybProfile[]> {
+  const query = useQuery<MerchantKybProfile[], Error>({
+    queryKey: ['admin', 'kyb-list', status ?? 'all'],
+    queryFn: async () => {
+      const params = status && status !== 'all' ? `?status=${status}` : '';
+      const res = await apiClient.get<{ data: MerchantKybProfile[] }>(
+        `/api/admin/merchants/kyb${params}`,
+      );
+      return res.data?.data ?? [];
+    },
+  });
+  return mapQuery(query, []);
+}
+
+// ─── useAuditLog ──────────────────────────────────────────────────────────────
+
+export function useAuditLog(options?: {
+  action?: string;
+  entityId?: string;
+  limit?: number;
+}): HookShape<AuditLogEntry[]> {
+  const params = new URLSearchParams();
+  if (options?.action) params.set('action', options.action);
+  if (options?.entityId) params.set('entityId', options.entityId);
+  if (options?.limit) params.set('limit', String(options.limit));
+
+  const query = useQuery<AuditLogEntry[], Error>({
+    queryKey: ['admin', 'audit', options],
+    queryFn: async () => {
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      const res = await apiClient.get<{ data: AuditLogEntry[] }>(
+        `/api/admin/audit${qs}`,
+      );
+      return res.data?.data ?? [];
+    },
+  });
+  return mapQuery(query, []);
+}
