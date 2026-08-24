@@ -98,6 +98,7 @@ describe('Login Flow Integration Tests', () => {
     (useNotify as jest.Mock).mockReturnValue({
       success: jest.fn(),
       error: jest.fn(),
+      info: jest.fn(),
     });
     // Reset Zustand auth state without triggering the real fetch in logout()
     useAuthStore.setState({
@@ -139,6 +140,32 @@ describe('Login Flow Integration Tests', () => {
       const { success } = useNotify();
       expect(success).toHaveBeenCalledWith('Login successful');
       expect(mockPush).toHaveBeenCalledWith('/dashboard');
+    });
+  });
+
+  it('warns when login revokes older sessions', async () => {
+    const user = userEvent.setup();
+    const info = jest.fn();
+    (useNotify as jest.Mock).mockReturnValue({
+      success: jest.fn(),
+      error: jest.fn(),
+      info,
+    });
+    (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
+      if (url.includes('/api/auth/google')) {
+        return { ok: true, json: () => Promise.resolve({ token: MERCHANT_JWT }) };
+      }
+      if (url === '/api/auth/session') {
+        return { ok: true, json: () => Promise.resolve({ ok: true, revokedSessionCount: 2 }) };
+      }
+      return { ok: true, json: () => Promise.resolve({}) };
+    });
+
+    render(<LoginPage />);
+    await user.click(screen.getByTestId('mock-google-login'));
+
+    await waitFor(() => {
+      expect(info).toHaveBeenCalledWith('2 older sessions were revoked when you signed in.');
     });
   });
 
