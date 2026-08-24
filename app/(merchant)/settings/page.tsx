@@ -496,6 +496,15 @@ export default function SettingsPage() {
                 >
                   Update Password
                 </Button>
+                <div className="flex items-center justify-between gap-4 border-t border-border pt-5">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Active sessions</p>
+                    <p className="text-xs text-muted-foreground">Review signed-in devices and revoke access.</p>
+                  </div>
+                  <Button variant="outline" onClick={() => router.push('/settings/sessions')}>
+                    Manage sessions
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}
