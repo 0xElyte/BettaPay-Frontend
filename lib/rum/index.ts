@@ -37,7 +37,7 @@ function isTelemetryEnabled(): boolean {
   }
 
   // Check for global opt-out flag
-  if (typeof window !== 'undefined' && (window as Record<string, unknown>).__RUM_DISABLED__) {
+  if (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).__RUM_DISABLED__) {
     return false;
   }
 
