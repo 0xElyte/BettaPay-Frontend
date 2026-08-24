@@ -1,5 +1,5 @@
 import { subHours, subDays } from 'date-fns';
-import { PaymentStatus } from '../utils/constants';
+import { PAYMENT_STATUS, normalizePaymentStatus, type PaymentStatus } from '../utils/constants';
 
 export interface Transaction {
   id: string;
@@ -26,7 +26,7 @@ export const mockTransactions: Transaction[] = [
     amountUsdc: 1500.00,
     amountNgn: 2325000,
     fxRate: 1550,
-    status: 'success',
+    status: normalizePaymentStatus('success'), // legacy alias → 'completed'
     source: 'Payment Link',
     timestamp: subHours(now, 2).toISOString(),
   },
@@ -38,7 +38,7 @@ export const mockTransactions: Transaction[] = [
     amountUsdc: 45.50,
     amountNgn: 70525,
     fxRate: 1550,
-    status: 'success',
+    status: PAYMENT_STATUS.COMPLETED,
     source: 'QR Code',
     timestamp: subHours(now, 5).toISOString(),
   },
@@ -50,7 +50,7 @@ export const mockTransactions: Transaction[] = [
     amountUsdc: 12000.00,
     amountNgn: 18600000,
     fxRate: 1550,
-    status: 'pending',
+    status: PAYMENT_STATUS.PENDING,
     source: 'API',
     timestamp: subHours(now, 12).toISOString(),
   },
@@ -62,7 +62,7 @@ export const mockTransactions: Transaction[] = [
     amountUsdc: 300.00,
     amountNgn: 462000,
     fxRate: 1540,
-    status: 'failed',
+    status: PAYMENT_STATUS.FAILED,
     source: 'Payment Link',
     timestamp: subDays(now, 1).toISOString(),
   },
@@ -74,8 +74,20 @@ export const mockTransactions: Transaction[] = [
     amountUsdc: 850.25,
     amountNgn: 1309385,
     fxRate: 1540,
-    status: 'success',
+    status: PAYMENT_STATUS.COMPLETED,
     source: 'QR Code',
     timestamp: subDays(now, 2).toISOString(),
+  },
+  {
+    id: 'tx_06',
+    txHash: '6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a',
+    payerAddress: 'GEA...3V9',
+    merchantAddress: 'GDM...9L1',
+    amountUsdc: 200.00,
+    amountNgn: 308000,
+    fxRate: 1540,
+    status: PAYMENT_STATUS.EXPIRED,
+    source: 'Payment Link',
+    timestamp: subDays(now, 3).toISOString(),
   },
 ];

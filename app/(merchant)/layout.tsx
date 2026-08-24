@@ -50,14 +50,17 @@ export default function MerchantLayout({
     }
   }, [logout, router, dismissWarning]);
 
+  // Prefetch only the two most likely next destinations on mount.
+  // All other routes are prefetched lazily on hover/focus via Next.js Link
+  // components, so no eager bundle downloads on initial load.
   useEffect(() => {
     try {
-      router.prefetch("/transactions");
+      router.prefetch("/dashboard");
       router.prefetch("/payments");
     } catch {
       // Prefetch may throw during SSR or in edge environments
     }
-  }, []);
+  }, [router]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
