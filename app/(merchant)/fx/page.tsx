@@ -2,11 +2,9 @@
 
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, Skeleton, Input } from '@/components/ui';
 import { Button } from '@/components/ui';
 import { ErrorBoundary, ErrorDisplay } from '@/components/shared';
-import dynamic from 'next/dynamic';
 import { RefreshCcw, TrendingUp, TrendingDown, Info, Bell, BellRing, Trash2, Plus, ArrowRightLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNotify } from '@/lib/hooks/useNotify';

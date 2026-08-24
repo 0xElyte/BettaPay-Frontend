@@ -171,8 +171,8 @@ function TrendChart({
               borderColor: isDark ? "var(--border)" : "var(--border)",
               color: isDark ? "var(--foreground)" : "var(--foreground)",
             }}
-            formatter={(value: number, name: string) => [
-              formatMs(value, metric),
+            formatter={(value, name) => [
+              formatMs(Number(value ?? 0), metric),
               name,
             ]}
           />
@@ -310,7 +310,7 @@ export default function AdminPerformancePage() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <Select value={selectedMetric} onValueChange={setSelectedMetric}>
+        <Select value={selectedMetric} onValueChange={(value) => value && setSelectedMetric(value)}>
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Metric" />
           </SelectTrigger>
@@ -323,7 +323,7 @@ export default function AdminPerformancePage() {
           </SelectContent>
         </Select>
 
-        <Select value={selectedDays} onValueChange={setSelectedDays}>
+        <Select value={selectedDays} onValueChange={(value) => value && setSelectedDays(value)}>
           <SelectTrigger className="w-[140px]">
             <SelectValue placeholder="Time range" />
           </SelectTrigger>
@@ -336,7 +336,7 @@ export default function AdminPerformancePage() {
           </SelectContent>
         </Select>
 
-        <Select value={selectedRoute} onValueChange={setSelectedRoute}>
+        <Select value={selectedRoute} onValueChange={(value) => value && setSelectedRoute(value)}>
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Route" />
           </SelectTrigger>

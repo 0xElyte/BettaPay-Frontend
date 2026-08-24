@@ -21,11 +21,6 @@ export function OnboardingChecklist() {
     setLocalDismissed(true);
   }, []);
 
-  const handleRestore = useCallback(() => {
-    setDismissed(false);
-    setLocalDismissed(false);
-  }, []);
-
   if (isLoading || dismissed || isComplete) {
     return null;
   }

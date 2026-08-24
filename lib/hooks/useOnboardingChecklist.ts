@@ -48,8 +48,8 @@ export function setDismissed(dismissed: boolean): void {
 export function useOnboardingChecklist(): OnboardingChecklistState {
   const { user } = useAuthStore();
   const { data: payments, isLoading: paymentsLoading } = usePayments();
-  const { data: settlements, isLoading: settlementsLoading } = useSettlements();
-  const { data: profile, isLoading: profileLoading } = useMerchantProfile(user?.id);
+  const { isLoading: settlementsLoading } = useSettlements();
+  const { isLoading: profileLoading } = useMerchantProfile(user?.id);
   const { data: bankAccount, isLoading: bankLoading } = useMerchantBankAccount(user?.id);
 
   const isLoading = paymentsLoading || settlementsLoading || profileLoading || bankLoading;
@@ -106,7 +106,7 @@ export function useOnboardingChecklist(): OnboardingChecklistState {
         ctaLabel: webhookTested ? 'View Webhooks' : 'Test Webhook',
       },
     ];
-  }, [user?.kybStatus, bankAccount, payments, settlements]);
+  }, [user?.kybStatus, bankAccount, payments]);
 
   const completedCount = useMemo(
     () => items.filter((item) => item.completed).length,
