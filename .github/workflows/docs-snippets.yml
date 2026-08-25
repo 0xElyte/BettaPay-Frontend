@@ -1,0 +1,91 @@
+name: Docs snippets
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: docs-snippets-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: snippet validation + contrast audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Needed so the schema-change check below can diff against the base.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Fails when a documented request example points at a route or verb that
+      # is not in lib/docs/endpoints.ts, ships a body that is not valid JSON,
+      # or names a field the endpoint schema does not document.
+      - name: Validate docs snippets
+        run: npx jest lib/docs/__tests__/snippets.test.ts
+
+      # Type-checks the snippet and status modules. Scoped rather than
+      # repo-wide because the repository currently has unrelated type errors
+      # elsewhere; widening the include list is the follow-up.
+      - name: Type-check snippet sources
+        run: npm run typecheck:snippets
+
+      # Fails when any status colour pair drops below WCAG AA in either theme.
+      - name: Audit status colour contrast
+        run: npx jest __tests__/status-contrast.test.ts
+
+  schema-review-note:
+    name: endpoint schema review note
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Changing the endpoint registry changes the published contract and every
+      # example generated from it, so it should never land on a silent review.
+      - name: Flag endpoint schema changes for review
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          changed=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- \
+            lib/docs/endpoints.ts \
+            lib/docs/snippets.ts \
+            components/developers/codeSnippets.ts)
+
+          if [ -z "$changed" ]; then
+            echo "No endpoint schema or snippet changes in this PR."
+            exit 0
+          fi
+
+          {
+            echo "### Endpoint schema / snippet review required"
+            echo
+            echo "This PR changes files that define the documented API contract:"
+            echo
+            for file in $changed; do echo "- \`$file\`"; done
+            echo
+            echo "Before merging, confirm:"
+            echo
+            echo "- [ ] Every affected request example still matches the endpoint schema."
+            echo "- [ ] \`npx jest lib/docs/__tests__/snippets.test.ts\` passes locally."
+            echo "- [ ] The four SDK language tabs in \`codeSnippets.ts\` still agree."
+            echo "- [ ] A reviewer who owns the API contract has approved."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "::warning title=Endpoint schema changed::This PR edits the documented API contract. See the job summary for the review checklist."
