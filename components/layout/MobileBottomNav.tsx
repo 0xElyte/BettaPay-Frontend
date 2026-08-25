@@ -33,7 +33,10 @@ export const MobileBottomNav = ({ onMoreClick }: MobileBottomNavProps) => {
             href={item.href}
             aria-current={isActive ? 'page' : undefined}
             className={cn(
-              "flex flex-col items-center justify-center w-[68px] gap-1 py-1.5 rounded-lg transition-all",
+              // transition-colors: only animate color/background, not layout properties.
+              // motion-reduce:transition-none: fully suppress transition for users who
+              // prefer reduced motion — active state becomes an instant swap.
+              "flex flex-col items-center justify-center w-[68px] gap-1 py-1.5 rounded-lg transition-colors motion-reduce:transition-none",
               isActive
                 ? "text-primary bg-primary/10"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -49,7 +52,7 @@ export const MobileBottomNav = ({ onMoreClick }: MobileBottomNavProps) => {
         type="button"
         onClick={onMoreClick}
         className={cn(
-          "flex flex-col items-center justify-center w-[68px] gap-1 py-1.5 rounded-lg transition-all text-muted-foreground hover:bg-muted hover:text-foreground"
+          "flex flex-col items-center justify-center w-[68px] gap-1 py-1.5 rounded-lg transition-colors motion-reduce:transition-none text-muted-foreground hover:bg-muted hover:text-foreground"
         )}
       >
         <Menu className="w-5 h-5 text-muted-foreground" />

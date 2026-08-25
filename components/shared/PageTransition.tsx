@@ -8,13 +8,17 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
   const prefersReducedMotion = useReducedMotion();
 
   return (
-    <AnimatePresence mode="wait">
+    // mode="sync" lets the incoming page mount immediately without waiting for
+    // the previous page's exit — prevents layout-hold during fast navigation.
+    // There is no exit animation: the nav active-state change is the only
+    // visible indicator of navigation, keeping motion to one layer.
+    <AnimatePresence mode="sync">
       <motion.div
         key={pathname}
-        initial={prefersReducedMotion ? {} : { opacity: 0, y: 3 }}
+        initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 3 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={prefersReducedMotion ? {} : { opacity: 0, y: -3 }}
-        transition={{ duration: prefersReducedMotion ? 0 : 0.12, ease: "easeOut" }}
+        exit={{ opacity: 1 }}
+        transition={{ duration: prefersReducedMotion ? 0 : 0.15, ease: "easeOut" }}
       >
         {children}
       </motion.div>
