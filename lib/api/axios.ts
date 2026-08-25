@@ -62,8 +62,80 @@ function notifyError(message: string, key?: string) {
   }
 }
 
-// Use cookie-based auth (HttpOnly cookie set by the server). Do not read tokens from localStorage.
-const apiBaseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+/** Fallback used when nothing else supplies a base URL. */
+export const DEFAULT_API_BASE_URL = 'http://localhost:3001';
+
+/**
+ * Explicit override set through `setApiBaseUrl`. Takes precedence over every
+ * other source so tests and QA tooling can retarget the client at will.
+ */
+let baseUrlOverride: string | null = null;
+
+/** The missing-config warning is noisy; emit it at most once per session. */
+let hasWarnedAboutBaseUrl = false;
+
+/** Trim trailing slashes so joining a path never produces a double slash. */
+function normalizeBaseUrl(url: string): string {
+  return url.trim().replace(/\/+$/, '');
+}
+
+/**
+ * Runtime escape hatch for environments that cannot rebuild to change the
+ * endpoint. `process.env.NEXT_PUBLIC_*` is inlined into the client bundle at
+ * build time, so a deployed bundle can only be retargeted through a value that
+ * is read at request time — this global, or `setApiBaseUrl`.
+ */
+function readRuntimeBaseUrl(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  const runtime = (window as unknown as Record<string, unknown>).__BETTAPAY_API_URL__;
+  return typeof runtime === 'string' && runtime.trim() ? runtime : undefined;
+}
+
+/**
+ * Resolve the base URL for the next request.
+ *
+ * Precedence: explicit override → runtime global → build-time env → default.
+ * Called per request rather than captured at module load, so a change to any
+ * of these sources takes effect on the very next call.
+ */
+export function resolveApiBaseUrl(): string {
+  const configured =
+    baseUrlOverride ?? readRuntimeBaseUrl() ?? process.env.NEXT_PUBLIC_API_URL;
+
+  if (configured && configured.trim()) {
+    return normalizeBaseUrl(configured);
+  }
+
+  if (!hasWarnedAboutBaseUrl && typeof window !== 'undefined') {
+    hasWarnedAboutBaseUrl = true;
+    console.warn(
+      '[API Client] NEXT_PUBLIC_API_URL is not set. Defaulting to http://localhost:3001. ' +
+      'This will cause API calls to fail in production. Please set NEXT_PUBLIC_API_URL environment variable.'
+    );
+  }
+
+  return DEFAULT_API_BASE_URL;
+}
+
+/**
+ * Point the client at a different backend. Affects every subsequent request;
+ * in-flight requests keep the URL they were dispatched with.
+ *
+ * Pass `null` (or use `resetApiBaseUrl`) to fall back to the configured value.
+ */
+export function setApiBaseUrl(url: string | null): void {
+  baseUrlOverride = url && url.trim() ? normalizeBaseUrl(url) : null;
+}
+
+/** Clear an override set by `setApiBaseUrl`. */
+export function resetApiBaseUrl(): void {
+  baseUrlOverride = null;
+}
+
+/** The base URL the next request would use. */
+export function getApiBaseUrl(): string {
+  return resolveApiBaseUrl();
+}
 
 // Default timeout for all requests unless a longer one is needed (e.g. payment submission).
 export const DEFAULT_TIMEOUT_MS = 15000;
@@ -73,15 +145,13 @@ export const PAYMENT_TIMEOUT_MS = 30000;
 // URLs matching these paths get the extended payment timeout.
 const PAYMENT_TIMEOUT_PATHS: ReadonlyArray<string> = ['/payments', '/settlements'];
 
-if (!process.env.NEXT_PUBLIC_API_URL && typeof window !== 'undefined') {
-  console.warn(
-    '[API Client] NEXT_PUBLIC_API_URL is not set. Defaulting to http://localhost:3001. ' +
-    'This will cause API calls to fail in production. Please set NEXT_PUBLIC_API_URL environment variable.'
-  );
-}
-
+// Auth is cookie-based (HttpOnly cookie set by the server); tokens are never
+// read from localStorage.
+//
+// No `baseURL` here on purpose: leaving the instance default unset means a
+// per-request baseURL from a caller is still distinguishable in the request
+// interceptor, which resolves the current value for everything else.
 export const apiClient = axios.create({
-  baseURL: apiBaseURL,
   timeout: DEFAULT_TIMEOUT_MS,
   headers: {
     'Content-Type': 'application/json',
@@ -111,6 +181,12 @@ function resolveRequestTimeout(url: string | undefined): number {
 }
 
 apiClient.interceptors.request.use((config) => {
+  // Resolve the base URL at dispatch time so runtime endpoint switches (QA,
+  // tests) apply to the next request instead of being frozen at import.
+  if (!config.baseURL) {
+    config.baseURL = resolveApiBaseUrl();
+  }
+
   const method = (config.method || '').toLowerCase();
   if (STATE_METHODS.includes(method as (typeof STATE_METHODS)[number])) {
     const csrfToken = getCsrfTokenFromCookie();
