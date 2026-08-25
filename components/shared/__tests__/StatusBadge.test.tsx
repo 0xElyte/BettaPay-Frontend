@@ -5,11 +5,19 @@ import { StatusBadge } from '../StatusBadge';
 
 describe('StatusBadge', () => {
   it('renders a success badge with the success label and green styling', () => {
-    const { container } = render(<StatusBadge status={PAYMENT_STATUS.SUCCESS} />);
+  it('renders a completed badge with the completed label and success styling', () => {
+    const { container } = render(<StatusBadge status={PAYMENT_STATUS.COMPLETED} />);
 
-    expect(screen.getByText('Success')).toBeInTheDocument();
+    expect(screen.getByText('Completed')).toBeInTheDocument();
     expect(container.querySelector('svg')).toBeInTheDocument();
-    expect(screen.getByText('Success').closest('span')).toHaveClass('text-success');
+    expect(screen.getByText('Completed').closest('span')).toHaveClass('text-success');
+    expect(screen.getByText('Completed').closest('span')).toHaveClass('text-status-ok');
+  });
+
+  it('maps the legacy "success" spelling onto the completed badge', () => {
+    render(<StatusBadge status="success" />);
+
+    expect(screen.getByText('Completed')).toBeInTheDocument();
   });
 
   it('renders a pending badge with the pending label and yellow styling', () => {
@@ -17,7 +25,7 @@ describe('StatusBadge', () => {
 
     expect(screen.getByText('Pending')).toBeInTheDocument();
     expect(container.querySelector('svg')).toBeInTheDocument();
-    expect(screen.getByText('Pending').closest('span')).toHaveClass('text-warning');
+    expect(screen.getByText('Pending').closest('span')).toHaveClass('text-status-warn');
   });
 
   it('renders a processing badge with the processing label and blue styling', () => {
@@ -25,7 +33,7 @@ describe('StatusBadge', () => {
 
     expect(screen.getByText('Processing')).toBeInTheDocument();
     expect(container.querySelector('svg')).toBeInTheDocument();
-    expect(screen.getByText('Processing').closest('span')).toHaveClass('text-info');
+    expect(screen.getByText('Processing').closest('span')).toHaveClass('text-status-info');
   });
 
   it('spins the icon while processing', () => {
@@ -39,19 +47,19 @@ describe('StatusBadge', () => {
 
     expect(screen.getByText('Failed')).toBeInTheDocument();
     expect(container.querySelector('svg')).toBeInTheDocument();
-    expect(screen.getByText('Failed').closest('span')).toHaveClass('text-destructive');
+    expect(screen.getByText('Failed').closest('span')).toHaveClass('text-status-down');
   });
 
   it('falls back to the provided status text when the status is unknown', () => {
     render(<StatusBadge status="custom" />);
 
     expect(screen.getByText('custom')).toBeInTheDocument();
-    expect(screen.getByText('custom').closest('span')).toHaveClass('bg-muted');
+    expect(screen.getByText('custom').closest('span')).toHaveClass('bg-status-neutral-bg');
   });
 
   it('adds the provided className to the badge', () => {
-    render(<StatusBadge status={PAYMENT_STATUS.SUCCESS} className="custom-badge" />);
+    render(<StatusBadge status={PAYMENT_STATUS.COMPLETED} className="custom-badge" />);
 
-    expect(screen.getByText('Success').closest('span')).toHaveClass('custom-badge');
+    expect(screen.getByText('Completed').closest('span')).toHaveClass('custom-badge');
   });
 });

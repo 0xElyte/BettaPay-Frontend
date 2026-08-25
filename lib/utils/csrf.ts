@@ -99,6 +99,12 @@ export function buildCsrfCookieHeader(token: string): string {
  *   import { ensureCsrfCookie } from '@/lib/utils/csrf';
  *   // Inside the async server component:
  *   await ensureCsrfCookie();
+ *
+ * @deprecated Calling this from a Server Component layout triggers
+ * `Cookies can only be modified in a Server Action or Route Handler` in
+ * Next 14.2+. Prefer `ensureCsrfCookieInMiddleware` in `middleware.ts` which
+ * uses `NextRequest`/`NextResponse` (allowed). This function is kept for
+ * backwards-compat with `GET /api/auth/csrf` route handlers only.
  */
 export async function ensureCsrfCookie(): Promise<void> {
   // Dynamic import so this module stays importable in client bundles without
@@ -122,5 +128,32 @@ export async function ensureCsrfCookie(): Promise<void> {
     secure: isProduction,
     maxAge: 86400,
     httpOnly: false, // Must be readable by JS for the double-submit header
+  });
+}
+
+// ─── Middleware helper (NextRequest/NextResponse) ────────────────────────────
+
+/**
+ * Middleware-safe CSRF bootstrap. Uses `NextRequest.cookies` (read) and
+ * `NextResponse.cookies.set` (write) which are allowed in `middleware.ts`.
+ * Call this at the top of `middleware` before any redirects so every
+ * response seeds the cookie.
+ */
+export function ensureCsrfCookieInMiddleware(
+  request: { cookies: { get(name: string): { value: string } | undefined } },
+  response: { cookies: { set(name: string, value: string, opts: Record<string, unknown>): void } },
+): void {
+  const existing = request.cookies.get(CSRF_COOKIE_NAME)?.value;
+  if (existing && existing.length === CSRF_TOKEN_HEX_LENGTH) {
+    return;
+  }
+  const token = generateCsrfToken();
+  const isProduction = process.env.NODE_ENV === 'production';
+  response.cookies.set(CSRF_COOKIE_NAME, token, {
+    path: '/',
+    sameSite: 'strict',
+    secure: isProduction,
+    maxAge: 86400,
+    httpOnly: false,
   });
 }

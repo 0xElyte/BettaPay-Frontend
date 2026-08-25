@@ -44,6 +44,33 @@
 - Interactive elements have minimum 3:1 contrast ratio
 - Focus indicators use `--ring` color for consistent visibility
 
+##### Status palette
+
+Status badges (service health, incident state, payment state, KYB state) draw
+from one audited palette of opaque `--status-*` tokens defined in
+`app/globals.css` and exposed through `lib/status/palette.ts`. Alpha tints such
+as `bg-emerald-500/10 text-emerald-700` are deliberately not used for status:
+the composited colour depends on whatever sits behind the badge, so the real
+ratio is unknowable, and several variants measured below 4.5:1.
+
+`__tests__/status-contrast.test.ts` parses the real declarations out of
+`app/globals.css` and fails CI when any of these drops below WCAG AA:
+
+- badge text against its own tint, in light and dark
+- badge text against `--card`, for labels with no pill behind them
+
+| Tone | Light fg / bg | On tint | On card | Dark fg / bg | On tint | On card |
+| --- | --- | --- | --- | --- | --- | --- |
+| ok | `#065F46` / `#ECFDF5` | 7.29 | 7.68 | `#6EE7B7` / `#0B3B2E` | 8.20 | 9.60 |
+| warn | `#92400E` / `#FFFBEB` | 6.84 | 7.09 | `#FCD34D` / `#3B2C09` | 9.40 | 10.15 |
+| down | `#991B1B` / `#FEF2F2` | 7.60 | 8.31 | `#FCA5A5` / `#3F1D1D` | 7.88 | 7.71 |
+| info | `#1E40AF` / `#EFF6FF` | 8.01 | 8.72 | `#93C5FD` / `#172A4A` | 7.94 | 8.11 |
+| progress | `#6B21A8` / `#FAF5FF` | 8.13 | 8.72 | `#D8B4FE` / `#2E1D45` | 8.62 | 8.28 |
+| neutral | `#334155` / `#F1F5F9` | 9.45 | 10.35 | `#CBD5E1` / `#293548` | 8.33 | 9.85 |
+
+Status is never conveyed by colour alone: every badge pairs the tone with an
+icon and a written label.
+
 #### Images & Decorative Elements
 - Logo images have appropriate `alt` text or `alt=""` for decorative
 - Decorative icons use `aria-hidden="true"`
