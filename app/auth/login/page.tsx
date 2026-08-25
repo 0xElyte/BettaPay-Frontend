@@ -5,6 +5,7 @@ import { Loader2, Shield, Zap, Globe, ArrowRight } from 'lucide-react';
 import { useNotify } from '@/lib/hooks/useNotify';
 import { getDefaultRoute } from '@/lib/utils';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 
 import { Button } from '@/components/ui';
 import { WalletModalFallback } from '@/components/wallet/WalletModalFallback';
@@ -217,6 +218,16 @@ export default function LoginPage() {
           {isWalletLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           {t('login.connectWallet')}
         </Button>
+
+        {/* Forgot password */}
+        <div className="text-center pt-1">
+          <Link
+            href="/auth/forgot-password"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {t('login.forgotPassword')}
+          </Link>
+        </div>
       </div>
 
       {/* Benefits */}

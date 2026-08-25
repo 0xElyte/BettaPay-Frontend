@@ -38,10 +38,30 @@
     "or": "ou",
     "connectWallet": "Conectar carteira Freighter",
     "learnMore": "Saiba mais sobre a BettaPay",
+    "forgotPassword": "Esqueceu a senha?",
     "benefits": {
       "settlement": { "title": "Liquidação instantânea", "description": "As transações são liquidadas em segundos na Stellar Soroban" },
       "currency": { "title": "Multimoeda", "description": "Aceite USDC e converta automaticamente para moeda local" },
       "custody": { "title": "Não custodial", "description": "Você sempre controla seus fundos e chaves" }
+    }
+  },
+  "forgotPassword": {
+    "title": "Redefinir sua senha",
+    "description": "Insira o endereço de e-mail vinculado à sua conta e enviaremos um link de redefinição.",
+    "emailLabel": "Endereço de e-mail",
+    "emailPlaceholder": "voce@exemplo.com",
+    "submit": "Enviar link de redefinição",
+    "submitting": "Enviando…",
+    "backToLogin": "Voltar ao login",
+    "confirmation": {
+      "title": "Verifique sua caixa de entrada",
+      "description": "Se esse e-mail estiver cadastrado, você receberá um link de redefinição em breve. Verifique a pasta de spam caso não o encontre em alguns minutos.",
+      "backToLogin": "Voltar ao login"
+    },
+    "errors": {
+      "invalidEmail": "Por favor, insira um endereço de e-mail válido.",
+      "tooManyRequests": "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+      "generic": "Algo deu errado. Por favor, tente novamente mais tarde."
     }
   }
 }
