@@ -3,6 +3,7 @@
 import { Component, type ReactNode } from "react";
 import Link from "next/link";
 import { AlertTriangle, RotateCcw } from "lucide-react";
+import { captureException } from "@/lib/errorReporting";
 
 const buttonBase =
   "inline-flex items-center justify-center rounded-lg px-4 h-11 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -32,8 +33,13 @@ export class ErrorBoundary extends Component<
   }
 
   componentDidCatch(error: unknown, info: unknown) {
-    // Log so the failure is still visible in the console / error reporting.
+    // Log so the failure is still visible in the console during development.
     console.error("Unhandled render error caught by ErrorBoundary", error, info);
+
+    // Ship it to the reporting backend with route/store context so production
+    // render crashes are visible to the team, not just to the user.
+    const componentStack = (info as { componentStack?: string } | null)?.componentStack;
+    captureException(error, { source: "boundary", componentStack });
   }
 
   handleReset = () => {

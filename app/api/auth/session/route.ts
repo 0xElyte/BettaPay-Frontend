@@ -22,33 +22,63 @@ export async function GET(req: NextRequest) {
   });
 }
 
+/**
+ * Roles this app understands. Anything else is treated as least privilege.
+ */
+const KNOWN_ROLES: ReadonlySet<string> = new Set(['admin', 'merchant']);
+
+/** Least-privilege default when the backend has not confirmed a role. */
+const FALLBACK_ROLE = 'merchant';
+
+function normalizeRole(role: unknown): string {
+  return typeof role === 'string' && KNOWN_ROLES.has(role) ? role : FALLBACK_ROLE;
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const token = body.token;
-    const role = body.role || '';
 
+    // The role is deliberately NOT read from the request body. It used to be,
+    // which meant a caller could mint a `user_role=admin` cookie simply by
+    // asking for one — the middleware trusts that cookie for route access.
+    // The backend is the only thing allowed to say what a token is worth.
+    let role = FALLBACK_ROLE;
+    let confirmedByBackend = false;
     let revokedSessionCount: number | undefined;
+
     try {
       const upstreamResponse = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/session`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, role }),
+          body: JSON.stringify({ token }),
           cache: 'no-store',
         },
       );
+
       if (upstreamResponse.ok) {
         const upstreamBody = (await upstreamResponse.json()) as {
           revokedSessionCount?: unknown;
+          role?: unknown;
+          user?: { role?: unknown };
         };
         if (typeof upstreamBody.revokedSessionCount === 'number') {
           revokedSessionCount = upstreamBody.revokedSessionCount;
         }
+        role = normalizeRole(upstreamBody.role ?? upstreamBody.user?.role);
+        confirmedByBackend = true;
+      } else if (upstreamResponse.status === 401 || upstreamResponse.status === 403) {
+        // The backend rejected the token outright — do not set any cookie.
+        return NextResponse.json(
+          { ok: false, error: 'Invalid session token' },
+          { status: 401 },
+        );
       }
     } catch {
-      // Local cookie setup remains available when the auth service is offline.
+      // Local cookie setup remains available when the auth service is offline,
+      // but the session is capped at the least-privilege role.
     }
 
     const isProduction = process.env.NODE_ENV === 'production';
@@ -58,7 +88,7 @@ export async function POST(req: Request) {
     // point. A fresh token is tied to the new authenticated session.
     const csrfToken = generateCsrfToken();
 
-    const res = NextResponse.json({ ok: true, revokedSessionCount });
+    const res = NextResponse.json({ ok: true, revokedSessionCount, role, confirmedByBackend });
 
     // auth_token: HttpOnly so JS cannot read it (XSS protection)
     res.headers.set(
