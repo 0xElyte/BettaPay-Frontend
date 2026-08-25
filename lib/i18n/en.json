@@ -38,10 +38,30 @@
     "or": "or",
     "connectWallet": "Connect Freighter Wallet",
     "learnMore": "Learn more about BettaPay",
+    "forgotPassword": "Forgot password?",
     "benefits": {
       "settlement": { "title": "Instant settlement", "description": "Transactions settle in seconds on Stellar Soroban" },
       "currency": { "title": "Multi-currency", "description": "Accept USDC, auto-convert to local fiat" },
       "custody": { "title": "Non-custodial", "description": "You always control your funds and keys" }
+    }
+  },
+  "forgotPassword": {
+    "title": "Reset your password",
+    "description": "Enter the email address linked to your account and we'll send you a reset link.",
+    "emailLabel": "Email address",
+    "emailPlaceholder": "you@example.com",
+    "submit": "Send reset link",
+    "submitting": "Sending…",
+    "backToLogin": "Back to sign in",
+    "confirmation": {
+      "title": "Check your inbox",
+      "description": "If that email is registered, you'll receive a reset link shortly. Check your spam folder if you don't see it within a few minutes.",
+      "backToLogin": "Back to sign in"
+    },
+    "errors": {
+      "invalidEmail": "Please enter a valid email address.",
+      "tooManyRequests": "Too many attempts. Please wait a few minutes and try again.",
+      "generic": "Something went wrong. Please try again later."
     }
   }
 }
