@@ -46,6 +46,10 @@ i18n
     // Dictionaries are bundled directly; no runtime HTTP fetching.
     resources: fallbackResources,
 
+    // Never return null for a missing key — return the key itself so
+    // missing translations are visible in the UI rather than silently blank.
+    returnNull: false,
+
     // Don't escape values for HTML (React handles this)
     interpolation: {
       escapeValue: false,

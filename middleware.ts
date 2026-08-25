@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { ensureCsrfCookieInMiddleware } from '@/lib/utils/csrf';
+import { getDefaultRoute } from '@/lib/utils';
 
 export function middleware(request: NextRequest) {
   const token = request.cookies.get('auth_token')?.value;
@@ -48,6 +49,7 @@ export function middleware(request: NextRequest) {
         return withCsrf(NextResponse.redirect(new URL('/overview', request.url)));
       }
       return withCsrf(NextResponse.redirect(new URL('/dashboard', request.url)));
+        return NextResponse.redirect(new URL(getDefaultRoute(role), request.url));
     }
     return withCsrf(NextResponse.next());
   }
@@ -66,6 +68,7 @@ export function middleware(request: NextRequest) {
   // Role-based protection
   if (isAdminRoute && role !== 'admin') {
     return withCsrf(NextResponse.redirect(new URL('/dashboard', request.url))); // redirect merchants from admin
+    return NextResponse.redirect(new URL(getDefaultRoute(role), request.url)); // redirect merchants from admin
   }
 
   // Protect merchant routes from admins
