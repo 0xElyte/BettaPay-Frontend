@@ -5,6 +5,7 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { apiClient } from './axios';
 import type { MerchantProfile, MerchantBankAccount } from '../types';
 import { getErrorMessage } from '../utils/apiError';
+import { normalizePaymentStatus } from '../utils/constants';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -153,8 +154,12 @@ export function usePayments(): HookShape<ApiPayment[]> {
         '/api/payments',
       );
       const payload = res.data;
-      if (Array.isArray(payload)) return payload;
-      return (payload as ListEnvelope<ApiPayment> | undefined)?.data ?? [];
+      const raw: ApiPayment[] = Array.isArray(payload)
+        ? payload
+        : ((payload as ListEnvelope<ApiPayment> | undefined)?.data ?? []);
+      // Normalise status at the ingestion boundary so every consumer receives
+      // canonical vocabulary regardless of what the API or mock returns.
+      return raw.map((p) => ({ ...p, status: normalizePaymentStatus(p.status) }));
     },
   });
   return mapQuery(query, []);

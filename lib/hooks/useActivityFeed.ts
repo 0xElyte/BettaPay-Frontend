@@ -146,7 +146,10 @@ export function useActivityFeed(limit = 20) {
 
     if (pollTimerRef.current !== null) return; // already polling
     pollTimerRef.current = setInterval(() => {
-      if (mountedRef.current) void fetchEvents({ silent: true });
+      // Pause polling when the tab is hidden — identical to useSystemHealth.
+      if (mountedRef.current && document.visibilityState === "visible") {
+        void fetchEvents({ silent: true });
+      }
     }, POLL_INTERVAL_MS);
   }, [fetchEvents]);
 
@@ -303,19 +306,28 @@ export function useActivityFeed(limit = 20) {
     // Then attempt SSE
     startSSE();
 
-    // Reconnect SSE when the tab becomes visible again (if not already polling)
+    // Visibility handler: covers both the SSE and polling fallback paths.
+    //
+    // • SSE path  — if the stream dropped while hidden, reopen it.
+    // • Poll path — resume with an immediate fetch so data isn't stale after
+    //   returning to the tab; the interval already guards against hidden-tab
+    //   polls via the visibilityState check inside startPolling.
     const handleVisibilityChange = () => {
-      if (
-        document.visibilityState === "visible" &&
-        !usePollFallbackRef.current &&
-        mountedRef.current
-      ) {
-        // If SSE dropped while the tab was hidden, reopen it
-        if (
-          !evsRef.current ||
-          evsRef.current.readyState === EventSource.CLOSED
-        ) {
-          startSSE();
+      if (!mountedRef.current) return;
+
+      if (document.visibilityState === "visible") {
+        if (usePollFallbackRef.current) {
+          // Polling path: do an immediate fetch on tab-return so data is
+          // fresh without waiting for the next interval tick.
+          void fetchEvents({ silent: true });
+        } else {
+          // SSE path: reconnect if the stream closed while the tab was hidden.
+          if (
+            !evsRef.current ||
+            evsRef.current.readyState === EventSource.CLOSED
+          ) {
+            startSSE();
+          }
         }
       }
     };
