@@ -7,7 +7,6 @@ export function Merchants() {
   return (
     <SectionShell
       id="merchants"
-      title="Merchants"
       lead="A merchant is the account that owns payments and settlements. The merchant your JWT acts as is fixed by the merchantId claim in the token."
     >
       <P>

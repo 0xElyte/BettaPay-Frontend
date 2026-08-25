@@ -77,7 +77,6 @@ export function Authentication() {
   return (
     <SectionShell
       id="authentication"
-      title="Authentication"
       lead="BettaPay issues a signed JWT that you attach as a Bearer token on every authenticated request. There are two ways to obtain one: Google OAuth and Stellar wallet auth."
     >
       {/* ── Google OAuth ── */}

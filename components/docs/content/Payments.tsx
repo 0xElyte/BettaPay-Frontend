@@ -7,7 +7,6 @@ export function Payments() {
   return (
     <SectionShell
       id="payments"
-      title="Payments"
       lead="Create payments (and hosted payment links), read their status as they settle on Stellar, and advance them through their lifecycle."
     >
       <SubSection id="payment-lifecycle" title="Status lifecycle">

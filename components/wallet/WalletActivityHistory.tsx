@@ -1,27 +1,24 @@
 "use client";
 
-import { memo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { EmptyState } from '@/components/shared/EmptyState';
-import { ArrowUpRight, ArrowDownLeft, Inbox, RefreshCcw, ExternalLink } from 'lucide-react';
+import { memo, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui';
+import { Button } from '@/components/ui';
+import { EmptyState } from '@/components/shared';
+import { ArrowUpRight, ArrowDownLeft, Inbox, RefreshCcw, ExternalLink, Loader2 } from 'lucide-react';
 import { getStellarExplorerTxUrl } from '@/lib/utils/explorer';
+import { useTransactionHistory } from '@/lib/hooks/useTransactionHistory';
 
 interface WalletTx {
   id: string;
   type: 'receive' | 'send';
   label: string;
   amount: number;
-  time: string;
-  txHash?: string;
+  assetCode: string;
+  timestamp: string;
+  txHash: string;
+  counterparty: string;
 }
-
-const mockTxHistory: WalletTx[] = [
-  { id: 'w1', type: 'receive', label: 'Payment from link_02', amount: 45.5, time: '2h ago', txHash: '0x1234567890abcdef1234567890abcdef12345678' },
-  { id: 'w2', type: 'receive', label: 'Payment from link_01', amount: 750, time: '5h ago', txHash: '0xabcdef1234567890abcdef1234567890abcdef12' },
-  { id: 'w3', type: 'send', label: 'Settlement to GTBank', amount: 1200, time: 'Yesterday' },
-  { id: 'w4', type: 'receive', label: 'Payment from link_03', amount: 29, time: 'Yesterday', txHash: '0x9999999999abcdef1234567890abcdef12345678' },
-];
 
 const WalletActivityItem = memo(function WalletActivityItem({ tx }: { tx: WalletTx }) {
   return (
@@ -35,10 +32,10 @@ const WalletActivityItem = memo(function WalletActivityItem({ tx }: { tx: Wallet
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-foreground">{tx.label}</p>
-        <p className="text-xs text-muted-foreground">{tx.time}</p>
+        <p className="text-xs text-muted-foreground">{tx.timestamp}</p>
       </div>
       <span className={`text-sm font-semibold ${tx.type === 'receive' ? 'text-emerald-600' : 'text-foreground'}`}>
-        {tx.type === 'receive' ? '+' : '-'}{tx.amount.toFixed(2)} USDC
+        {tx.type === 'receive' ? '+' : '-'}{tx.amount.toFixed(2)} {tx.assetCode}
       </span>
       {tx.txHash && (
         <a
@@ -57,6 +54,16 @@ const WalletActivityItem = memo(function WalletActivityItem({ tx }: { tx: Wallet
 });
 
 export function WalletActivityHistory() {
+  const { transactions, loading, error, refetch } = useTransactionHistory();
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: transactions.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 60,
+    overscan: 5,
+  });
+
   return (
     <Card className="border border-border bg-card shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between">
@@ -64,18 +71,66 @@ export function WalletActivityHistory() {
           <CardTitle className="text-base font-semibold text-foreground">Wallet Activity</CardTitle>
           <CardDescription>Recent on-chain transactions</CardDescription>
         </div>
-        <Button variant="ghost" aria-label="Refresh balances" className="text-xs text-muted-foreground min-h-[44px] px-3 rounded-lg">
-          <RefreshCcw className="w-3 h-3 mr-1.5" /> Refresh
+        <Button
+          variant="ghost"
+          aria-label="Refresh transactions"
+          onClick={refetch}
+          disabled={loading}
+          className="text-xs text-muted-foreground min-h-[44px] px-3 rounded-lg"
+        >
+          {loading ? (
+            <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+          ) : (
+            <RefreshCcw className="w-3 h-3 mr-1.5" />
+          )}{' '}
+          Refresh
         </Button>
       </CardHeader>
       <CardContent>
-        {mockTxHistory.length === 0 ? (
-          <EmptyState icon={Inbox} title="No wallet activity yet" description="On-chain transactions will appear here once your wallet receives payments." />
+        {loading && transactions.length === 0 ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : error ? (
+          <EmptyState
+            icon={Inbox}
+            title="Failed to load transactions"
+            description={error}
+          />
+        ) : transactions.length === 0 ? (
+          <EmptyState
+            icon={Inbox}
+            title="No wallet activity yet"
+            description="On-chain transactions will appear here once your wallet receives payments."
+          />
         ) : (
-          <div className="space-y-2">
-            {mockTxHistory.map((tx) => (
-              <WalletActivityItem key={tx.id} tx={tx} />
-            ))}
+          <div
+            ref={parentRef}
+            className="h-[300px] overflow-auto"
+          >
+            <div
+              style={{
+                height: `${virtualizer.getTotalSize()}px`,
+                width: '100%',
+                position: 'relative',
+              }}
+            >
+              {virtualizer.getVirtualItems().map((virtualRow) => (
+                <div
+                  key={virtualRow.key}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: `${virtualRow.size}px`,
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  <WalletActivityItem tx={transactions[virtualRow.index]} />
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </CardContent>

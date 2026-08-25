@@ -23,7 +23,6 @@ export function ErrorCodes() {
   return (
     <SectionShell
       id="error-codes"
-      title="Error Codes"
       lead="Every failure returns the same envelope with a stable, machine-readable code. Branch on error.code — messages may be reworded, codes will not."
     >
       <Snippet code={errorShape} lang="json" filename="Error envelope" />

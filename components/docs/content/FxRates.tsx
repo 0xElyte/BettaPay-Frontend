@@ -7,7 +7,6 @@ export function FxRates() {
   return (
     <SectionShell
       id="fx-rates"
-      title="FX & Rates"
       lead="The gateway proxies the FX engine so you can read live USDC/fiat rates and price a conversion. These endpoints are public — no JWT required."
     >
       <P>

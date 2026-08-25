@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useMemo, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
@@ -10,10 +10,11 @@ import {
   CardFooter,
   CardHeader,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useWalletStore } from "@/lib/store/walletStore";
-import { CurrencyDisplay } from "@/components/shared/CurrencyDisplay";
+import { Button } from "@/components/ui";
+import { Input } from "@/components/ui";
+import { useWalletStore, WalletState } from "@/lib/store/walletStore";
+import { CurrencyDisplay } from "@/components/shared";
+import { CurrencySelector } from "@/components/payments/CurrencySelector";
 import { ArrowRight, QrCode } from "lucide-react";
 import { useNotify } from "@/lib/hooks/useNotify";
 import Image from "next/image";
@@ -25,26 +26,57 @@ import {
 } from "@stellar/stellar-sdk";
 import { signWithFreighter } from "@/lib/stellar/freighter";
 import { apiClient } from "@/lib/api/axios";
+import { MULTI_CURRENCY_ASSETS, MOCK_RATES } from "@/lib/utils/constants";
 import { WalletModalFallback } from "@/components/wallet/WalletModalFallback";
-const WalletModal = dynamic(
-  () => import("@/components/wallet/WalletModal").then((m) => m.WalletModal),
-  { ssr: false },
-);
+import { WalletModalErrorBoundary } from "@/components/wallet/WalletModalErrorBoundary";
+import { QRCodeModal } from "@/components/payments/QRCode";
+
+function hexToUint8Array(hexString: string): Uint8Array {
+  const cleanHex = hexString.startsWith('0x') ? hexString.slice(2) : hexString;
+  const len = cleanHex.length;
+  const result = new Uint8Array(len / 2);
+  for (let i = 0; i < len; i += 2) {
+    result[i / 2] = parseInt(cleanHex.substring(i, i + 2), 16);
+  }
+  return result;
+}
 
 export default function PaymentLinkPage() {
   const router = useRouter();
   const { isConnected, connect, address } = useWalletStore();
   const { error: notifyError } = useNotify();
-  const [walletModalOpen, setWalletModalOpen] = useState(false);
+  const walletModalOpen = useWalletStore((s: WalletState) => s.walletModalOpen);
+  const setWalletModalOpen = useWalletStore((s: WalletState) => s.setWalletModalOpen);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  // Bumping this recreates the `dynamic()` import below with a fresh promise,
+  // so retrying after a chunk-load failure re-fetches the chunk instead of
+  // replaying the same cached rejection.
+  const [walletModalRetryKey, setWalletModalRetryKey] = useState(0);
+  const WalletModal = useMemo(
+    () =>
+      dynamic(
+        () => import("@/components/wallet/WalletModal").then((m) => m.WalletModal),
+        { ssr: false },
+      ),
+    // walletModalRetryKey isn't read inside the factory — it's only a cache
+    // key so bumping it forces a new dynamic() call (and a fresh import()).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [walletModalRetryKey],
+  );
 
   // Mock data for this link
   const linkData = {
     merchantName: "Merchant Corp",
     label: "Consulting Retainer Q3",
-    type: "open", // 'fixed' or 'open'
+    type: "open" as "fixed" | "open",
     currency: "USDC",
     fixedAmount: 0,
+    isMultiCurrency: true,
+    acceptedCurrencies: ["USDC", "XLM", "USDT"],
   };
+
+  const [selectedCurrency, setSelectedCurrency] = useState<string[]>([linkData.currency]);
+  const activeCurrency = selectedCurrency[0] ?? linkData.currency;
 
   const [amount, setAmount] = useState(
     linkData.type === "fixed" ? linkData.fixedAmount.toString() : "",
@@ -96,8 +128,9 @@ export default function PaymentLinkPage() {
         throw new Error('NEXT_PUBLIC_MERCHANT_ADDRESS is not set');
       }
 
-      // Amount in stroops (1 USDC = 10^7 stroops)
-      const stroopAmount = BigInt(Math.floor(Number(amount) * 10_000_000));
+      // Calculate stroop amount based on selected asset decimals
+      const assetConfig = MULTI_CURRENCY_ASSETS[activeCurrency] ?? MULTI_CURRENCY_ASSETS.USDC;
+      const stroopAmount = BigInt(Math.floor(Number(amount) * assetConfig.stroopMultiplier));
 
       const networkPassphrase = process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE;
       if (!networkPassphrase) throw new Error('NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE is not set');
@@ -110,7 +143,7 @@ export default function PaymentLinkPage() {
           new Contract(contractId).call(
             "store_payment_reference",
             nativeToScVal(merchantAddress, { type: "address" }),
-            nativeToScVal(Buffer.from(referenceHex, "hex")),
+            nativeToScVal(hexToUint8Array(referenceHex)),
             nativeToScVal(stroopAmount, { type: "i128" }),
           ),
         )
@@ -130,7 +163,7 @@ export default function PaymentLinkPage() {
         merchantId: merchantAddress,
         payerId: payerAddress,
         amount: Number(amount),
-        asset: linkData.currency,
+        asset: activeCurrency,
       });
 
       // Redirect to status page with the backend payment ID
@@ -148,19 +181,19 @@ export default function PaymentLinkPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <Suspense
-          fallback={
-            <WalletModalFallback
-              open={walletModalOpen}
-              onOpenChange={setWalletModalOpen}
-            />
-          }
+        <WalletModalErrorBoundary
+          open={walletModalOpen}
+          onOpenChange={setWalletModalOpen}
+          onRetry={() => setWalletModalRetryKey((key) => key + 1)}
         >
-          <WalletModal
-            open={walletModalOpen}
-            onOpenChange={setWalletModalOpen}
-          />
-        </Suspense>
+          <Suspense
+            fallback={
+              <WalletModalFallback />
+            }
+          >
+            <WalletModal />
+          </Suspense>
+        </WalletModalErrorBoundary>
 
         {/* Merchant Branding Header */}
         <div className="flex flex-col items-center mb-8">
@@ -193,26 +226,41 @@ export default function PaymentLinkPage() {
                   </h2>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {linkData.isMultiCurrency && linkData.acceptedCurrencies.length > 1 && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Pay with
+                      </label>
+                      <CurrencySelector
+                        selectedCurrencies={selectedCurrency}
+                        onSelectionChange={(currencies) => setSelectedCurrency(currencies)}
+                        mode="single"
+                        showRates
+                      />
+                    </div>
+                  )}
+
                   {linkData.type === "fixed" ? (
                     <div className="text-center py-6">
                       <div className="text-4xl font-bold text-foreground">
                         <CurrencyDisplay
                           amount={linkData.fixedAmount}
-                          currency={linkData.currency}
+                          currency={activeCurrency}
                         />
                       </div>
                       <p className="text-sm text-muted-foreground mt-2">
-                        ≈ ₦{(linkData.fixedAmount * 1550).toLocaleString()}
+                        {(MOCK_RATES[activeCurrency] ?? 1) !== 1 &&
+                          `≈ $${(linkData.fixedAmount * (MOCK_RATES[activeCurrency] ?? 1)).toFixed(2)} USD`}
                       </p>
                     </div>
                   ) : (
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-muted-foreground">
-                        Amount ({linkData.currency})
+                        Amount ({activeCurrency})
                       </label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
-                          $
+                          {MULTI_CURRENCY_ASSETS[activeCurrency]?.icon ?? '$'}
                         </span>
                         <Input
                           type="number"
@@ -222,6 +270,11 @@ export default function PaymentLinkPage() {
                           onChange={(e) => setAmount(e.target.value)}
                         />
                       </div>
+                      {amount && Number(amount) > 0 && (MOCK_RATES[activeCurrency] ?? 1) !== 1 && (
+                        <p className="text-xs text-muted-foreground text-right">
+                          ≈ ${(Number(amount) * (MOCK_RATES[activeCurrency] ?? 1)).toFixed(2)} USD
+                        </p>
+                      )}
                     </div>
                   )}
                 </CardContent>
@@ -235,6 +288,7 @@ export default function PaymentLinkPage() {
                   <Button
                     variant="ghost"
                     className="w-full h-12 text-muted-foreground"
+                    onClick={() => setQrModalOpen(true)}
                   >
                     <QrCode className="w-4 h-4 mr-2" />
                     Show QR Code
@@ -264,7 +318,7 @@ export default function PaymentLinkPage() {
                       <span className="font-semibold">
                         <CurrencyDisplay
                           amount={Number(amount)}
-                          currency={linkData.currency}
+                          currency={activeCurrency}
                         />
                       </span>
                     </div>
@@ -278,7 +332,7 @@ export default function PaymentLinkPage() {
                       <span className="font-bold text-primary">
                         <CurrencyDisplay
                           amount={Number(amount)}
-                          currency={linkData.currency}
+                          currency={activeCurrency}
                         />
                       </span>
                     </div>
@@ -349,6 +403,15 @@ export default function PaymentLinkPage() {
             </div>
           </div>
         </footer>
+
+        <QRCodeModal
+          open={qrModalOpen}
+          onOpenChange={setQrModalOpen}
+          value={typeof window !== "undefined" ? window.location.href : ""}
+          title={linkData.label}
+          subtitle={`Pay ${linkData.merchantName}`}
+          amountUsdc={amount ? Number(amount) : undefined}
+        />
       </div>
     </div>
   );

@@ -6,6 +6,9 @@
   .text-balance {
     text-wrap: balance;
   }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }
 
 @layer base {
@@ -26,8 +29,12 @@
   :root {
     /* ── Font tokens ── */
     /* font-heading resolves the Tailwind `font-heading` utility (card.tsx, dialog.tsx).
-       Defaults to Inter — override this variable to swap in a display font globally. */
-    --font-heading: "Inter", system-ui, sans-serif;
+       Set by next/font/google via the --font-heading CSS variable from Fraunces. */
+    --font-heading: "Fraunces", serif;
+
+    /* font-body resolves the Tailwind `font-sans` utility for body text.
+       Set by next/font/google via the --font-body CSS variable from DM Sans. */
+    --font-body: "DM Sans", sans-serif;
 
     /* ── Shadow tokens ── */
     --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05);
@@ -151,8 +158,22 @@
   }
 
   :focus-visible {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 30%, transparent);
-    border-radius: 8px;
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--ring) 25%, transparent);
+    border-radius: 4px;
+  }
+
+  /* Ensure all focusable elements have visible focus indicators */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--ring) 25%, transparent);
   }
 
   /* Smooth anchor scrolling, scoped to the docs page and disabled for users

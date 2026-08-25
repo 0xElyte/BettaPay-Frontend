@@ -3,14 +3,15 @@
 import { useCallback, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
-import { MerchantSidebar, merchantNavItems } from "@/components/layout/MerchantSidebar";
-import { PageTransition } from "@/components/shared/PageTransition";
-import { MobileNavDrawer } from "@/components/layout/MobileNavDrawer";
-import { Topbar } from "@/components/layout/Topbar";
-import Footer from "@/components/layout/Footer";
-import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
+import { MerchantSidebar, MobileNavDrawer, Topbar, Footer, MobileBottomNav } from "@/components/layout";
+import { merchantNavItems } from "@/lib/navigation/merchantNav";
+import { PageTransition, ErrorBoundary } from "@/components/shared";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { useWalletStore } from "@/lib/store/walletStore";
+import { useAuthStore } from "@/lib/store/authStore";
+import { useSessionTimeout } from "@/lib/hooks/useSessionTimeout";
+import { useRateLimitCountdown } from "@/lib/hooks/useRateLimitCountdown";
+import { SessionTimeoutModal } from "@/components/SessionTimeoutModal";
 
 export default function MerchantLayout({
   children,
@@ -21,14 +22,44 @@ export default function MerchantLayout({
   const router = useRouter();
   const network = useWalletStore((s) => s.network);
   const isTestnet = network === 'testnet';
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const logout = useAuthStore((s) => s.logout);
 
   const closeMobileMenu = useCallback(() => {
     setMobileMenuOpen(false);
   }, []);
 
+  const handleTimeoutLogout = useCallback(() => {
+    logout();
+    router.push('/auth/login');
+  }, [logout, router]);
+
+  const { showWarning, secondsRemaining, dismissWarning } = useSessionTimeout({
+    onTimeout: handleTimeoutLogout,
+  });
+
+  useRateLimitCountdown();
+
+  const handleExtend = useCallback(async () => {
+    try {
+      await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
+      dismissWarning();
+    } catch {
+      logout();
+      router.push('/auth/login');
+    }
+  }, [logout, router, dismissWarning]);
+
+  // Prefetch only the two most likely next destinations on mount.
+  // All other routes are prefetched lazily on hover/focus via Next.js Link
+  // components, so no eager bundle downloads on initial load.
   useEffect(() => {
-    router.prefetch("/transactions");
-    router.prefetch("/payments");
+    try {
+      router.prefetch("/dashboard");
+      router.prefetch("/payments");
+    } catch {
+      // Prefetch may throw during SSR or in edge environments
+    }
   }, [router]);
 
   return (
@@ -39,9 +70,25 @@ export default function MerchantLayout({
         isOpen={mobileMenuOpen}
         onClose={closeMobileMenu}
         navItems={merchantNavItems}
+        userFooter={
+          <div className="flex items-center gap-3 px-2 py-2">
+            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-primary-foreground flex-shrink-0">
+              MC
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-semibold text-foreground truncate">
+                Merchant Corp
+              </span>
+              <span className="text-xs text-success flex items-center gap-1 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block text-emerald-500"></span>
+                Verified
+              </span>
+            </div>
+          </div>
+        }
       />
 
-      <MobileBottomNav />
+      <MobileBottomNav onMoreClick={() => setMobileMenuOpen(true)} />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {isTestnet && (
@@ -56,15 +103,26 @@ export default function MerchantLayout({
           isMenuOpen={mobileMenuOpen}
         />
 
-        <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto bg-background/50 pb-20 md:pb-0">
+        <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto bg-background/50 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
           <div className="mx-auto max-w-7xl px-3 sm:px-6 py-4 sm:py-8 space-y-6">
             <OnboardingWizard />
-            <PageTransition>{children}</PageTransition>
+            <PageTransition>
+              <ErrorBoundary>{children}</ErrorBoundary>
+            </PageTransition>
           </div>
         </main>
 
         <Footer />
       </div>
+
+      {isAuthenticated && (
+        <SessionTimeoutModal
+          open={showWarning}
+          secondsRemaining={secondsRemaining}
+          onExtend={handleExtend}
+          onLogout={handleTimeoutLogout}
+        />
+      )}
     </div>
   );
 }

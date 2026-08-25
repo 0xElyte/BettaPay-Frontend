@@ -1,17 +1,13 @@
 "use client";
 
 import { memo } from 'react';
-import dynamic from 'next/dynamic';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay';
+import { Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/components/ui';
+import { CurrencyDisplay, ErrorDisplay, StatCard, ErrorBoundary } from '@/components/shared';
 import { Users, AlertTriangle, ArrowUpRight, Activity, DollarSign } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
-import { StatCard } from '@/components/shared/StatCard';
+import { useAdminStats } from '@/lib/api/hooks';
+import PlatformVolumeChart from '@/components/charts/PlatformVolumeChart';
 
-const PlatformVolumeChart = dynamic(() => import('@/components/charts/PlatformVolumeChart'), {
-  ssr: false,
-  loading: () => <Skeleton className="h-[300px] w-full rounded-xl" />,
-});
+
 
 // Memoised so future additions of state to the parent won't re-render the chart.
 const AdminChartSection = memo(function AdminChartSection() {
@@ -22,14 +18,33 @@ const AdminChartSection = memo(function AdminChartSection() {
       </CardHeader>
       <CardContent className="pl-2">
         <div className="mt-4">
-          <PlatformVolumeChart height={300} />
+          <ErrorBoundary>
+            <PlatformVolumeChart height={300} />
+          </ErrorBoundary>
         </div>
       </CardContent>
     </Card>
   );
 });
 
+function StatCardSkeleton() {
+  return (
+    <Card className="bg-card border shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-8 w-8 rounded-lg" />
+      </CardHeader>
+      <CardContent className="p-3 sm:p-4 space-y-2">
+        <Skeleton className="h-7 w-32" />
+        <Skeleton className="h-3 w-20" />
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminOverviewPage() {
+  const { data: stats, isLoading, error, refetch } = useAdminStats();
+
   return (
     <div className="space-y-6">
       <div>
@@ -39,94 +54,59 @@ export default function AdminOverviewPage() {
         </p>
       </div>
 
+      {error && (
+        <ErrorDisplay
+          message={`${error} Showing the last known figures.`}
+          onRetry={refetch}
+        />
+      )}
+
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Total Processed (30d)"
-          icon={Activity}
-          value={<CurrencyDisplay amount={1452310.89} />}
-          trend={{ icon: ArrowUpRight, label: "+12.5% from last month", color: "text-green-500" }}
-        />
-        <StatCard
-          title="Platform Fees Generated"
-          icon={DollarSign}
-          value={<CurrencyDisplay amount={14523.10} />}
-          trend={{ label: "1.0% flat fee across volume" }}
-        />
-        <StatCard
-          title="Active Merchants"
-          icon={Users}
-          value="142"
-          trend={{ icon: ArrowUpRight, label: "+12 new this week", color: "text-green-500" }}
-        />
-        <StatCard
-          title="Pending KYB Reviews"
-          icon={AlertTriangle}
-          value="8"
-          variant="destructive"
-          trend={{ label: "Requires immediate action" }}
-        />
-        <Card className="bg-card border shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full -mr-10 -mt-10 blur-xl"></div>
-          <CardHeader className="flex flex-row items-center justify-between pb-2 z-10 relative">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Processed (30d)</CardTitle>
-            <Activity className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent className="p-3 sm:p-4 z-10 relative">
-            <div className="text-xl sm:text-2xl font-bold text-foreground">
-              <CurrencyDisplay amount={1452310.89} />
-            </div>
-            <p className="text-xs text-success flex items-center mt-1">
-              <ArrowUpRight className="h-3 w-3 mr-1" />
-              +12.5% from last month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Platform Fees Generated</CardTitle>
-            <DollarSign className="h-4 w-4 text-success" />
-          </CardHeader>
-          <CardContent className="p-3 sm:p-4">
-            <div className="text-xl sm:text-2xl font-bold text-foreground">
-              <CurrencyDisplay amount={14523.10} />
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              1.0% flat fee across volume
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Active Merchants</CardTitle>
-            <Users className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent className="p-3 sm:p-4">
-            <div className="text-xl sm:text-2xl font-bold text-foreground">142</div>
-            <p className="text-xs text-success flex items-center mt-1">
-              <ArrowUpRight className="h-3 w-3 mr-1" />
-              +12 new this week
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="col-span-1 bg-destructive/10 border-destructive/20 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-destructive">Pending KYB Reviews</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent className="p-3 sm:p-4">
-            <div className="text-xl sm:text-2xl font-bold text-destructive">8</div>
-            <p className="text-xs text-destructive/80 mt-1">
-              Requires immediate action
-            </p>
-          </CardContent>
-        </Card>
+        {isLoading ? (
+          Array.from({ length: 4 }, (_, i) => <StatCardSkeleton key={i} />)
+        ) : (
+          <>
+            <StatCard
+              title="Total Processed (30d)"
+              icon={Activity}
+              color="primary"
+              value={<CurrencyDisplay amount={stats.totalProcessed} />}
+              trend={{
+                icon: ArrowUpRight,
+                label: `+${stats.totalProcessedChangePct}% from last month`,
+                color: 'text-success',
+              }}
+            />
+            <StatCard
+              title="Platform Fees Generated"
+              icon={DollarSign}
+              color="emerald"
+              value={<CurrencyDisplay amount={stats.platformFees} />}
+              trend={{ label: `${stats.feeRatePct.toFixed(1)}% flat fee across volume` }}
+            />
+            <StatCard
+              title="Active Merchants"
+              icon={Users}
+              color="blue"
+              value={stats.activeMerchants.toLocaleString()}
+              trend={{
+                icon: ArrowUpRight,
+                label: `+${stats.newMerchantsThisWeek} new this week`,
+                color: 'text-success',
+              }}
+            />
+            <StatCard
+              title="Pending KYB Reviews"
+              icon={AlertTriangle}
+              value={stats.pendingKyb.toLocaleString()}
+              variant="destructive"
+              trend={{ label: 'Requires immediate action' }}
+            />
+          </>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-7">
-        {/* Chart section is memoised */}
         <AdminChartSection />
 
         <Card className="col-span-3 bg-card border shadow-sm">

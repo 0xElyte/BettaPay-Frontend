@@ -1,0 +1,47 @@
+{
+  "common": {
+    "brand": "BettaPay",
+    "language": "Lugha",
+    "skipToContent": "Nenda kwenye maudhui makuu"
+  },
+  "languages": {
+    "en": "Kiingereza",
+    "fr": "Kifaransa",
+    "pt": "Kireno",
+    "sw": "Kiswahili"
+  },
+  "navigation": {
+    "features": "Vipengele",
+    "developers": "Wasanidi",
+    "company": "Kampuni",
+    "login": "Ingia",
+    "getStarted": "Anza"
+  },
+  "landing": {
+    "badge": "Sasa inapatikana kwenye Soroban Testnet",
+    "headline": "Lipa duniani kote.",
+    "headlineAccent": "Mara moja na bila udhamini.",
+    "description": "Jukwaa la malipo la kizazi kijacho kwa biashara za Kiafrika. Pokea USDC, badilisha kiotomatiki kupitia nanga za SEP-24, na upokee malipo moja kwa moja benki yako.",
+    "primaryCta": "Anza kupokea sarafu za kidijitali",
+    "secondaryCta": "Chunguza vipengele",
+    "featuresTitle": "Inaendeshwa na Stellar na Soroban",
+    "featuresDescription": "Miundombinu ya malipo ya kiwango cha biashara iliyoundwa kwa kasi, ada nafuu, na uwazi kamili.",
+    "features": {
+      "settlement": { "title": "Malipo ya papo hapo", "description": "Miamala hukamilika kwa sekunde 3 hadi 5. Hakuna tena kusubiri siku nyingi kwa uhamisho wa kimataifa." },
+      "offRamps": { "title": "Njia za kutoa fedha za SEP-24", "description": "Uelekezaji wa kiotomatiki kwa nanga za Stellar kwa malipo ya moja kwa moja ya Naira ya Nigeria benki." },
+      "fees": { "title": "Mgawanyo mahiri wa ada", "description": "Mikataba ya Soroban huhesabu na kugawa ada za jukwaa kiotomatiki kwa uaminifu on-chain." }
+    }
+  },
+  "login": {
+    "title": "Karibu tena",
+    "description": "Ingia ili kudhibiti malipo yako, kuona malipo yaliyokamilika, na kupokea sarafu za kidijitali kutoka kwa wateja duniani kote.",
+    "or": "au",
+    "connectWallet": "Unganisha pochi ya Freighter",
+    "learnMore": "Jifunze zaidi kuhusu BettaPay",
+    "benefits": {
+      "settlement": { "title": "Malipo ya papo hapo", "description": "Miamala hukamilika kwa sekunde chache kwenye Stellar Soroban" },
+      "currency": { "title": "Sarafu nyingi", "description": "Pokea USDC, badilisha kiotomatiki kuwa sarafu ya ndani" },
+      "custody": { "title": "Bila udhamini", "description": "Wewe daima unadhibiti fedha na funguo zako" }
+    }
+  }
+}

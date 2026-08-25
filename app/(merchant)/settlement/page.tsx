@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { NetworkTooltip } from '@/components/ui/network-tooltip';
-import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay';
-import { StatusBadge } from '@/components/shared/StatusBadge';
+import { useState, useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui';
+import { Button } from '@/components/ui';
+import { NetworkTooltip } from '@/components/ui';
+import { CurrencyDisplay } from '@/components/shared';
+import { StatusBadge } from '@/components/shared';
 import {
   Building2,
   Clock,
@@ -13,18 +13,18 @@ import {
   AlertCircle,
   Banknote,
   ChevronRight,
-  Download,
   Receipt,
   ExternalLink,
 } from 'lucide-react';
 import { getStellarExplorerTxUrl } from '@/lib/utils/explorer';
-import { EmptyState } from '@/components/shared/EmptyState';
-import { ErrorDisplay } from '@/components/shared/ErrorDisplay';
+import { EmptyState, ErrorDisplay, ExportMenu } from '@/components/shared';
 import { useOfflineStore } from '@/lib/store/offlineStore';
+import { useAuthStore } from '@/lib/store/authStore';
 import { SettlementConfirmation } from '@/components/settlement/SettlementConfirmation';
-import { StatCard } from '@/components/shared/StatCard';
+import { InvoiceDownloadButton, BatchInvoiceDownload } from '@/components/settlement/InvoiceGenerator';
+import { StatCard } from '@/components/shared';
 import { memo } from 'react';
-import { useSettlements, type ApiSettlement } from '@/lib/api/hooks';
+import { useSettlements, useMerchantBankAccount, type ApiSettlement } from '@/lib/api/hooks';
 
 type Settlement = ApiSettlement;
 
@@ -48,6 +48,7 @@ const SettlementItem = memo(function SettlementItem({ settlement: s }: Settlemen
       </div>
       <div className="flex items-center gap-2">
         <StatusBadge status={s.status as 'completed' | 'pending' | 'failed'} />
+        {s.status.toUpperCase() === 'COMPLETED' && <InvoiceDownloadButton settlement={s} />}
         {s.txHash && (
           <a
             href={getStellarExplorerTxUrl(s.txHash)}
@@ -68,6 +69,8 @@ const SettlementItem = memo(function SettlementItem({ settlement: s }: Settlemen
 export default function SettlementPage() {
   const { data: settlements, isLoading, error: fetchError, refetch } = useSettlements();
   const [settlementsError, setSettlementsError] = useState(false);
+  const { user } = useAuthStore();
+  const { data: bankAccount, isLoading: bankLoading } = useMerchantBankAccount(user?.id);
   const isOnline = useOfflineStore((s) => s.isOnline);
   const [settlementOpen, setSettlementOpen] = useState(false);
 
@@ -76,6 +79,22 @@ export default function SettlementPage() {
   const pending = settlements.filter(s => s.status === 'PROCESSING').reduce((sum, s) => sum + s.amountUsdc, 0);
   const totalSettled = settlements.filter(s => s.status === 'COMPLETED').reduce((sum, s) => sum + s.amountUsdc, 0);
   const availableNgn = settlements.filter(s => s.status === 'PENDING').reduce((sum, s) => sum + (s.amountNgn ?? 0), 0);
+
+  // Export the complete settlement history (no paging on this view), so the
+  // CSV contains every row shown by the history list.
+  const exportRows = useMemo(
+    () =>
+      settlements.map((s) => [
+        s.createdAt,
+        s.bankName,
+        s.accountNumber,
+        s.amountUsdc,
+        s.amountNgn ?? 0,
+        s.status,
+        s.txHash,
+      ]),
+    [settlements],
+  );
 
   return (
     <div className="space-y-8 pb-8">
@@ -130,33 +149,6 @@ export default function SettlementPage() {
           value={<CurrencyDisplay amount={totalSettled} />}
           trend={{ icon: CheckCircle2, label: 'All completed', color: 'text-emerald-600' }}
         />
-        <Card className="border border-border border-t-2 border-t-amber-200 bg-card shadow-sm">
-          <CardHeader className="pb-2 relative">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Available to Settle</CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 sm:p-4 relative">
-            <p className="text-xl sm:text-2xl font-bold text-foreground"><CurrencyDisplay amount={available} /></p>
-            <p className="text-xs text-muted-foreground mt-1">≈ ₦{availableNgn.toLocaleString()}</p>
-          </CardContent>
-        </Card>
-        <Card className="border border-border bg-card shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pending Settlement</CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 sm:p-4">
-            <p className="text-xl sm:text-2xl font-bold text-foreground"><CurrencyDisplay amount={pending} /></p>
-            <p className="text-xs text-primary mt-1 flex items-center gap-1"><Clock className="w-3 h-3" /> Processing</p>
-          </CardContent>
-        </Card>
-        <Card className="border border-border bg-card shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Settled (30d)</CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 sm:p-4">
-            <p className="text-xl sm:text-2xl font-bold text-foreground"><CurrencyDisplay amount={totalSettled} /></p>
-            <p className="text-xs text-success mt-1 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> All completed</p>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Settlement history */}
@@ -166,16 +158,20 @@ export default function SettlementPage() {
             <CardTitle className="text-base font-semibold text-foreground">Settlement History</CardTitle>
             <CardDescription>All your past USDC → NGN conversions</CardDescription>
           </div>
-          <NetworkTooltip show={!isOnline}>
-            <Button
-              variant="outline"
-              disabled={!isOnline}
-              aria-disabled={!isOnline}
-              className="border-border text-muted-foreground rounded-xl text-xs h-8 px-3"
-            >
-              <Download className="w-3 h-3 mr-1.5" /> Export
-            </Button>
-          </NetworkTooltip>
+          <div className="flex items-center gap-2">
+            <BatchInvoiceDownload settlements={settlements} />
+            <NetworkTooltip show={!isOnline}>
+              <ExportMenu
+                filename="settlements"
+                headers={['Date', 'Bank', 'AccountNumber', 'AmountUSDC', 'AmountNGN', 'Status', 'TxHash']}
+                rows={exportRows}
+                label="Export CSV"
+                size="sm"
+                disabled={!isOnline}
+                className="border-border text-muted-foreground rounded-xl"
+              />
+            </NetworkTooltip>
+          </div>
         </CardHeader>
         <CardContent>
           {settlementsError || fetchError ? (
@@ -193,7 +189,8 @@ export default function SettlementPage() {
             <EmptyState
               icon={Receipt}
               title="No settlements yet"
-              description="Your USDC → NGN conversion history will appear here once you initiate a settlement."
+              description="Your USDC → NGN conversion history will appear here once you initiate a settlement. Set up your bank account in Settings first."
+              action={{ label: 'Initiate Settlement', onClick: () => setSettlementOpen(true) }}
             />
           ) : (
             <div className="space-y-3">
@@ -206,20 +203,35 @@ export default function SettlementPage() {
       </Card>
 
       {/* Bank account config notice */}
-      <Card className="border border-primary/30 bg-primary/10">
-        <CardContent className="flex items-start gap-4 p-5">
-          <AlertCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-primary">Bank account not configured</p>
-            <p className="text-xs text-primary mt-0.5">
-              Add your Nigerian bank account in Settings to enable automatic settlements.
-            </p>
-          </div>
-          <Button variant="ghost" className="text-primary hover:bg-primary/20 rounded-xl text-xs h-8 px-3 flex-shrink-0">
-            Go to Settings <ChevronRight className="w-3 h-3 ml-1" />
-          </Button>
-        </CardContent>
-      </Card>
+      {!bankLoading && !bankAccount && (
+        <Card className="border border-primary/30 bg-primary/10">
+          <CardContent className="flex items-start gap-4 p-5">
+            <AlertCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-primary">Bank account not configured</p>
+              <p className="text-xs text-primary mt-0.5">
+                Add your Nigerian bank account in Settings to enable automatic settlements.
+              </p>
+            </div>
+            <Button variant="ghost" className="text-primary hover:bg-primary/20 rounded-xl text-xs h-8 px-3 flex-shrink-0">
+              Go to Settings <ChevronRight className="w-3 h-3 ml-1" />
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+      {!bankLoading && bankAccount && (
+        <Card className="border border-success/30 bg-success/5">
+          <CardContent className="flex items-start gap-4 p-5">
+            <CheckCircle2 className="w-5 h-5 text-success mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-success">Bank account configured</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {bankAccount.bankName} · {'\u2022'.repeat(Math.max(0, bankAccount.accountNumber.length - 4))}{bankAccount.accountNumber.slice(-4)}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

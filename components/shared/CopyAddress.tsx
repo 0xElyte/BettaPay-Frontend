@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { truncateAddress } from '@/lib/utils/format';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { useNotify } from '@/lib/hooks/useNotify';
 
@@ -14,11 +14,11 @@ interface CopyAddressProps {
   truncate?: boolean;
 }
 
-export const CopyAddress = ({ 
-  address, 
-  showIconOnly = false, 
+export const CopyAddress = ({
+  address,
+  showIconOnly = false,
   className,
-  truncate = true 
+  truncate = true,
 }: CopyAddressProps) => {
   const [copied, setCopied] = useState(false);
   const { success, error } = useNotify();

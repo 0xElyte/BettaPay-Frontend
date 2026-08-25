@@ -1,17 +1,12 @@
 import Link from "next/link";
 import { ArrowRight, Clock } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import {
   difficultyBadgeStyles,
+  difficultyLabels,
   type GuideMeta,
 } from "@/lib/guides";
-
-const difficultyLabel: Record<GuideMeta["difficulty"], string> = {
-  beginner: "Beginner",
-  intermediate: "Intermediate",
-  advanced: "Advanced",
-};
 
 /** Card for the /guides listing grid. The whole card links to the guide. */
 export default function GuideCard({ guide }: { guide: GuideMeta }) {
@@ -25,7 +20,7 @@ export default function GuideCard({ guide }: { guide: GuideMeta }) {
           variant="outline"
           className={cn("capitalize", difficultyBadgeStyles[guide.difficulty])}
         >
-          {difficultyLabel[guide.difficulty]}
+          {difficultyLabels[guide.difficulty]}
         </Badge>
         <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
           <Clock className="h-3.5 w-3.5" />

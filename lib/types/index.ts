@@ -11,6 +11,29 @@ export interface User {
   kybStatus?: 'pending' | 'approved' | 'rejected' | 'none';
 }
 
+export type AuthSessionStatus = 'active' | 'revoked' | 'expired';
+
+export interface AuthSession {
+  id: string;
+  device: string;
+  ipAddress: string;
+  lastActivityAt: string;
+  expiresAt: string;
+  status: AuthSessionStatus;
+  isCurrent: boolean;
+  revokedAt?: string | null;
+}
+
+export interface AuthSessionsResponse {
+  active: AuthSession[];
+  history: AuthSession[];
+}
+
+export interface AuthLoginResponse {
+  ok: boolean;
+  revokedSessionCount?: number;
+}
+
 export interface AssetBalance {
   assetCode: string;
   balance: string;
@@ -27,4 +50,11 @@ export interface MerchantProfile {
   contactEmail: string;
   phoneNumber: string | null;
   logoUrl: string | null;
+}
+
+export interface MerchantBankAccount {
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  bankCode?: string;
 }

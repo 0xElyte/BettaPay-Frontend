@@ -3,6 +3,15 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
   enabled: process.env.ANALYZE === 'true',
 });
 
+// Validate required environment variables at build time
+if (!process.env.NEXT_PUBLIC_API_URL && process.env.NODE_ENV === 'production') {
+  console.warn(
+    '\n⚠️  [Build Warning] NEXT_PUBLIC_API_URL is not set.\n' +
+    'Production builds will default to http://localhost:3001, causing all API calls to fail.\n' +
+    'Please set the NEXT_PUBLIC_API_URL environment variable.\n'
+  );
+}
+
 // Next.js dev mode (React Refresh / webpack HMR) evaluates JavaScript at
 // runtime, which a CSP without 'unsafe-eval' blocks — that stops React from
 // hydrating and leaves the app non-interactive locally. Allow it in development

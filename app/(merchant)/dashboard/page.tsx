@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
+import { Button } from '@/components/ui';
 import { DashboardSkeleton } from '@/components/skeletons/DashboardSkeleton';
-import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay';
-import { StatusBadge } from '@/components/shared/StatusBadge';
-import { StatCard } from '@/components/shared/StatCard';
-import { ErrorDisplay } from '@/components/shared/ErrorDisplay';
+import { CurrencyDisplay, StatCard, ErrorDisplay } from '@/components/shared';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { OnboardingChecklist } from '@/components/dashboard/OnboardingChecklist';
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -16,26 +15,29 @@ import {
   CreditCard,
   RefreshCcw,
   Plus,
-  Zap,
-  ChevronRight,
   TrendingUp,
   BarChart3,
   Copy,
   ExternalLink,
   ArrowRight,
 } from 'lucide-react';
-import { TransactionDetail } from '@/components/transactions/TransactionDetail';
-import { usePayments, useSettlements, type ApiPayment } from '@/lib/api/hooks';
+import dynamic from 'next/dynamic';
+
+const RevenueChart = dynamic(() => import('@/components/charts/RevenueChart'), {
+  ssr: false,
+  loading: () => <div className="h-[260px] bg-slate-50 animate-pulse rounded-xl w-full" />
+});
+import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
+import { usePayments, useSettlements } from '@/lib/api/hooks';
 import { useAuthStore } from '@/lib/store/authStore';
 import Link from 'next/link';
 import { useNotify } from '@/lib/hooks/useNotify';
 import { cn } from '@/lib/utils';
-import RevenueChart from '@/components/charts/RevenueChart';
-
-type Transaction = ApiPayment;
 
 const PERIOD_OPTIONS = ['7D', '30D', '90D'] as const;
 type Period = typeof PERIOD_OPTIONS[number];
+
+
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
@@ -45,16 +47,12 @@ export default function DashboardPage() {
 
   const isLoading = paymentsLoading || settlementsLoading;
 
-  const recentTxs = payments.slice(0, 5);
-
   const [activePeriod, setActivePeriod] = useState<Period>('7D');
-  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 
   // Error simulation states
   const [simulationEnabled, setSimulationEnabled] = useState(false);
   const [statsError, setStatsError] = useState(false);
   const [chartError, setChartError] = useState(false);
-  const [activityError, setActivityError] = useState(false);
   const [linksError, setLinksError] = useState(false);
 
   const firstName = user?.name?.split(' ')[0] ?? 'Merchant';
@@ -76,7 +74,6 @@ export default function DashboardPage() {
     setSimulationEnabled(nextState);
     setStatsError(nextState);
     setChartError(nextState);
-    setActivityError(nextState);
     setLinksError(nextState);
   };
 
@@ -87,39 +84,37 @@ export default function DashboardPage() {
       ) : (
         <>
       {/* ── Welcome Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold tracking-widest text-primary uppercase mb-1">
-            Merchant Dashboard
-          </p>
-          <h1 className="text-3xl font-bold text-foreground leading-tight">
-            Good day, {firstName} 👋
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Here&apos;s what&apos;s happening with your BettaPay account today.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            className={cn(
-              'rounded-xl h-10 px-4 text-sm transition-all border',
-              simulationEnabled
-                ? 'bg-primary/10 text-primary border-primary/30 hover:bg-primary/20'
-                : 'border-border text-muted-foreground hover:bg-muted'
-            )}
-            onClick={toggleSimulation}
-          >
-            {simulationEnabled ? 'Reset API' : 'Simulate API Error'}
-          </Button>
-          <Link href="/payments">
-            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl h-10 px-4 text-sm shadow-button transition-all">
-              <Plus className="w-4 h-4 mr-2" />
-              New Payment Link
+      <PageHeader
+        preTitle="Merchant Dashboard"
+        title={`Good day, ${firstName} 👋`}
+        titleClassName="leading-tight"
+        description="Here's what's happening with your BettaPay account today."
+        actions={
+          <>
+            <Button
+              variant="outline"
+              className={cn(
+                'rounded-xl h-10 px-4 text-sm transition-all border',
+                simulationEnabled
+                  ? 'bg-primary/10 text-primary border-primary/30 hover:bg-primary/20'
+                  : 'border-border text-muted-foreground hover:bg-muted'
+              )}
+              onClick={toggleSimulation}
+            >
+              {simulationEnabled ? 'Reset API' : 'Simulate API Error'}
             </Button>
-          </Link>
-        </div>
-      </div>
+            <Link href="/payments">
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl h-10 px-4 text-sm shadow-button transition-all">
+                <Plus className="w-4 h-4 mr-2" />
+                New Payment Link
+              </Button>
+            </Link>
+          </>
+        }
+      />
+
+      {/* ── Onboarding Checklist ── */}
+      <OnboardingChecklist />
 
       {/* ── KPI Stat Cards (memoised — not affected by period changes) ── */}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
@@ -202,7 +197,7 @@ export default function DashboardPage() {
                 />
               </div>
             ) : (
-              <RevenueChart height={260} />
+              <RevenueChart height={260} data={payments} />
             )}
             {/* Summary row */}
             <div className="flex items-center gap-6 pt-4 border-t border-border mt-2">
@@ -222,61 +217,8 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Recent Transactions */}
-        <Card className="lg:col-span-3 border border-border bg-card shadow-sm">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-semibold text-foreground">Recent Activity</CardTitle>
-              <Link href="/transactions">
-                <Button
-                  variant="ghost"
-                  className="text-xs text-primary hover:text-primary hover:bg-primary/10 min-h-[44px] px-2 rounded-lg font-semibold"
-                >
-                  View all <ChevronRight className="w-3 h-3 ml-0.5" />
-                </Button>
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {activityError ? (
-              <div className="py-8">
-                <ErrorDisplay
-                  message="Failed to load recent activity"
-                  onRetry={() => setActivityError(false)}
-                />
-              </div>
-            ) : (
-              <div className="space-y-1">
-                {recentTxs.map((tx) => (
-                  <div
-                    key={tx.id}
-                    className="flex items-center gap-3 py-2.5 px-2 rounded-xl hover:bg-muted transition-colors group cursor-pointer"
-                    onClick={() => setSelectedTx(tx)}
-                  >
-                    <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
-                      <Zap className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{tx.source ?? 'Payment'}</p>
-                      <p className="text-xs text-muted-foreground font-mono">
-                        {(tx.payerAddress ?? '').slice(0, 8)}... · {new Date(tx.createdAt).toLocaleTimeString()}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                      <span className={cn(
-                        'text-sm font-semibold',
-                        tx.status === 'failed' || tx.status === 'FAILED' ? 'text-destructive' : 'text-success'
-                      )}>
-                        {tx.status === 'failed' || tx.status === 'FAILED' ? '-' : '+'}<CurrencyDisplay amount={tx.amountUsdc} showDecimals={false} />
-                      </span>
-                      <StatusBadge status={tx.status as 'completed' | 'pending' | 'failed'} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Recent Activity */}
+        <ActivityFeed className="lg:col-span-3" />
       </div>
 
       {/* ── Bottom Row: Quick Actions + Payment Link Performance ── */}
@@ -341,6 +283,11 @@ export default function DashboardPage() {
                 {payments.slice(0, 3).map((link) => {
                   const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
                   const linkUrl = `${baseUrl}/pay/${link.id}`;
+                  const clicks = link.clicks ?? 0;
+                  const converted = link.converted ?? 0;
+                  const conversionRate = clicks > 0 ? (converted / clicks) * 100 : 0;
+                  const rateLabel = clicks > 0 ? `${conversionRate.toFixed(0)}%` : 'No data';
+
                   return (
                     <Link
                       key={link.id}
@@ -355,9 +302,11 @@ export default function DashboardPage() {
                         <p className="text-xs text-muted-foreground font-mono truncate">{linkUrl}</p>
                         <div className="flex items-center gap-2 mt-1.5">
                           <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                            <div className="h-full bg-amber-400 rounded-full" style={{ width: '50%' }} />
+                            {clicks > 0 && (
+                              <div className="h-full bg-amber-400 rounded-full" style={{ width: `${conversionRate}%` }} />
+                            )}
                           </div>
-                          <span className="text-xs text-muted-foreground font-medium">—</span>
+                          <span className="text-xs text-muted-foreground font-medium">{rateLabel}</span>
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-1 flex-shrink-0">
@@ -380,12 +329,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
-
-          <TransactionDetail
-            transaction={selectedTx as import('@/lib/mock/transactions').Transaction | null}
-            isOpen={!!selectedTx}
-            onClose={() => setSelectedTx(null)}
-          />
         </>
       )}
     </div>
