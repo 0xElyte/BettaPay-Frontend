@@ -2,20 +2,31 @@
 
 import Link from "next/link";
 import { useAuthStore } from "@/lib/store/authStore";
+import { getDefaultRoute } from "@/lib/utils";
 import { MerchantSidebar } from "@/components/layout/MerchantSidebar";
+import { AdminSidebar } from "@/components/layout/AdminSidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import Header from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Home, ArrowLeft, LifeBuoy, Frown } from "lucide-react";
 import Image from "next/image";
+import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 
 export default function NotFound() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    console.warn(`404: Page not found at ${pathname}`);
+  }, [pathname]);
 
   if (isAuthenticated) {
+    const isMerchant = user?.role !== "admin";
+
     return (
       <div className="flex h-screen overflow-hidden bg-background">
-        <MerchantSidebar />
+        {isMerchant ? <MerchantSidebar /> : <AdminSidebar />}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <Topbar />
           <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto bg-background/50 pb-20 md:pb-0">
@@ -35,7 +46,7 @@ export default function NotFound() {
                   Check the URL or navigate back to your dashboard.
                 </p>
                 <div className="flex flex-col sm:flex-row items-center gap-3">
-                  <Link href="/dashboard">
+                  <Link href={getDefaultRoute(user?.role)}>
                     <Button className="shadow-button">
                       <Home className="w-4 h-4 mr-2" />
                       Back to Dashboard
@@ -57,7 +68,7 @@ export default function NotFound() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col text-foreground font-sans">
       <Header />
       <main id="main-content" tabIndex={-1} className="flex-1">
         <div className="flex flex-col items-center justify-center py-24 sm:py-32 text-center px-4">

@@ -4,6 +4,7 @@ import { useState, Suspense, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Shield, Zap, Globe, ArrowRight } from 'lucide-react';
 import { useNotify } from '@/lib/hooks/useNotify';
+import { getDefaultRoute } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 
 import { useAuthStore } from '@/lib/store/authStore';
@@ -69,7 +70,7 @@ export default function LoginPage() {
       // ignore
     }
 
-    router.push(user.role === 'admin' ? '/overview' : '/dashboard');
+    router.push(getDefaultRoute(user.role));
   }, [apiBase, login, router, success]);
 
   const onGoogleSuccess = async (credentialResponse: { credential?: string }) => {

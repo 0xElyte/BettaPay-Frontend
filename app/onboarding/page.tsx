@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { getDefaultRoute } from "@/lib/utils";
 import { useNotify } from "@/lib/hooks/useNotify";
 import { useAuthStore } from "@/lib/store/authStore";
 import { apiClient } from "@/lib/api/axios";
@@ -75,7 +76,7 @@ export default function OnboardingPage() {
   const skip = () => {
     localStorage.setItem("onboardingCompleted", "false");
     notify.success("Onboarding saved for later. You can finish it from Settings.");
-    router.push("/dashboard");
+    router.push(getDefaultRoute(user?.role));
   };
 
   const submit = async () => {
@@ -92,7 +93,7 @@ export default function OnboardingPage() {
       });
       localStorage.setItem("onboardingCompleted", "true");
       notify.success("Your merchant profile is ready!");
-      router.push("/dashboard");
+      router.push(getDefaultRoute(user?.role));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to save your onboarding details.";
       notify.error(message);
