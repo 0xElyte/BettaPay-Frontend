@@ -1,10 +1,10 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../store/authStore';
-import { useRateLimitStore } from '../store/rateLimitStore';
+import { useRateLimitStore, isRequestRateLimited } from '../store/rateLimitStore';
 import { getCsrfTokenFromCookie, CSRF_HEADER_NAME } from '../utils/csrf';
 import { toast } from 'sonner';
 import { announce } from '@/lib/utils/announce';
-import { parseApiError, isTimeoutError } from '../utils/apiError';
+import { parseApiError, isTimeoutError, ApiError } from '../utils/apiError';
 import { getAppRouter } from '../navigation/appRouter';
 import { captureException } from '../errorReporting';
 
@@ -180,7 +180,27 @@ function resolveRequestTimeout(url: string | undefined): number {
   return PAYMENT_TIMEOUT_PATHS.some((path) => safeUrl.includes(path)) ? PAYMENT_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
 }
 
+/** Error code used for requests refused locally by the shared 429 window. */
+export const RATE_LIMIT_BLOCKED_CODE = 'RATE_LIMIT_BLOCKED';
+
+/** True for the synthetic error raised when a request is held back locally. */
+function isRateLimitBlockedError(error: unknown): boolean {
+  return error instanceof ApiError && error.code === RATE_LIMIT_BLOCKED_CODE;
+}
+
 apiClient.interceptors.request.use((config) => {
+  // Hold requests back while a rate-limit window is open — including one
+  // opened in another tab. Without this, sibling tabs keep firing into a limit
+  // the user is already waiting out, extending it for everyone.
+  if (isRequestRateLimited(config.url)) {
+    const { secondsRemaining } = useRateLimitStore.getState();
+    throw new ApiError(
+      `Rate limited. Please try again in ${secondsRemaining} seconds.`,
+      RATE_LIMIT_BLOCKED_CODE,
+      429
+    );
+  }
+
   // Resolve the base URL at dispatch time so runtime endpoint switches (QA,
   // tests) apply to the next request instead of being frozen at import.
   if (!config.baseURL) {
@@ -259,6 +279,14 @@ function reportApiFailure(error: AxiosError, kind: string) {
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
+    // Requests refused by the shared rate-limit window never reached the
+    // network. They still travel through this handler (a rejected request
+    // interceptor shares the promise chain), so return early rather than
+    // reporting them as a network failure and toasting a second time.
+    if (isRateLimitBlockedError(error)) {
+      return Promise.reject(error);
+    }
+
     const originalRequest = error.config as InternalAxiosRequestConfig & {
       _retry?: boolean;
     };

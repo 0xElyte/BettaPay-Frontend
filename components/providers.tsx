@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useSessionCheck } from "@/lib/hooks/useSessionCheck";
 import { useCrossTabAuth } from "@/lib/hooks/useCrossTabAuth";
+import { useCrossTabRateLimit } from "@/lib/hooks/useCrossTabRateLimit";
 import { setAppRouter } from "@/lib/navigation/appRouter";
 import { OfflineBanner } from "@/components/ui";
 import { initRum } from "@/lib/rum";
@@ -72,6 +73,7 @@ export function Providers({ children }: { children: ReactNode }) {
   useHydrationCapture();
   useSessionCheck();
   useCrossTabAuth();
+  useCrossTabRateLimit();
 
   return (
     <QueryClientProvider client={queryClient}>
