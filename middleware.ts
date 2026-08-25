@@ -66,7 +66,7 @@ export function middleware(request: NextRequest) {
                           request.nextUrl.pathname === '/dashboard' ||
                           request.nextUrl.pathname.startsWith('/payments') ||
                           request.nextUrl.pathname === '/transactions' ||
-                          request.nextUrl.pathname === '/settlement' ||
+                          request.nextUrl.pathname.startsWith('/settlement') ||
                           request.nextUrl.pathname === '/wallet' ||
                           request.nextUrl.pathname === '/fx' ||
                           request.nextUrl.pathname === '/developers' ||
