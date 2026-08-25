@@ -20,6 +20,8 @@
  * Reference: https://specs.walletconnect.com/2.0/
  */
 
+import { extractValidStellarAddresses } from './utils';
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const RELAY_URL =
@@ -79,6 +81,8 @@ interface WCEncryptedEnvelope {
   symKey: string;
   /** Encryption type — 0 = AES-256-GCM */
   type: number;
+  /** Key version/derivation counter */
+  version: number;
 }
 
 export type WalletConnectStatus =
@@ -106,7 +110,11 @@ async function exportRawKey(key: CryptoKey): Promise<Uint8Array> {
   return new Uint8Array(raw);
 }
 
-async function encrypt(plaintext: string, key: CryptoKey): Promise<WCEncryptedEnvelope> {
+async function encrypt(
+  plaintext: string,
+  key: CryptoKey,
+  version: number,
+): Promise<WCEncryptedEnvelope> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encoded = new TextEncoder().encode(plaintext);
   const cipherBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
@@ -116,6 +124,7 @@ async function encrypt(plaintext: string, key: CryptoKey): Promise<WCEncryptedEn
     iv: toBase64url(iv),
     symKey: toBase64url(rawKey),
     type: 0,
+    version,
   };
 }
 
@@ -155,12 +164,16 @@ export class WalletConnectClient {
   private ws: WebSocket | null = null;
   private pairingTopic: string = '';
   private pairingKey: CryptoKey | null = null;
+  private pairingKeyVersion: number = 0;
   private sessionTopic: string = '';
   private sessionKey: CryptoKey | null = null;
+  private sessionKeyVersion: number = 0;
   private pendingRequests = new Map<
     number,
     { resolve: (v: unknown) => void; reject: (e: Error) => void }
   >();
+  /** Tracks used (version, iv) pairs per topic to detect IV reuse */
+  private usedIvs = new Map<string, Set<string>>();
   private rpcId = 1;
   private statusListener: StatusListener | null = null;
   private sessionListener: ((session: WalletConnectSession) => void) | null = null;
@@ -185,6 +198,7 @@ export class WalletConnectClient {
     // Generate a fresh pairing topic + symmetric key
     this.pairingTopic = randomHex(32);
     this.pairingKey = await generateSymKey();
+    this.pairingKeyVersion = 0;
     const rawKey = await exportRawKey(this.pairingKey);
 
     // Build the wc: URI per WC v2 spec
@@ -285,9 +299,21 @@ export class WalletConnectClient {
     try {
       if (topic === this.pairingTopic && this.pairingKey) {
         const envelope = JSON.parse(encMessage) as WCEncryptedEnvelope;
+        const version = envelope.version ?? 0;
+        // Validate IV has not been reused with this key version
+        if (!this.trackIv(topic, version, envelope.iv)) {
+          console.error('IV reuse detected on pairing topic');
+          return;
+        }
         decrypted = await decrypt(envelope, this.pairingKey);
       } else if (topic === this.sessionTopic && this.sessionKey) {
         const envelope = JSON.parse(encMessage) as WCEncryptedEnvelope;
+        const version = envelope.version ?? 0;
+        // Validate IV has not been reused with this key version
+        if (!this.trackIv(topic, version, envelope.iv)) {
+          console.error('IV reuse detected on session topic');
+          return;
+        }
         decrypted = await decrypt(envelope, this.sessionKey);
       } else {
         // Unknown topic — ignore
@@ -351,9 +377,10 @@ export class WalletConnectClient {
       requiredNamespaces: Record<string, unknown>;
     };
 
-    // Generate a new session topic + key
+    // Generate a new session topic + key with version 0
     this.sessionTopic = randomHex(32);
     this.sessionKey = await generateSymKey();
+    this.sessionKeyVersion = 0;
     const rawSessionKey = await exportRawKey(this.sessionKey);
     const sessionKeyHex = Array.from(rawSessionKey, (b) =>
       b.toString(16).padStart(2, '0'),
@@ -398,6 +425,7 @@ export class WalletConnectClient {
     await this.publishEncrypted(
       this.sessionTopic,
       this.sessionKey,
+      this.sessionKeyVersion,
       JSON.stringify(settlePayload),
     );
 
@@ -413,6 +441,7 @@ export class WalletConnectClient {
     await this.publishEncrypted(
       this.pairingTopic,
       this.pairingKey!,
+      this.pairingKeyVersion,
       JSON.stringify(ack),
     );
   }
@@ -430,10 +459,8 @@ export class WalletConnectClient {
     const stellarNS = settle?.namespaces?.stellar;
     const rawAccounts: string[] = stellarNS?.accounts ?? [];
 
-    // Strip the "stellar:testnet:" prefix to get bare G-addresses
-    const stellarAccounts = rawAccounts
-      .map((a) => a.split(':').pop() ?? '')
-      .filter((a) => a.startsWith('G') && a.length === 56);
+    // Extract and validate Stellar addresses from CAIP-2 format
+    const stellarAccounts = extractValidStellarAddresses(rawAccounts);
 
     if (stellarAccounts.length === 0) {
       this.emit('error', 'No Stellar accounts found in WalletConnect session');
@@ -493,6 +520,7 @@ export class WalletConnectClient {
       this.publishEncrypted(
         this.sessionTopic,
         this.sessionKey!,
+        this.sessionKeyVersion,
         JSON.stringify(payload),
       ).catch(reject);
     });
@@ -513,9 +541,10 @@ export class WalletConnectClient {
   private async publishEncrypted(
     topic: string,
     key: CryptoKey,
+    version: number,
     plaintext: string,
   ): Promise<void> {
-    const envelope = await encrypt(plaintext, key);
+    const envelope = await encrypt(plaintext, key, version);
     this.relayRpc(RELAY_PUBLISH, {
       topic,
       message: JSON.stringify(envelope),
@@ -525,6 +554,21 @@ export class WalletConnectClient {
   }
 
   // ── Utilities ───────────────────────────────────────────────────────────────
+
+  /** Track and validate IV for a given topic and key version to detect reuse */
+  private trackIv(topic: string, version: number, iv: string): boolean {
+    const key = `${topic}:${version}`;
+    if (!this.usedIvs.has(key)) {
+      this.usedIvs.set(key, new Set());
+    }
+    const ivSet = this.usedIvs.get(key)!;
+    if (ivSet.has(iv)) {
+      // IV reuse detected
+      return false;
+    }
+    ivSet.add(iv);
+    return true;
+  }
 
   private emit(status: WalletConnectStatus, detail?: string) {
     this.statusListener?.(status, detail);
@@ -550,9 +594,12 @@ export class WalletConnectClient {
     }
     this.pairingTopic = '';
     this.pairingKey = null;
+    this.pairingKeyVersion = 0;
     this.sessionTopic = '';
     this.sessionKey = null;
+    this.sessionKeyVersion = 0;
     this.pendingRequests.clear();
+    this.usedIvs.clear();
     this.rpcId = 1;
   }
 }

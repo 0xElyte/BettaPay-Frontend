@@ -310,7 +310,7 @@ export default function AdminPerformancePage() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <Select value={selectedMetric} onValueChange={(value) => value && setSelectedMetric(value)}>
+        <Select value={selectedMetric} onValueChange={(v) => { if (v) setSelectedMetric(v); }}>
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Metric" />
           </SelectTrigger>
@@ -323,7 +323,7 @@ export default function AdminPerformancePage() {
           </SelectContent>
         </Select>
 
-        <Select value={selectedDays} onValueChange={(value) => value && setSelectedDays(value)}>
+        <Select value={selectedDays} onValueChange={(v) => { if (v) setSelectedDays(v); }}>
           <SelectTrigger className="w-[140px]">
             <SelectValue placeholder="Time range" />
           </SelectTrigger>
@@ -336,7 +336,7 @@ export default function AdminPerformancePage() {
           </SelectContent>
         </Select>
 
-        <Select value={selectedRoute} onValueChange={(value) => value && setSelectedRoute(value)}>
+        <Select value={selectedRoute} onValueChange={(v) => setSelectedRoute(v ?? "__all__")}>
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Route" />
           </SelectTrigger>
