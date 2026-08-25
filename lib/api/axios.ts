@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { announce } from '@/lib/utils/announce';
 import { parseApiError, isTimeoutError, ApiError } from '../utils/apiError';
 import { getAppRouter } from '../navigation/appRouter';
+import { isJwtExpiredOrInvalid } from '../utils/jwt';
 import { captureException } from '../errorReporting';
 
 // Deduplication: avoid showing multiple toasts for simultaneous errors
@@ -188,7 +189,33 @@ function isRateLimitBlockedError(error: unknown): boolean {
   return error instanceof ApiError && error.code === RATE_LIMIT_BLOCKED_CODE;
 }
 
+/** Error code for a request refused because the local session is already dead. */
+export const SESSION_EXPIRED_CODE = 'SESSION_EXPIRED';
+
+function isSessionExpiredError(error: unknown): boolean {
+  return error instanceof ApiError && error.code === SESSION_EXPIRED_CODE;
+}
+
 apiClient.interceptors.request.use((config) => {
+  // Reject a request whose session token has already expired instead of
+  // spending a round trip to be told 401. The token is only ever inspected
+  // here for expiry — never for identity or role, which the server owns.
+  const { token } = useAuthStore.getState();
+  const isRetryAfterRefresh = Boolean(
+    (config as InternalAxiosRequestConfig & { _retry?: boolean })._retry
+  );
+
+  if (token && !isRetryAfterRefresh && isJwtExpiredOrInvalid(token)) {
+    // Drops the dead token (redirectToLogin logs out) so nothing renders an
+    // authenticated view from it.
+    redirectToLogin();
+    throw new ApiError(
+      'Your session has expired. Please sign in again.',
+      SESSION_EXPIRED_CODE,
+      401
+    );
+  }
+
   // Hold requests back while a rate-limit window is open — including one
   // opened in another tab. Without this, sibling tabs keep firing into a limit
   // the user is already waiting out, extending it for everyone.
@@ -283,7 +310,7 @@ apiClient.interceptors.response.use(
     // network. They still travel through this handler (a rejected request
     // interceptor shares the promise chain), so return early rather than
     // reporting them as a network failure and toasting a second time.
-    if (isRateLimitBlockedError(error)) {
+    if (isRateLimitBlockedError(error) || isSessionExpiredError(error)) {
       return Promise.reject(error);
     }
 
