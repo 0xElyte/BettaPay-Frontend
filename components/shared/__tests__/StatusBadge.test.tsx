@@ -5,11 +5,11 @@ import { StatusBadge } from '../StatusBadge';
 
 describe('StatusBadge', () => {
   it('renders a success badge with the success label and green styling', () => {
-    const { container } = render(<StatusBadge status={PAYMENT_STATUS.SUCCESS} />);
+    const { container } = render(<StatusBadge status={PAYMENT_STATUS.COMPLETED} />);
 
-    expect(screen.getByText('Success')).toBeInTheDocument();
+    expect(screen.getByText('Completed')).toBeInTheDocument();
     expect(container.querySelector('svg')).toBeInTheDocument();
-    expect(screen.getByText('Success').closest('span')).toHaveClass('text-success');
+    expect(screen.getByText('Completed').closest('span')).toHaveClass('text-success');
   });
 
   it('renders a pending badge with the pending label and yellow styling', () => {
@@ -50,8 +50,8 @@ describe('StatusBadge', () => {
   });
 
   it('adds the provided className to the badge', () => {
-    render(<StatusBadge status={PAYMENT_STATUS.SUCCESS} className="custom-badge" />);
+    render(<StatusBadge status={PAYMENT_STATUS.COMPLETED} className="custom-badge" />);
 
-    expect(screen.getByText('Success').closest('span')).toHaveClass('custom-badge');
+    expect(screen.getByText('Completed').closest('span')).toHaveClass('custom-badge');
   });
 });
