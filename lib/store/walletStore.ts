@@ -3,6 +3,8 @@ import { AssetBalance } from '../types';
 import { connectFreighter, FreighterNotInstalledError, FreighterCancelledError, FreighterNetworkMismatchError } from '@/lib/stellar/freighter';
 import { getWalletConnectClient, resetWalletConnectClient, WalletConnectSession } from '@/lib/stellar/walletconnect';
 import { retryWithBackoff } from '../utils/retry';
+import { setWalletContextProvider } from '../errorReporting/context';
+import { captureException } from '../errorReporting';
 
 type Connector = 'freighter' | 'walletconnect' | null;
 
@@ -100,6 +102,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
       throw new Error('Unsupported connector');
     } catch (error) {
       console.error('Failed to connect wallet', error);
+      captureException(error, { source: 'wallet' });
 
       if (error instanceof FreighterNotInstalledError) {
         set({ connectError: { type: 'not_installed', message: error.message } });
@@ -262,6 +265,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
       set({ balances, loading: false, error: null });
     } catch (error) {
       console.error('Failed to refresh balances', error);
+      captureException(error, { source: 'wallet' });
       set({
         loading: false,
         isReconnecting: false,
@@ -270,3 +274,11 @@ export const useWalletStore = create<WalletState>((set, get) => ({
     }
   },
 }));
+
+// Let error reports carry wallet context. Registered here rather than imported
+// by the reporting module so the Stellar SDK is only pulled into bundles that
+// actually use the wallet. The address is deliberately never exposed.
+setWalletContextProvider(() => {
+  const { isConnected, connector, network } = useWalletStore.getState();
+  return { connected: isConnected, connector, network };
+});

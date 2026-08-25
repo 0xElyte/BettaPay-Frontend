@@ -10,6 +10,7 @@ import { useCrossTabAuth } from "@/lib/hooks/useCrossTabAuth";
 import { setAppRouter } from "@/lib/navigation/appRouter";
 import { OfflineBanner } from "@/components/ui";
 import { initRum } from "@/lib/rum";
+import { initErrorReporting } from "@/lib/errorReporting";
 import { useRouteChange } from "@/lib/rum/useRouteChange";
 import { useHydrationCapture } from "@/lib/rum/useHydrationCapture";
 
@@ -58,6 +59,12 @@ export function Providers({ children }: { children: ReactNode }) {
   // Initialize RUM collection once per browser session
   useEffect(() => {
     const cleanup = initRum();
+    return cleanup;
+  }, []);
+
+  // Install global handlers for uncaught errors and unhandled rejections.
+  useEffect(() => {
+    const cleanup = initErrorReporting();
     return cleanup;
   }, []);
 

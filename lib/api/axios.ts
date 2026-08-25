@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { announce } from '@/lib/utils/announce';
 import { parseApiError, isTimeoutError } from '../utils/apiError';
 import { getAppRouter } from '../navigation/appRouter';
+import { captureException } from '../errorReporting';
 
 // Deduplication: avoid showing multiple toasts for simultaneous errors
 const recentErrors = new Map<string, number>();
@@ -165,6 +166,20 @@ function redirectToLogin() {
   }
 }
 
+// Send server errors and network failures to the reporting backend. Only the
+// method, path and status travel with the report — never request bodies,
+// headers, or query strings, which routinely carry PII.
+function reportApiFailure(error: AxiosError, kind: string) {
+  const method = (error.config?.method || 'get').toUpperCase();
+  const path = (error.config?.url || 'unknown').split('?')[0];
+  const status = error.response?.status ?? 0;
+
+  captureException(
+    new Error(`API ${kind}: ${method} ${path} -> ${status || 'no response'}`),
+    { source: 'api' }
+  );
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
@@ -214,9 +229,11 @@ apiClient.interceptors.response.use(
       notifyError('The request timed out. Please try again.', `timeout_${originalRequest?.url || 'unknown'}`);
     } else if (!error.response) {
       notifyError('Network error. Please check your connection.', 'network_error');
+      reportApiFailure(error, 'network');
     } else if (error.response?.status >= 500) {
       const endpoint = originalRequest?.url || error.config?.url || 'unknown';
       notifyError('A server error occurred. Please try again later.', `5xx_${error.response.status}_${endpoint}`);
+      reportApiFailure(error, `http_${error.response.status}`);
     }
 
     return Promise.reject(parseApiError(error));
