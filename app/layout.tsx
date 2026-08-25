@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { I18nProvider } from '@/components/i18n/I18nProvider';
 import { TranslationCoveragePanel } from '@/components/i18n/TranslationCoveragePanel';
-import { ensureCsrfCookie } from '@/lib/utils/csrf';
 
 
 const fraunces = Fraunces({
@@ -37,11 +36,11 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Seed the CSRF cookie before the page HTML is streamed to the client.
-  // ensureCsrfCookie() is a no-op when a valid token is already present,
-  // so this adds no overhead on subsequent requests.
-  await ensureCsrfCookie();
-
+  // CSRF cookie is now seeded in `middleware.ts` via `ensureCsrfCookieInMiddleware`
+  // (using NextResponse.cookies.set, which is allowed in middleware). The
+  // previous `await ensureCsrfCookie()` call here triggered
+  // `Cookies can only be modified in a Server Action or Route Handler` in
+  // Next 14.2+ when called from a Server Component layout.
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   // Pass the clientId straight to GoogleOAuthProvider only when configured;
   // otherwise pass an empty placeholder so the provider target render does

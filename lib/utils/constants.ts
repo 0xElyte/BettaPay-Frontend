@@ -30,7 +30,8 @@ export type PaymentStatus = typeof PAYMENT_STATUS[keyof typeof PAYMENT_STATUS];
  * (API hooks, mock fixtures) so the rest of the UI only ever sees canonical
  * values.
  */
-export function normalizePaymentStatus(raw: string): PaymentStatus {
+export function normalizePaymentStatus(raw: string | null | undefined): PaymentStatus {
+  if (!raw || typeof raw !== 'string') return PAYMENT_STATUS.PENDING as PaymentStatus;
   const lower = raw.toLowerCase().trim();
   // Map every known alias to the canonical value
   switch (lower) {

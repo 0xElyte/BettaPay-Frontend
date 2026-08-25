@@ -192,6 +192,7 @@ export default function LoginPage() {
             <Button
               variant="outline"
               disabled
+              aria-disabled="true"
               aria-describedby="google-login-missing-config"
               className="w-full h-12 border-border bg-card text-muted-foreground cursor-not-allowed"
               title="Google login not configured — set NEXT_PUBLIC_GOOGLE_CLIENT_ID"

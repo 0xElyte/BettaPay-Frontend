@@ -31,6 +31,13 @@ export interface ApiPayment {
   converted?: number;
 }
 
+export interface SettlementEffectiveRule {
+  feeBps: number;
+  autoSettle: boolean;
+  delay: number;
+  source: 'merchant' | 'default' | 'governance';
+}
+
 export interface ApiSettlement {
   id: string;
   merchantId: string;
@@ -41,6 +48,25 @@ export interface ApiSettlement {
   txHash: string | null;
   bankName: string | null;
   accountNumber: string | null;
+  effectiveRule?: SettlementEffectiveRule | null;
+}
+
+export type SettlementAction = 'approve' | 'reject' | 'hold';
+
+export interface SettlementActionResult {
+  id: string;
+  success: boolean;
+  status: string;
+  error: string | null;
+}
+
+export interface SettlementBulkActionResponse {
+  summary: {
+    requested: number;
+    succeeded: number;
+    failed: number;
+  };
+  results: SettlementActionResult[];
 }
 
 export interface AdminStats {
@@ -239,6 +265,24 @@ export function useSettlements(): HookShape<ApiSettlement[]> {
     },
   });
   return mapQuery(query, []);
+}
+
+// ─── useSettlementBulkAction ────────────────────────────────────────────────
+
+export function useSettlementBulkAction() {
+  const queryClient = useQueryClient();
+  return useMutation<SettlementBulkActionResponse, Error, { action: SettlementAction; settlementIds: string[] }>({
+    mutationFn: async ({ action, settlementIds }) => {
+      const res = await apiClient.post<SettlementBulkActionResponse>('/api/settlements/actions', {
+        action,
+        settlementIds,
+      });
+      return res.data;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.settlements });
+    },
+  });
 }
 
 // ─── useRates ─────────────────────────────────────────────────────────────────

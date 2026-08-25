@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { ensureCsrfCookieInMiddleware } from '@/lib/utils/csrf';
 import { getDefaultRoute } from '@/lib/utils';
 
 export function middleware(request: NextRequest) {
   const token = request.cookies.get('auth_token')?.value;
   const role = request.cookies.get('user_role')?.value;
+
+  // Helper to seed CSRF cookie on every response (allowed in middleware via NextResponse)
+  const withCsrf = (response: NextResponse): NextResponse => {
+    ensureCsrfCookieInMiddleware(request, response);
+    return response;
+  };
 
   const isAuthPage = request.nextUrl.pathname.startsWith('/auth');
   // Public marketing/reference surfaces. The API documentation in particular
@@ -31,7 +38,7 @@ export function middleware(request: NextRequest) {
 
   // Allow public access to landing page and payment links
   if (isPublicPage) {
-    return NextResponse.next();
+    return withCsrf(NextResponse.next());
   }
 
   // If trying to access auth pages while logged in, redirect to dashboard
@@ -39,26 +46,28 @@ export function middleware(request: NextRequest) {
   if (isAuthPage) {
     if (token) {
       if (role === 'admin') {
-        return NextResponse.redirect(new URL('/overview', request.url));
+        return withCsrf(NextResponse.redirect(new URL('/overview', request.url)));
       }
+      return withCsrf(NextResponse.redirect(new URL('/dashboard', request.url)));
         return NextResponse.redirect(new URL(getDefaultRoute(role), request.url));
     }
-    return NextResponse.next();
+    return withCsrf(NextResponse.next());
   }
 
   // Require auth for everything else
   if (!token) {
-    return NextResponse.redirect(new URL('/auth/login', request.url));
+    return withCsrf(NextResponse.redirect(new URL('/auth/login', request.url)));
   }
 
   // Redirect onboarded merchants away from onboarding page
   const isOnboarded = request.cookies.get('merchant_onboarded')?.value === 'true';
   if (request.nextUrl.pathname === '/onboarding' && isOnboarded) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return withCsrf(NextResponse.redirect(new URL('/dashboard', request.url)));
   }
 
   // Role-based protection
   if (isAdminRoute && role !== 'admin') {
+    return withCsrf(NextResponse.redirect(new URL('/dashboard', request.url))); // redirect merchants from admin
     return NextResponse.redirect(new URL(getDefaultRoute(role), request.url)); // redirect merchants from admin
   }
 
@@ -67,17 +76,17 @@ export function middleware(request: NextRequest) {
                           request.nextUrl.pathname === '/dashboard' ||
                           request.nextUrl.pathname.startsWith('/payments') ||
                           request.nextUrl.pathname === '/transactions' ||
-                          request.nextUrl.pathname === '/settlement' ||
+                          request.nextUrl.pathname.startsWith('/settlement') ||
                           request.nextUrl.pathname === '/wallet' ||
                           request.nextUrl.pathname === '/fx' ||
                           request.nextUrl.pathname === '/developers' ||
                           request.nextUrl.pathname === '/settings';
 
   if (isMerchantRoute && role === 'admin') {
-    return NextResponse.redirect(new URL('/overview', request.url));
+    return withCsrf(NextResponse.redirect(new URL('/overview', request.url)));
   }
 
-  return NextResponse.next();
+  return withCsrf(NextResponse.next());
 }
 
 export const config = {
