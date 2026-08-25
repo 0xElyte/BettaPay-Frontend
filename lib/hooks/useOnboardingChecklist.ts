@@ -107,7 +107,7 @@ export function useOnboardingChecklist(): OnboardingChecklistState {
         ctaLabel: webhookTested ? 'View Webhooks' : 'Test Webhook',
       },
     ];
-  }, [user?.kybStatus, bankAccount, payments, settlements]);
+  }, [user?.kybStatus, bankAccount, payments]);
 
   const completedCount = useMemo(
     () => items.filter((item) => item.completed).length,

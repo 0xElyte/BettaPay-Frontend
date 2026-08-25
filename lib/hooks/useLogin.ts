@@ -4,6 +4,7 @@ import { useAuthStore } from '@/lib/store/authStore';
 import { useNotify } from '@/lib/hooks/useNotify';
 import { decodeJwtPayload } from '@/lib/utils/jwt';
 import { useWalletStore, WalletState } from '@/lib/store/walletStore';
+import type { AuthLoginResponse } from '@/lib/types';
 
 export function useLogin() {
   const router = useRouter();
@@ -11,7 +12,7 @@ export function useLogin() {
   const [isWalletLoading, setIsWalletLoading] = useState(false);
   const walletModalOpen = useWalletStore((s: WalletState) => s.walletModalOpen);
   const setWalletModalOpen = useWalletStore((s: WalletState) => s.setWalletModalOpen);
-  const { success, error } = useNotify();
+  const { success, error, info } = useNotify();
 
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -32,12 +33,21 @@ export function useLogin() {
     };
 
     try {
-      await fetch('/api/auth/session', {
+      const sessionResponse = await fetch('/api/auth/session', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, role: user.role }),
       });
+
+      if (sessionResponse.ok) {
+        const sessionData = (await sessionResponse.json()) as AuthLoginResponse;
+        if ((sessionData.revokedSessionCount ?? 0) > 0) {
+          info(
+            `${sessionData.revokedSessionCount} older session${sessionData.revokedSessionCount === 1 ? '' : 's'} were revoked when you signed in.`
+          );
+        }
+      }
     } catch (sessionErr) {
       console.warn('Auth session cookie API unavailable.', sessionErr);
     }
@@ -65,7 +75,7 @@ export function useLogin() {
     const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
     document.cookie = `merchant_onboarded=true; Path=/; SameSite=Lax; Max-Age=86400${secureFlag}`;
     router.push(user.role === 'admin' ? '/overview' : '/dashboard');
-  }, [apiBase, login, router, success, error]);
+  }, [apiBase, login, router, success, error, info]);
 
   const onGoogleSuccess = async (credentialResponse: { credential?: string }) => {
     try {

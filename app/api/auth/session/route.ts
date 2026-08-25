@@ -28,6 +28,29 @@ export async function POST(req: Request) {
     const token = body.token;
     const role = body.role || '';
 
+    let revokedSessionCount: number | undefined;
+    try {
+      const upstreamResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/session`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, role }),
+          cache: 'no-store',
+        },
+      );
+      if (upstreamResponse.ok) {
+        const upstreamBody = (await upstreamResponse.json()) as {
+          revokedSessionCount?: unknown;
+        };
+        if (typeof upstreamBody.revokedSessionCount === 'number') {
+          revokedSessionCount = upstreamBody.revokedSessionCount;
+        }
+      }
+    } catch {
+      // Local cookie setup remains available when the auth service is offline.
+    }
+
     const isProduction = process.env.NODE_ENV === 'production';
     const secureFlag = isProduction ? '; Secure' : '';
 
@@ -35,7 +58,7 @@ export async function POST(req: Request) {
     // point. A fresh token is tied to the new authenticated session.
     const csrfToken = generateCsrfToken();
 
-    const res = NextResponse.json({ ok: true });
+    const res = NextResponse.json({ ok: true, revokedSessionCount });
 
     // auth_token: HttpOnly so JS cannot read it (XSS protection)
     res.headers.set(

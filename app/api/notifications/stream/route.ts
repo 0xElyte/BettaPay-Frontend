@@ -1,6 +1,8 @@
 import { getUnreadCount } from '@/lib/notifications';
 import { getNotificationStore } from '@/lib/notifications';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   const encoder = new TextEncoder();
 
