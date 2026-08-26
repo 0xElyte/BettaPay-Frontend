@@ -18,7 +18,7 @@ export const getActiveLocale = (): Locale => {
 };
 
 /** Map an optional app locale (or the active one) to a BCP-47 tag for `Intl`. */
-const toIntlLocale = (locale?: string): string =>
+export const toIntlLocale = (locale?: string): string =>
   intlLocales[locale ? resolveLocale(locale) : getActiveLocale()];
 
 export const formatCurrency = (amount: number, currency: string = 'USDC', locale?: string) => {
@@ -51,15 +51,89 @@ export const truncateAddress = (address: string) => {
   return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
 };
 
-export const formatDate = (dateString: string | Date, locale?: string) => {
-  const date = new Date(dateString);
-  return new Intl.DateTimeFormat(toIntlLocale(locale), {
+/**
+ * Format a date timestamp in the active (or explicit) locale.
+ */
+export const formatDate = (
+  dateString: string | Date | number,
+  locale?: string,
+  options?: Intl.DateTimeFormatOptions,
+) => {
+  const date = typeof dateString === 'object' ? dateString : new Date(dateString);
+  const defaultOptions: Intl.DateTimeFormatOptions = {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-  }).format(date);
+  };
+  return new Intl.DateTimeFormat(toIntlLocale(locale), options ?? defaultOptions).format(date);
+};
+
+export interface FormatRelativeTimeOptions {
+  now?: number | Date;
+  locale?: string;
+  style?: 'long' | 'short' | 'narrow';
+  numeric?: 'always' | 'auto';
+}
+
+/**
+ * Localize relative time (e.g. "2 hours ago", "il y a 2 heures", "há 2 horas")
+ * using Intl.RelativeTimeFormat with the active or specified locale.
+ */
+export const formatRelativeTime = (
+  dateInput: string | Date | number,
+  optionsOrNow?: number | Date | FormatRelativeTimeOptions,
+  explicitLocale?: string,
+): string => {
+  let opts: FormatRelativeTimeOptions = {};
+  if (typeof optionsOrNow === 'number' || optionsOrNow instanceof Date) {
+    opts = { now: optionsOrNow, locale: explicitLocale };
+  } else if (optionsOrNow) {
+    opts = optionsOrNow;
+  }
+
+  const date = typeof dateInput === 'object' ? dateInput : new Date(dateInput);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const nowMs = opts.now
+    ? typeof opts.now === 'number'
+      ? opts.now
+      : opts.now.getTime()
+    : Date.now();
+
+  const diffMs = date.getTime() - nowMs;
+  const diffSec = Math.round(diffMs / 1000);
+  const diffMin = Math.round(diffSec / 60);
+  const diffHour = Math.round(diffMin / 60);
+  const diffDay = Math.round(diffHour / 24);
+  const diffMonth = Math.round(diffDay / 30);
+  const diffYear = Math.round(diffDay / 365);
+
+  const targetLocale = toIntlLocale(opts.locale ?? explicitLocale);
+  const rtf = new Intl.RelativeTimeFormat(targetLocale, {
+    numeric: opts.numeric ?? 'auto',
+    style: opts.style ?? 'long',
+  });
+
+  if (Math.abs(diffSec) < 45) {
+    return rtf.format(diffSec, 'second');
+  }
+  if (Math.abs(diffMin) < 45) {
+    return rtf.format(diffMin, 'minute');
+  }
+  if (Math.abs(diffHour) < 22) {
+    return rtf.format(diffHour, 'hour');
+  }
+  if (Math.abs(diffDay) < 26) {
+    return rtf.format(diffDay, 'day');
+  }
+  if (Math.abs(diffMonth) < 11) {
+    return rtf.format(diffMonth, 'month');
+  }
+  return rtf.format(diffYear, 'year');
 };
 
 /** Format an arbitrary number in the active locale (or an explicit override). */

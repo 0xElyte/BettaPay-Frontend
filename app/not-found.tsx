@@ -6,8 +6,6 @@ import { getDefaultRoute } from "@/lib/utils";
 import { MerchantSidebar } from "@/components/layout/MerchantSidebar";
 import { AdminSidebar } from "@/components/layout/AdminSidebar";
 import { Topbar } from "@/components/layout/Topbar";
-import Header from "@/components/layout/Header";
-import { Button } from "@/components/ui/button";
 import { Button } from "@/components/ui";
 import { Home, ArrowLeft, LifeBuoy, Frown } from "lucide-react";
 import Image from "next/image";
@@ -83,13 +81,6 @@ export default function NotFound() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background flex flex-col text-foreground font-sans">
-      <Header />
-      <main id="main-content" tabIndex={-1} className="flex-1">
-        <div className="flex flex-col items-center justify-center py-24 sm:py-32 text-center px-4">
-          <div className="w-16 h-16 rounded-2xl bg-primary/10 dark:bg-primary/10 border border-primary/30 dark:border-primary/30 flex items-center justify-center mb-6 p-2 shadow-sm">
-            <Image src="/logo.png" alt="BettaPay Logo" width={48} height={48} className="w-full h-full object-contain" />
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Minimal header */}

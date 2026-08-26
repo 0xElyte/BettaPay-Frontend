@@ -2,19 +2,21 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useWalletStore } from '@/lib/store/walletStore';
+import { formatRelativeTime, formatDate } from '@/lib/utils/format';
 
 const NETWORK_URLS: Record<string, string> = {
   testnet: 'https://horizon-testnet.stellar.org',
   public: 'https://horizon.stellar.org',
 };
 
-interface StellarPayment {
+export interface StellarPayment {
   id: string;
   type: 'receive' | 'send';
   label: string;
   amount: number;
   assetCode: string;
   timestamp: string;
+  formattedDate?: string;
   txHash: string;
   counterparty: string;
 }
@@ -25,30 +27,21 @@ function getNetwork(): 'testnet' | 'public' {
   return 'testnet';
 }
 
-function formatTimeAgo(dateString: string): string {
-  const now = new Date();
-  const then = new Date(dateString);
-  const diffMs = now.getTime() - then.getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-  const diffMin = Math.floor(diffSec / 60);
-  const diffHr = Math.floor(diffMin / 60);
-  const diffDay = Math.floor(diffHr / 24);
-
-  if (diffDay > 0) return `${diffDay}d ago`;
-  if (diffHr > 0) return `${diffHr}h ago`;
-  if (diffMin > 0) return `${diffMin}m ago`;
-  return 'Just now';
-}
-
-export function useTransactionHistory(limit = 20) {
+export function useTransactionHistory(limit = 20, explicitAddress?: string | null) {
   const [transactions, setTransactions] = useState<StellarPayment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const address = useWalletStore((s) => s.address);
+  const storeAddress = useWalletStore((s) => s.address);
   const network = useWalletStore((s) => s.network);
 
+  const address = explicitAddress || storeAddress;
+
   const fetchTransactions = useCallback(async () => {
-    if (!address) return;
+    if (!address) {
+      setTransactions([]);
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -65,7 +58,8 @@ export function useTransactionHistory(limit = 20) {
       }
 
       const data = await response.json();
-      const payments: StellarPayment[] = data._embedded.records.map(
+      const records = data._embedded?.records || [];
+      const payments: StellarPayment[] = records.map(
         (record: {
           id: string;
           from: string;
@@ -80,9 +74,11 @@ export function useTransactionHistory(limit = 20) {
           const assetCode =
             record.asset_type === 'native'
               ? 'XLM'
-              : record.asset_code || 'Unknown';
+              : record.asset_code || 'USDC';
           const counterparty = isReceive ? record.from : record.to;
-          const shortAddress = `${counterparty.slice(0, 4)}...${counterparty.slice(-4)}`;
+          const shortAddress = counterparty
+            ? `${counterparty.slice(0, 4)}...${counterparty.slice(-4)}`
+            : '—';
 
           return {
             id: record.id,
@@ -90,7 +86,8 @@ export function useTransactionHistory(limit = 20) {
             label: `Payment ${isReceive ? 'from' : 'to'} ${shortAddress}`,
             amount: parseFloat(record.amount),
             assetCode,
-            timestamp: formatTimeAgo(record.created_at),
+            timestamp: formatRelativeTime(record.created_at) || 'Just now',
+            formattedDate: formatDate(record.created_at),
             txHash: record.transaction_hash,
             counterparty,
           };

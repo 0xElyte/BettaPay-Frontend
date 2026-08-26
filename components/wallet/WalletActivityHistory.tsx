@@ -5,36 +5,30 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui';
 import { Button } from '@/components/ui';
 import { EmptyState } from '@/components/shared';
-import { ArrowUpRight, ArrowDownLeft, Inbox, RefreshCcw, ExternalLink, Loader2 } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, Inbox, RefreshCcw, ExternalLink, Loader2, Wallet } from 'lucide-react';
 import { getStellarExplorerTxUrl } from '@/lib/utils/explorer';
-import { useTransactionHistory } from '@/lib/hooks/useTransactionHistory';
+import { useTransactionHistory, type StellarPayment } from '@/lib/hooks/useTransactionHistory';
+import { useWalletStore } from '@/lib/store/walletStore';
 
-interface WalletTx {
-  id: string;
-  type: 'receive' | 'send';
-  label: string;
-  amount: number;
-  assetCode: string;
-  timestamp: string;
-  txHash: string;
-  counterparty: string;
-}
+export type WalletTx = StellarPayment;
 
 const WalletActivityItem = memo(function WalletActivityItem({ tx }: { tx: WalletTx }) {
   return (
     <div className="flex items-center gap-3 py-2.5 px-2 rounded-xl hover:bg-muted transition-colors">
-      <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${tx.type === 'receive' ? 'bg-emerald-100' : 'bg-primary/20'}`}>
+      <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${tx.type === 'receive' ? 'bg-emerald-100 dark:bg-emerald-950/40' : 'bg-primary/20'}`}>
         {tx.type === 'receive' ? (
-          <ArrowDownLeft className="w-4 h-4 text-emerald-600" />
+          <ArrowDownLeft className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
         ) : (
           <ArrowUpRight className="w-4 h-4 text-primary" />
         )}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-foreground">{tx.label}</p>
-        <p className="text-xs text-muted-foreground">{tx.timestamp}</p>
+        <p className="text-xs text-muted-foreground" title={tx.formattedDate}>
+          {tx.timestamp}
+        </p>
       </div>
-      <span className={`text-sm font-semibold ${tx.type === 'receive' ? 'text-emerald-600' : 'text-foreground'}`}>
+      <span className={`text-sm font-semibold ${tx.type === 'receive' ? 'text-emerald-600 dark:text-emerald-400' : 'text-foreground'}`}>
         {tx.type === 'receive' ? '+' : '-'}{tx.amount.toFixed(2)} {tx.assetCode}
       </span>
       {tx.txHash && (
@@ -53,8 +47,10 @@ const WalletActivityItem = memo(function WalletActivityItem({ tx }: { tx: Wallet
   );
 });
 
-export function WalletActivityHistory() {
-  const { transactions, loading, error, refetch } = useTransactionHistory();
+export function WalletActivityHistory({ address: explicitAddress }: { address?: string | null }) {
+  const storeAddress = useWalletStore((s) => s.address);
+  const activeAddress = explicitAddress || storeAddress;
+  const { transactions, loading, error, refetch } = useTransactionHistory(20, activeAddress);
   const parentRef = useRef<HTMLDivElement>(null);
 
   const virtualizer = useVirtualizer({
@@ -69,13 +65,13 @@ export function WalletActivityHistory() {
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
           <CardTitle className="text-base font-semibold text-foreground">Wallet Activity</CardTitle>
-          <CardDescription>Recent on-chain transactions</CardDescription>
+          <CardDescription>Recent on-chain Stellar transactions</CardDescription>
         </div>
         <Button
           variant="ghost"
           aria-label="Refresh transactions"
           onClick={refetch}
-          disabled={loading}
+          disabled={loading || !activeAddress}
           className="text-xs text-muted-foreground min-h-[44px] px-3 rounded-lg"
         >
           {loading ? (
@@ -87,21 +83,29 @@ export function WalletActivityHistory() {
         </Button>
       </CardHeader>
       <CardContent>
-        {loading && transactions.length === 0 ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        {!activeAddress ? (
+          <EmptyState
+            icon={Wallet}
+            title="Wallet not connected"
+            description="Connect your Stellar wallet or provide an account address to view live on-chain activity."
+          />
+        ) : loading && transactions.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 space-y-2">
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            <p className="text-xs text-muted-foreground">Fetching on-chain transactions from Horizon...</p>
           </div>
         ) : error ? (
           <EmptyState
             icon={Inbox}
             title="Failed to load transactions"
             description={error}
+            action={{ label: "Retry", onClick: refetch }}
           />
         ) : transactions.length === 0 ? (
           <EmptyState
             icon={Inbox}
             title="No wallet activity yet"
-            description="On-chain transactions will appear here once your wallet receives payments."
+            description="On-chain transactions will appear here once your wallet receives or sends payments."
           />
         ) : (
           <div

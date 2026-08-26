@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
   Tooltip,
+  Legend,
   CartesianGrid,
 } from "recharts";
 
@@ -156,11 +157,37 @@ export default function RevenueChart({ height = 260, data }: RevenueChartProps) 
   }, [data]);
 
   return (
-    <div className="w-full" style={{ height }}>
+    <div
+      role="region"
+      aria-label="Revenue and volume chart"
+      className="w-full relative"
+      style={{ height }}
+    >
+      <table className="sr-only" aria-label="Revenue and volume data table">
+        <caption>Daily revenue and cumulative volume</caption>
+        <thead>
+          <tr>
+            <th scope="col">Day</th>
+            <th scope="col">Daily Revenue (USD)</th>
+            <th scope="col">Cumulative Volume (USD)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {chartData.map((row, index) => (
+            <tr key={index}>
+              <td>{row.name}</td>
+              <td>${row.total.toLocaleString()}</td>
+              <td>${row.volume.toLocaleString()}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart
           data={chartData}
           margin={{ top: 4, right: 4, bottom: 0, left: isMobile ? 0 : -16 }}
+          accessibilityLayer
         >
           <defs>
             <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
@@ -180,6 +207,7 @@ export default function RevenueChart({ height = 260, data }: RevenueChartProps) 
             tickLine={false}
             axisLine={false}
             tick={{ fill: "var(--muted-foreground)" }}
+            aria-label="Day of week"
           />
           <YAxis
             stroke="var(--muted-foreground)"
@@ -188,8 +216,14 @@ export default function RevenueChart({ height = 260, data }: RevenueChartProps) 
             axisLine={false}
             tickFormatter={formatUsd}
             tick={{ fill: "var(--muted-foreground)" }}
+            aria-label="Amount in USD"
           />
           <Tooltip content={<ChartTooltip />} cursor={{ fill: "var(--muted)", opacity: 0.4 }} />
+          <Legend
+            verticalAlign="top"
+            align="right"
+            wrapperStyle={{ paddingBottom: '8px', fontSize: '11px' }}
+          />
           <Bar
             dataKey="total"
             name="Daily revenue"

@@ -178,23 +178,23 @@ export function useLogin() {
 
       const { token } = await verifyRes.json();
       await handleAuthSuccess(token);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
+      const errMessage = err instanceof Error ? err.message : '';
+      const isTimeout = errMessage.includes('timed out');
       error(
-        err.message?.includes('timed out')
+        isTimeout
           ? 'Signing timed out. Please try again or cancel the request.'
-          : err instanceof Error
-              ? err.message
-              : 'Failed to complete wallet login flow',
+          : errMessage || 'Failed to complete wallet login flow',
       );
       // Close modal on non-timeout errors; on timeout keep modal open so user can retry/cancel
-      if (!err.message?.includes('timed out')) {
+      if (!isTimeout) {
         setWalletModalOpen(false);
       }
     } finally {
       setIsWalletLoading(false);
     }
-  }, [apiBase, handleAuthSuccess, error]);
+  }, [apiBase, handleAuthSuccess, error, setWalletModalOpen]);
 
   return {
     isWalletLoading,

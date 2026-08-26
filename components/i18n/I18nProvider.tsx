@@ -3,10 +3,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import { createInstance } from "i18next";
 import { I18nextProvider, initReactI18next } from "react-i18next";
-// HttpBackend imported for potential future use with runtime locale loading
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import HttpBackend from "i18next-http-backend";
-
 import { defaultLocale, detectPreferredLocale, fallbackResources } from "@/lib/i18n/config";
 import { supportedLocales } from "@/lib/i18n/locales";
 

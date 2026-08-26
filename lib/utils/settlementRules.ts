@@ -1,5 +1,62 @@
 import type { ApiSettlement, SettlementEffectiveRule } from '@/lib/api/hooks';
 
+export interface FeeSnapshot {
+  bps: number; // base fee in bps, e.g. 100 bps = 1.00%
+  baseFeeUsdc: number; // gross * (bps / 10000)
+  discountBps?: number; // discount in bps (e.g. 20 bps)
+  discountTier?: string; // name/label of discount tier (e.g. "Volume Tier 2 (-20 bps)")
+  discountAppliedUsdc: number; // discount amount in USDC
+  capAmountUsdc?: number; // max fee cap in USDC
+  capApplied: boolean; // whether cap was reached
+  effectiveFeeBps: number; // bps after discount
+  totalFeeUsdc: number; // final net fee deducted
+  feeVersion?: string; // snapshot version, e.g. "v1.2.0"
+  ruleSource?: 'merchant' | 'default' | 'governance';
+}
+
+export interface CalculateFeeSnapshotOptions {
+  feeBps?: number;
+  discountBps?: number;
+  discountTier?: string;
+  capAmountUsdc?: number;
+  feeVersion?: string;
+  ruleSource?: 'merchant' | 'default' | 'governance';
+}
+
+export function calculateFeeSnapshot(
+  grossAmountUsdc: number,
+  options?: CalculateFeeSnapshotOptions,
+): FeeSnapshot {
+  const bps = options?.feeBps ?? 100;
+  const baseFeeUsdc = (grossAmountUsdc * bps) / 10000;
+
+  const discountBps = Math.min(options?.discountBps ?? 0, bps);
+  const discountAppliedUsdc = (grossAmountUsdc * discountBps) / 10000;
+
+  const effectiveFeeBps = bps - discountBps;
+  let totalFeeUsdc = Math.max(0, baseFeeUsdc - discountAppliedUsdc);
+
+  let capApplied = false;
+  if (options?.capAmountUsdc !== undefined && totalFeeUsdc > options.capAmountUsdc) {
+    totalFeeUsdc = options.capAmountUsdc;
+    capApplied = true;
+  }
+
+  return {
+    bps,
+    baseFeeUsdc,
+    discountBps,
+    discountTier: options?.discountTier,
+    discountAppliedUsdc,
+    capAmountUsdc: options?.capAmountUsdc,
+    capApplied,
+    effectiveFeeBps,
+    totalFeeUsdc,
+    feeVersion: options?.feeVersion ?? 'v1.0.0',
+    ruleSource: options?.ruleSource ?? 'governance',
+  };
+}
+
 /**
  * Effective rule fallbacks ordered by precedence:
  * merchant → default → governance
