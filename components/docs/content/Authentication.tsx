@@ -10,8 +10,20 @@ const byId = (id: string) => authEndpoints.find((e) => e.id === id)!;
 const googleFrontend = `import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 
 export function SignInButton() {
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim();
+
+  // Guard provider initialization — an empty string looks valid to the SDK
+  // but triggers runtime errors. Render a disabled fallback when unset.
+  if (!googleClientId) {
+    return (
+      <button disabled title="Google login not configured — set NEXT_PUBLIC_GOOGLE_CLIENT_ID">
+        Continue with Google
+      </button>
+    );
+  }
+
   return (
-    <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}>
+    <GoogleOAuthProvider clientId={googleClientId}>
       <GoogleLogin
         onSuccess={async ({ credential }) => {
           // Exchange the Google ID token for a BettaPay JWT
@@ -93,6 +105,14 @@ export function Authentication() {
           (<Code>credential</Code>) which you POST to the gateway.
         </P>
         <Snippet code={googleFrontend} lang="tsx" filename="SignInButton.tsx" />
+        <Callout variant="warning" title="Guard the provider — empty string is not empty to the SDK">
+          When <Code>NEXT_PUBLIC_GOOGLE_CLIENT_ID</Code> is unset, empty or whitespace the app must
+          not mount <Code>GoogleOAuthProvider</Code> — the SDK treats <Code>{`''`}</Code> as valid
+          config and logs errors. The reference implementation in <Code>app/layout.tsx</Code> +{' '}
+          <Code>app/auth/login/page.tsx</Code> guards with <Code>trim()</Code> and renders a disabled
+          fallback button with the message “Google login not configured — set
+          NEXT_PUBLIC_GOOGLE_CLIENT_ID” (plus a dev-only <Code>console.warn</Code>).
+        </Callout>
         <P>
           The gateway verifies the ID token with <Code>google-auth-library</Code> against your
           client id, upserts the merchant, and returns a BettaPay JWT.
