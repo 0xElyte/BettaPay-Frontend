@@ -11,6 +11,7 @@
  */
 
 import type { ServiceHealth } from "@/lib/types/health";
+import type { AnchorHealth, AnchorHealthStatus } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -166,6 +167,45 @@ export async function checkSep24(): Promise<ServiceHealth> {
       status: "unhealthy",
       checkedAt: now(),
       errorMessage: safeError(err, "SEP-24 Anchor is unreachable"),
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Per-anchor SEP-24 probe
+// ---------------------------------------------------------------------------
+
+export async function checkSep24Anchor(
+  anchorId: string,
+  endpoint: string
+): Promise<AnchorHealth> {
+  try {
+    const { latencyMs } = await timed(() =>
+      fetch(`${endpoint}/.well-known/stellar.toml`, {
+        method: "HEAD",
+        signal: AbortSignal.timeout(5_000),
+        cache: "no-store",
+      }).then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r;
+      })
+    );
+
+    const status: AnchorHealthStatus = latencyMs > 3_000 ? "degraded" : "healthy";
+
+    return {
+      anchorId,
+      status,
+      latencyMs,
+      checkedAt: now(),
+    };
+  } catch (err) {
+    return {
+      anchorId,
+      status: "unreachable",
+      latencyMs: null,
+      checkedAt: now(),
+      errorMessage: safeError(err, "Anchor SEP-24 endpoint unreachable"),
     };
   }
 }
