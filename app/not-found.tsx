@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useAuthStore } from "@/lib/store/authStore";
 import { MerchantSidebar } from "@/components/layout";
 import { Topbar } from "@/components/layout";
-import Header from "@/components/layout";
+import Header from "@/components/layout/Header";
 import { Button } from "@/components/ui";
 import { Home, ArrowLeft, LifeBuoy, Frown } from "lucide-react";
 import Image from "next/image";

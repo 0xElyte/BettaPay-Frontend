@@ -27,7 +27,7 @@ export function parseApiError(error: unknown): ApiError {
   }
 
   if (error && typeof error === 'object' && 'isAxiosError' in error) {
-    const axiosError = error as AxiosError<any>;
+    const axiosError = error as AxiosError<{ message?: string; error?: string; code?: string; details?: unknown }>;
     const data = axiosError.response?.data;
     const message = data?.message || data?.error || axiosError.message || 'An unexpected error occurred';
     const code = data?.code || axiosError.code;

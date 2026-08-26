@@ -2,19 +2,9 @@
 
 import { memo } from 'react';
 import dynamic from 'next/dynamic';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
-import { CurrencyDisplay } from '@/components/shared';
+import { Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/components/ui';
+import { CurrencyDisplay, StatCard } from '@/components/shared';
 import { Users, AlertTriangle, ArrowUpRight, Activity, DollarSign } from 'lucide-react';
-import dynamic from 'next/dynamic';
-
-const PlatformVolumeChart = dynamic(() => import('@/components/charts/PlatformVolumeChart'), {
-  ssr: false,
-  loading: () => <div className="h-[300px] bg-slate-50 animate-pulse rounded-xl w-full" />
-});
-
-
-import { Skeleton } from '@/components/ui';
-import { StatCard } from '@/components/shared';
 
 const PlatformVolumeChart = dynamic(() => import('@/components/charts/PlatformVolumeChart'), {
   ssr: false,

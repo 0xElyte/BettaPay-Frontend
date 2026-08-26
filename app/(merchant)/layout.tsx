@@ -8,7 +8,7 @@ import { merchantNavItems } from "@/lib/navigation/merchantNav";
 import { PageTransition } from "@/components/shared";
 import { MobileNavDrawer } from "@/components/layout";
 import { Topbar } from "@/components/layout";
-import Footer from "@/components/layout";
+import Footer from "@/components/layout/Footer";
 import { MobileBottomNav } from "@/components/layout";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { useWalletStore } from "@/lib/store/walletStore";

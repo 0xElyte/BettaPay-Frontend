@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui";
@@ -47,6 +47,38 @@ export default function OnboardingPage() {
   const [data, setData] = useState<OnboardingData>(initialData);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Restore saved step and draft data on initial mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("onboardingDraft");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.step === "number" && parsed.step >= 0 && parsed.step < steps.length) {
+          setStep(parsed.step);
+        }
+        if (parsed.data && typeof parsed.data === "object") {
+          setData((prev) => ({ ...prev, ...parsed.data }));
+        }
+      }
+    } catch {
+      // Ignore parse/storage errors
+    } finally {
+      setIsHydrated(true);
+    }
+  }, []);
+
+  // Sync current step and form draft to localStorage on changes
+  useEffect(() => {
+    if (isHydrated) {
+      try {
+        localStorage.setItem("onboardingDraft", JSON.stringify({ step, data }));
+      } catch {
+        // Ignore storage write errors
+      }
+    }
+  }, [step, data, isHydrated]);
 
   // Trim string inputs upfront so state always reflects the cleaned value.
   // This keeps the validation logic in sync with what is actually sent to
@@ -86,6 +118,7 @@ export default function OnboardingPage() {
 
   const skip = () => {
     localStorage.setItem("onboardingCompleted", "false");
+    localStorage.removeItem("onboardingDraft");
     notify.success("Onboarding saved for later. You can finish it from Settings.");
     router.push("/dashboard");
   };
@@ -103,6 +136,7 @@ export default function OnboardingPage() {
         webhookUrl: data.webhookUrl || null,
       });
       localStorage.setItem("onboardingCompleted", "true");
+      localStorage.removeItem("onboardingDraft");
       notify.success("Your merchant profile is ready!");
       router.push("/dashboard");
     } catch (error) {
@@ -110,6 +144,7 @@ export default function OnboardingPage() {
       notify.error(message);
     } finally { setIsSubmitting(false); }
   };
+
 
   return (
     <main className="min-h-screen bg-muted/30 px-4 py-8 sm:py-12">

@@ -35,21 +35,6 @@ import { cn } from '@/lib/utils';
 
 
 
-const mockTransactions = [
-  { id: 'tx_01', label: 'Consulting Retainer', address: 'GBX1...3F9A', amount: 750, status: 'completed', time: '2m ago' },
-  { id: 'tx_02', label: 'E-commerce Payment', address: 'GDR2...7K1B', amount: 45.5, status: 'completed', time: '18m ago' },
-  { id: 'tx_03', label: 'Invoice #1042', address: 'GBN3...2P8C', amount: 1200, status: 'pending', time: '1h ago' },
-  { id: 'tx_04', label: 'Subscription Fee', address: 'GCH4...9M4D', amount: 29, status: 'completed', time: '3h ago' },
-  { id: 'tx_05', label: 'Freelance Project', address: 'GDX5...1N5E', amount: 3500, status: 'failed', time: '5h ago' },
-];
-
-const mockPaymentLinks = [
-  { id: 'link_01', label: 'Consulting Retainer Q3', url: 'betta.pay/pay/link_01', clicks: 24, converted: 8 },
-  { id: 'link_02', label: 'E-commerce Checkout', url: 'betta.pay/pay/link_02', clicks: 112, converted: 47 },
-  { id: 'link_03', label: 'Donation Campaign', url: 'betta.pay/pay/link_03', clicks: 58, converted: 19 },
-];
-import RevenueChart from '@/components/charts/RevenueChart';
-
 const PERIOD_OPTIONS = ['7D', '30D', '90D'] as const;
 type Period = typeof PERIOD_OPTIONS[number];
 
@@ -202,7 +187,6 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="pt-0">
-            <RevenueChart height={260} />
             {chartError ? (
               <div className="h-[260px] flex items-center justify-center">
                 <ErrorDisplay
@@ -294,7 +278,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {payments.slice(0, 3).map((link) => {
+                {payments.slice(0, 5).map((link) => {
                   const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
                   const linkUrl = `${baseUrl}/pay/${link.id}`;
                   return (
@@ -317,7 +301,7 @@ export default function DashboardPage() {
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                        <span className="text-sm font-bold text-foreground">{link.amountNgn ? `₦${link.amountNgn.toLocaleString()}` : <CurrencyDisplay amount={link.amountUsdc} />}</span>
+                        <span className="text-sm font-bold text-foreground"><CurrencyDisplay amount={link.amountUsdc} currency="USDC" /></span>
                         <span className="text-xs text-muted-foreground">{link.clicks ?? 0} clicks</span>
                       </div>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

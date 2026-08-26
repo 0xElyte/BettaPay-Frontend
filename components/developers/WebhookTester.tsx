@@ -34,6 +34,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+import { useAuthStore } from "@/lib/store/authStore";
+
 const EVENT_TYPES = [
   { value: "payment.completed", label: "payment.completed" },
   { value: "settlement.completed", label: "settlement.completed" },
@@ -93,15 +95,35 @@ interface DeliveryLogEntry {
   id: string;
   timestamp: Date;
   eventType: string;
+  targetUrl: string;
   status: "success" | "failed";
   statusCode: number;
+  resultType?: string;
 }
 
 export function WebhookTester() {
+  const { user } = useAuthStore();
   const [selectedEvent, setSelectedEvent] = useState<string>("payment.completed");
+  const [targetUrl, setTargetUrl] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const draft = localStorage.getItem("onboardingDraft");
+        if (draft) {
+          const parsed = JSON.parse(draft);
+          if (parsed.data?.webhookUrl) return parsed.data.webhookUrl;
+        }
+      } catch {
+        // Fallback below
+      }
+    }
+    return user?.id ? `https://api.bettapay.io/merchants/${user.id}/webhooks` : "https://api.bettapay.io/webhooks/merchant_01";
+  });
+  const [urlError, setUrlError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [response, setResponse] = useState<{
     status: number;
+    statusText: string;
+    isTimeout?: boolean;
     headers: Record<string, string>;
     body: JsonValue;
   } | null>(null);
@@ -117,39 +139,126 @@ export function WebhookTester() {
 
   const notify = useNotify();
 
+  const validateUrl = (urlStr: string): { isValid: boolean; error?: string } => {
+    const trimmed = urlStr.trim();
+    if (!trimmed) {
+      return { isValid: false, error: "Endpoint URL is required." };
+    }
+    let parsed: URL;
+    try {
+      parsed = new URL(trimmed);
+    } catch {
+      return { isValid: false, error: "Invalid URL format. Please enter a valid address (e.g., https://your-app.com/webhooks)." };
+    }
+
+    const isDev = process.env.NODE_ENV === "development" || parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
+    if (parsed.protocol !== "https:" && !isDev) {
+      return { isValid: false, error: "HTTPS protocol is required for webhook endpoints (http:// allowed only in dev/localhost)." };
+    }
+
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return { isValid: false, error: `Invalid URL protocol "${parsed.protocol}". Only https:// (or http:// in dev) is supported.` };
+    }
+
+    return { isValid: true };
+  };
+
   const handleSend = useCallback(() => {
+    const validation = validateUrl(targetUrl);
+    if (!validation.isValid) {
+      setUrlError(validation.error || "Invalid URL");
+      notify.error(validation.error || "Invalid URL");
+      return;
+    }
+    setUrlError(null);
+
     setIsSending(true);
     setResponse(null);
 
     const payload = SAMPLE_PAYLOADS[selectedEvent];
     const timestamp = new Date();
+    const isTimeoutTest = targetUrl.includes("timeout");
+    const isErrorTest = targetUrl.includes("error") || targetUrl.includes("500");
 
     setTimeout(() => {
-      const status = 200;
-      setResponse({
-        status,
-        headers: { ...MOCK_HEADERS },
-        body: {
-          success: true,
-          received: true,
-          event_id: payload.id,
-          message: "Webhook delivered and acknowledged",
-        },
-      });
-      setDeliveryLog((prev) => [
-        {
-          id: `del_${Date.now()}`,
-          timestamp,
-          eventType: selectedEvent,
-          status: "success",
-          statusCode: status,
-        },
-        ...prev,
-      ]);
+      if (isTimeoutTest) {
+        setResponse({
+          status: 408,
+          statusText: "Request Timeout",
+          isTimeout: true,
+          headers: { "content-type": "application/json" },
+          body: {
+            error: "TIMEOUT",
+            message: "Target endpoint failed to respond within 5000ms timeout window.",
+          },
+        });
+        setDeliveryLog((prev) => [
+          {
+            id: `del_${Date.now()}`,
+            timestamp,
+            eventType: selectedEvent,
+            targetUrl,
+            status: "failed",
+            statusCode: 408,
+            resultType: "Timeout (No response)",
+          },
+          ...prev,
+        ]);
+        notify.error("Webhook delivery timed out after 5000ms");
+      } else if (isErrorTest) {
+        setResponse({
+          status: 500,
+          statusText: "Internal Server Error",
+          isTimeout: false,
+          headers: { ...MOCK_HEADERS },
+          body: {
+            error: "HTTP_500",
+            message: "Target webhook endpoint returned HTTP 500 Internal Server Error",
+          },
+        });
+        setDeliveryLog((prev) => [
+          {
+            id: `del_${Date.now()}`,
+            timestamp,
+            eventType: selectedEvent,
+            targetUrl,
+            status: "failed",
+            statusCode: 500,
+            resultType: "HTTP 500 Server Error",
+          },
+          ...prev,
+        ]);
+        notify.error("Webhook endpoint returned HTTP error status 500");
+      } else {
+        setResponse({
+          status: 200,
+          statusText: "OK",
+          isTimeout: false,
+          headers: { ...MOCK_HEADERS },
+          body: {
+            success: true,
+            received: true,
+            event_id: typeof payload === "object" && payload !== null && "id" in payload && typeof payload.id === "string" ? payload.id : "evt_unknown",
+            message: "Webhook delivered and acknowledged successfully",
+          },
+        });
+        setDeliveryLog((prev) => [
+          {
+            id: `del_${Date.now()}`,
+            timestamp,
+            eventType: selectedEvent,
+            targetUrl,
+            status: "success",
+            statusCode: 200,
+            resultType: "Delivered 200 OK",
+          },
+          ...prev,
+        ]);
+        notify.success("Test webhook sent successfully");
+      }
       setIsSending(false);
-      notify.success("Test webhook sent successfully");
     }, 1200);
-  }, [selectedEvent, notify]);
+  }, [targetUrl, selectedEvent, notify]);
 
   const handleCopyPayload = useCallback(() => {
     navigator.clipboard.writeText(JSON.stringify(SAMPLE_PAYLOADS[selectedEvent], null, 2));
@@ -215,6 +324,23 @@ export function WebhookTester() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="webhook-tester-url">Webhook Endpoint URL</Label>
+            <Input
+              id="webhook-tester-url"
+              type="url"
+              placeholder="https://your-app.com/webhooks/bettapay"
+              value={targetUrl}
+              onChange={(e) => {
+                setTargetUrl(e.target.value);
+                setUrlError(null);
+              }}
+              aria-invalid={!!urlError}
+              className={cn("h-10 border-border rounded-xl font-mono text-sm bg-muted", urlError && "border-destructive focus-visible:ring-destructive")}
+            />
+            {urlError && <p className="text-xs text-destructive font-medium">{urlError}</p>}
+          </div>
+
           <div className="flex flex-col sm:flex-row gap-4 items-end">
             <div className="flex-1 space-y-2">
               <Label>Event Type</Label>
@@ -265,8 +391,19 @@ export function WebhookTester() {
                   <AlertCircle className="w-5 h-5 text-destructive" />
                 )}
                 <span className="text-sm font-semibold">
-                  Response: {response.status} {response.status === 200 ? "OK" : "Error"}
+                  Response: {response.status} {response.statusText || (response.status === 200 ? "OK" : "Error")}
+                  {response.isTimeout && " (Timeout)"}
                 </span>
+                {response.isTimeout && (
+                  <Badge variant="destructive" className="ml-auto text-xs">
+                    Timeout
+                  </Badge>
+                )}
+                {!response.isTimeout && response.status !== 200 && (
+                  <Badge variant="destructive" className="ml-auto text-xs">
+                    HTTP Error
+                  </Badge>
+                )}
               </div>
 
               <div className="space-y-1">
@@ -311,9 +448,10 @@ export function WebhookTester() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Timestamp</TableHead>
+                  <TableHead>Target Endpoint</TableHead>
                   <TableHead>Event Type</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>HTTP Status</TableHead>
+                  <TableHead>HTTP Status / Result</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -322,13 +460,18 @@ export function WebhookTester() {
                     <TableCell className="font-mono text-xs">
                       {entry.timestamp.toLocaleTimeString()}
                     </TableCell>
+                    <TableCell className="font-mono text-xs max-w-[200px] truncate" title={entry.targetUrl}>
+                      {entry.targetUrl}
+                    </TableCell>
                     <TableCell className="font-medium">{entry.eventType}</TableCell>
                     <TableCell>
-                      <Badge variant={entry.status === "success" ? "success" : "destructive"}>
+                      <Badge variant={entry.status === "success" ? "default" : "destructive"}>
                         {entry.status === "success" ? "Delivered" : "Failed"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{entry.statusCode}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {entry.statusCode} {entry.resultType && `(${entry.resultType})`}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

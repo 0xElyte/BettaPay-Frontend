@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import Header from '@/components/layout';
-import Footer from '@/components/layout';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
 import { Construction } from 'lucide-react';
 
 export const metadata: Metadata = {

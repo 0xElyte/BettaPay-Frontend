@@ -14,7 +14,6 @@ interface AuthChannelMessage {
 
 export function useCrossTabAuth() {
   const router = useRouter();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const channelRef = useRef<BroadcastChannel | null>(null);
 
   useEffect(() => {
@@ -94,7 +93,7 @@ export function useCrossTabAuth() {
       if (!channel) return;
 
       if (state.isAuthenticated && !prevState.isAuthenticated) {
-        channel.postMessage({ type: 'AUTH_LOGIN', role: state.role } satisfies AuthChannelMessage);
+        channel.postMessage({ type: 'AUTH_LOGIN', role: state.role ?? undefined } satisfies AuthChannelMessage);
       } else if (!state.isAuthenticated && prevState.isAuthenticated) {
         channel.postMessage({ type: 'AUTH_LOGOUT' } satisfies AuthChannelMessage);
       }

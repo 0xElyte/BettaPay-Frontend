@@ -3,5 +3,5 @@ export * from './MobileBottomNav';
 export * from './AdminSidebar';
 export * from './MerchantSidebar';
 export * from './MobileNavDrawer';
-export * from './Footer';
-export * from './Header';
+export { default as Footer } from './Footer';
+export { default as Header } from './Header';
