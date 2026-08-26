@@ -175,7 +175,9 @@ export const useWalletStore = create<WalletState>((set, get) => ({
   },
 
   setNetwork: (network: 'testnet' | 'public') => {
-    set({ network });
+    const current = get().network;
+    if (current === network) return;
+    set({ network, balances: [], loading: true, error: null });
     get().refreshBalances();
   },
 
