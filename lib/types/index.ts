@@ -60,3 +60,47 @@ export interface MerchantBankAccount {
   accountName: string;
   bankCode?: string;
 }
+
+// ─── Anchor types ─────────────────────────────────────────────────────────────
+
+export type KycLevel = 'basic' | 'intermediate' | 'advanced';
+
+export interface Anchor {
+  id: string;
+  name: string;
+  code: string;
+  currency: string;
+  country: string;
+  flag: string;
+  kycLevels: KycLevel[];
+  settlementTime: string;
+  websiteUrl: string | null;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type AnchorHealthStatus = 'healthy' | 'degraded' | 'unreachable' | 'unchecked';
+
+export interface AnchorHealth {
+  anchorId: string;
+  status: AnchorHealthStatus;
+  latencyMs: number | null;
+  checkedAt: string;
+  errorMessage?: string;
+}
+
+export interface AnchorSettlementStats {
+  anchorId: string;
+  totalVolumeUsdc: number;
+  settlementCount: number;
+  failureCount: number;
+  failureRate: number;
+  lastSettlementAt: string | null;
+  periodDays: number;
+}
+
+export interface AnchorWithHealth extends Anchor {
+  health: AnchorHealth | null;
+  stats: AnchorSettlementStats | null;
+}
