@@ -44,36 +44,17 @@ export function RateLimitDisplay() {
       const limit = Number(response.headers.get("X-RateLimit-Limit"));
       const remaining = Number(response.headers.get("X-RateLimit-Remaining"));
       const resetAt = Number(response.headers.get("X-RateLimit-Reset"));
-      const headerUnit = response.headers.get("X-RateLimit-Unit");
-      
-      if (!response.ok || !Number.isFinite(limit) || !Number.isFinite(remaining) || !Number.isFinite(resetAt)) {
-        throw new Error();
-      }
-
-      const derivedUnit = deriveUnitFromHeaderOrPath(headerUnit, endpointPath, customUnit);
-      setStatus({ limit, remaining, resetAt, unit: derivedUnit });
+      if (!response.ok || !Number.isFinite(limit) || !Number.isFinite(remaining) || !Number.isFinite(resetAt)) throw new Error();
+      setStatus({ limit, remaining, resetAt });
       setSecondsUntilReset(Math.max(0, resetAt - Math.floor(Date.now() / 1000)));
     } catch {
       setError("Rate limit status is temporarily unavailable.");
     } finally {
       setIsLoading(false);
     }
-  }, [endpointPath, customUnit]);
+  }, []);
 
-  useEffect(() => {
-    void loadStatus();
-  }, [loadStatus]);
-
-  // Periodic refresh interval if specified
-  useEffect(() => {
-    if (!refreshInterval || refreshInterval <= 0) return;
-    const interval = window.setInterval(() => {
-      void loadStatus();
-    }, refreshInterval);
-    return () => window.clearInterval(interval);
-  }, [loadStatus, refreshInterval]);
-
-  // Countdown timer effect
+  useEffect(() => { void loadStatus(); }, [loadStatus]);
   useEffect(() => {
     if (!status) return;
     const timer = window.setInterval(() => {
@@ -88,12 +69,11 @@ export function RateLimitDisplay() {
     if (!status || status.limit <= 0) return 0;
     return Math.min(100, Math.max(0, ((status.limit - status.remaining) / status.limit) * 100));
   }, [status]);
-
   const showWarning = usagePercentage >= 80;
   const is429Active = secondsRemaining > 0;
 
   return (
-    <Card className="border border-border bg-card shadow-sm text-foreground">
+    <Card className="border border-border bg-card shadow-sm">
       <CardHeader className="flex flex-row items-start justify-between gap-4">
         <div>
           <CardTitle className="flex items-center gap-2 text-base font-semibold">
@@ -101,7 +81,7 @@ export function RateLimitDisplay() {
           </CardTitle>
           <CardDescription>Current request allowance for this API client.</CardDescription>
         </div>
-        <Button variant="ghost" size="icon" onClick={() => void loadStatus()} disabled={isLoading} aria-label="Refresh rate limit status" className="text-muted-foreground hover:text-foreground">
+        <Button variant="ghost" size="icon" onClick={() => void loadStatus()} disabled={isLoading} aria-label="Refresh rate limit status">
           <RefreshCcw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
         </Button>
       </CardHeader>
@@ -159,4 +139,3 @@ export function RateLimitDisplay() {
     </Card>
   );
 }
-

@@ -14,6 +14,8 @@ interface ChartDataItem {
 }
 
 export default function PlatformVolumeChart({ height = 300 }: { height?: number }) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
 
   const { data, isLoading, isError } = useQuery<ChartDataItem[]>({
     queryKey: ['platform-volume'],

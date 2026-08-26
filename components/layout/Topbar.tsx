@@ -74,9 +74,15 @@ export const Topbar = ({ onMenuClick, isMenuOpen, title, unreadNotificationCount
   }, [isTestnet, setNetwork, notify]);
 
   return (
-    <header
-      role="banner"
+    // Topbar is intentionally a plain <div> (not a <header role="banner">) so that the
+    // page has exactly one banner landmark (the site <Header /> on marketing pages).
+    // Screen-reader landmark navigation then lists the app header once. The merchant
+    // and admin app shells keep their own navigation landmarks via sidebars and this
+    // top bar region is exposed as a labelled region instead of a second banner.
+    <div
       className="h-16 border-b border-border bg-card flex items-center justify-between px-4 lg:px-6 sticky top-0 z-30 shadow-sm shadow-muted/50"
+      role="region"
+      aria-label="Top bar"
     >
       <div className="flex items-center gap-4">
         <Button
@@ -209,6 +215,6 @@ export const Topbar = ({ onMenuClick, isMenuOpen, title, unreadNotificationCount
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-    </header>
+    </div>
   );
 };

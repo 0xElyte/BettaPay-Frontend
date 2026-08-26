@@ -30,8 +30,8 @@ export interface RevenueChartPoint {
   volume: number;
 }
 
-/** Preview data — used only when the parent supplies no payments. */
-const mockChartData: RevenueChartPoint[] = [
+/** Preview data — used only when the parent supplies no payments. Exported for testing and for RevenueChartSection to derive totals from the same source. */
+export const mockChartData: RevenueChartPoint[] = [
   { name: "Mon", total: 1200, volume: 1200 },
   { name: "Tue", total: 2100, volume: 3300 },
   { name: "Wed", total: 1800, volume: 5100 },

@@ -55,7 +55,10 @@ export default function DevelopersPage() {
     }
     notify.success('Copied to clipboard');
   }, [notify]);
-  const handleCopy = handleCopyText;
+  const handleCopyText = handleCopy;
+  const handleCopyKey = useCallback((key: { prefix: string; suffix: string }) => {
+    handleCopy(`${key.prefix}${key.suffix}`);
+  }, [handleCopy]);
 
   const handleCreateKey = async () => {
     if (!newKeyName.trim()) {
