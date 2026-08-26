@@ -23,6 +23,7 @@ import { useNotify } from "@/lib/hooks/useNotify";
 import { ErrorDisplay } from "@/components/shared";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useWalletStore } from "@/lib/store/walletStore";
+import { getStellarExplorerAccountUrl } from "@/lib/utils/explorer";
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui";
@@ -259,7 +260,7 @@ export default function WalletPage() {
                 <QrCode className="w-3.5 h-3.5" />
               </Button>
               <a
-                href={`https://stellar.expert/explorer/${network}/account/${address}`}
+                href={getStellarExplorerAccountUrl(address, network)}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="View on Stellar Expert"
