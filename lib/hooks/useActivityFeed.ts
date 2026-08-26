@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { apiClient } from "@/lib/api/axios";
+import { API_URL } from "@/lib/config";
 
 // ─── Public types ──────────────────────────────────────────────────────────────
 
@@ -184,8 +185,7 @@ export function useActivityFeed(limit = 20) {
     closeSSE();
     setConnectionStatus("connecting");
 
-    const apiBase =
-      process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+    const apiBase = API_URL || "http://localhost:3001";
     const url = `${apiBase}${SSE_PATH}?limit=${limit}`;
 
     let hasConnected = false;

@@ -33,6 +33,7 @@ import { useAuthStore } from '@/lib/store/authStore';
 import Link from 'next/link';
 import { useNotify } from '@/lib/hooks/useNotify';
 import { cn } from '@/lib/utils';
+import { API_URL } from '@/lib/config';
 
 const PERIOD_OPTIONS = ['7D', '30D', '90D'] as const;
 type Period = typeof PERIOD_OPTIONS[number];
@@ -281,7 +282,7 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-3">
                 {payments.slice(0, 3).map((link) => {
-                  const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
+                  const baseUrl = API_URL;
                   const linkUrl = `${baseUrl}/pay/${link.id}`;
                   const clicks = link.clicks ?? 0;
                   const converted = link.converted ?? 0;

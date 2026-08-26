@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { generateCsrfToken, buildCsrfCookieHeader } from '@/lib/utils/csrf';
+import { API_URL } from '@/lib/config';
 
 export async function GET(req: NextRequest) {
   const token = req.cookies.get('auth_token')?.value;
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
     let revokedSessionCount: number | undefined;
     try {
       const upstreamResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/session`,
+        `${API_URL || 'http://localhost:3001'}/api/auth/session`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

@@ -3,6 +3,7 @@ import { AssetBalance } from '../types';
 import { connectFreighter, FreighterNotInstalledError, FreighterCancelledError, FreighterNetworkMismatchError } from '@/lib/stellar/freighter';
 import { getWalletConnectClient, resetWalletConnectClient, WalletConnectSession } from '@/lib/stellar/walletconnect';
 import { retryWithBackoff } from '../utils/retry';
+import { STELLAR_NETWORK } from '@/lib/config';
 
 type Connector = 'freighter' | 'walletconnect' | null;
 
@@ -12,7 +13,7 @@ const NETWORK_URLS: Record<string, string> = {
 };
 
 function getNetwork(): 'testnet' | 'public' {
-  const val = (process.env.NEXT_PUBLIC_STELLAR_NETWORK || 'testnet').toLowerCase();
+  const val = STELLAR_NETWORK.toLowerCase();
   if (val === 'mainnet' || val === 'public') return 'public';
   return 'testnet';
 }

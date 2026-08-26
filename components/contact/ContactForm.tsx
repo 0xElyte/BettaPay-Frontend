@@ -1,5 +1,6 @@
 "use client";
 
+import { RECAPTCHA_SITE_KEY } from '@/lib/config';
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -95,7 +96,7 @@ export default function ContactForm() {
 
   // Dynamic script loader for reCAPTCHA v3
   useEffect(() => {
-    const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+    const siteKey = RECAPTCHA_SITE_KEY;
     if (!siteKey) return;
 
     if (window.grecaptcha) {
@@ -128,7 +129,7 @@ export default function ContactForm() {
 
   // Execute reCAPTCHA token generation
   const getRecaptchaToken = async (): Promise<string | null> => {
-    const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+    const siteKey = RECAPTCHA_SITE_KEY;
     const grecaptcha = window.grecaptcha;
     if (!siteKey || !recaptchaLoaded || !grecaptcha) {
       return null;
@@ -335,7 +336,7 @@ export default function ContactForm() {
         )}
       </Button>
 
-      {process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && (
+      {RECAPTCHA_SITE_KEY && (
         <p className="text-[10px] text-muted-foreground text-center">
           This site is protected by reCAPTCHA and the Google{" "}
           <a

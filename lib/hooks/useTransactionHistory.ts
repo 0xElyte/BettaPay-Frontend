@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useWalletStore } from '@/lib/store/walletStore';
+import { STELLAR_NETWORK } from '@/lib/config';
 
 const NETWORK_URLS: Record<string, string> = {
   testnet: 'https://horizon-testnet.stellar.org',
@@ -20,7 +21,7 @@ interface StellarPayment {
 }
 
 function getNetwork(): 'testnet' | 'public' {
-  const val = (process.env.NEXT_PUBLIC_STELLAR_NETWORK || 'testnet').toLowerCase();
+  const val = STELLAR_NETWORK.toLowerCase();
   if (val === 'mainnet' || val === 'public') return 'public';
   return 'testnet';
 }

@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { announce } from '@/lib/utils/announce';
 import { parseApiError, isTimeoutError } from '../utils/apiError';
 import { getAppRouter } from '../navigation/appRouter';
+import { API_URL } from '@/lib/config';
 
 // Deduplication: avoid showing multiple toasts for simultaneous errors
 const recentErrors = new Map<string, number>();
@@ -62,7 +63,7 @@ function notifyError(message: string, key?: string) {
 }
 
 // Use cookie-based auth (HttpOnly cookie set by the server). Do not read tokens from localStorage.
-const apiBaseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const apiBaseURL = API_URL || 'http://localhost:3001';
 
 // Default timeout for all requests unless a longer one is needed (e.g. payment submission).
 export const DEFAULT_TIMEOUT_MS = 15000;
@@ -72,7 +73,7 @@ export const PAYMENT_TIMEOUT_MS = 30000;
 // URLs matching these paths get the extended payment timeout.
 const PAYMENT_TIMEOUT_PATHS: ReadonlyArray<string> = ['/payments', '/settlements'];
 
-if (!process.env.NEXT_PUBLIC_API_URL && typeof window !== 'undefined') {
+if (!API_URL && typeof window !== 'undefined') {
   console.warn(
     '[API Client] NEXT_PUBLIC_API_URL is not set. Defaulting to http://localhost:3001. ' +
     'This will cause API calls to fail in production. Please set NEXT_PUBLIC_API_URL environment variable.'

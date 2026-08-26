@@ -8,6 +8,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import { I18nProvider } from '@/components/i18n/I18nProvider';
 import { TranslationCoveragePanel } from '@/components/i18n/TranslationCoveragePanel';
 import { ensureCsrfCookie } from '@/lib/utils/csrf';
+import { SITE_URL, GOOGLE_CLIENT_ID } from '@/lib/config';
 
 
 const fraunces = Fraunces({
@@ -26,7 +27,7 @@ const dmSans = DM_Sans({
 
 export const metadata: Metadata = {
   // Resolves relative canonical/openGraph URLs declared by individual pages.
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://betta.pay"),
+  metadataBase: new URL(SITE_URL),
   title: "BettaPay | Non-custodial Merchant Platform",
   description: "Accept USDC and stablecoins easily across Africa",
 };
@@ -42,7 +43,7 @@ export default async function RootLayout({
   // so this adds no overhead on subsequent requests.
   await ensureCsrfCookie();
 
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const googleClientId = GOOGLE_CLIENT_ID;
   // Pass the clientId straight to GoogleOAuthProvider only when configured;
   // otherwise pass an empty placeholder so the provider target render does
   // not blow up if a GoogleLogin button somehow ends up rendered. The login

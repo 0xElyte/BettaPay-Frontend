@@ -11,6 +11,7 @@
  */
 
 import type { ServiceHealth } from "@/lib/types/health";
+import { HORIZON_URL, SOROBAN_RPC_URL, ANCHOR_URL, API_URL } from "@/lib/config";
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -44,9 +45,7 @@ const now = () => new Date().toISOString();
 // ---------------------------------------------------------------------------
 
 export async function checkHorizon(): Promise<ServiceHealth> {
-  const endpoint =
-    process.env.NEXT_PUBLIC_STELLAR_HORIZON_URL ||
-    "https://horizon-testnet.stellar.org";
+  const endpoint = HORIZON_URL;
 
   try {
     const { latencyMs } = await timed(() =>
@@ -86,9 +85,8 @@ export async function checkHorizon(): Promise<ServiceHealth> {
 // ---------------------------------------------------------------------------
 
 export async function checkSoroban(): Promise<ServiceHealth> {
-  const endpoint =
-    process.env.NEXT_PUBLIC_SOROBAN_RPC_URL ||
-    "https://soroban-testnet.stellar.org";
+export async function checkSoroban(): Promise<ServiceHealth> {
+  const endpoint = SOROBAN_RPC_URL || "https://soroban-testnet.stellar.org";
 
   try {
     const { latencyMs } = await timed(() =>
@@ -134,9 +132,7 @@ export async function checkSoroban(): Promise<ServiceHealth> {
 // ---------------------------------------------------------------------------
 
 export async function checkSep24(): Promise<ServiceHealth> {
-  const endpoint =
-    process.env.NEXT_PUBLIC_ANCHOR_URL ||
-    "https://testanchor.stellar.org";
+  const endpoint = ANCHOR_URL;
 
   try {
     const { latencyMs } = await timed(() =>
@@ -180,7 +176,7 @@ export async function checkPostgres(): Promise<ServiceHealth> {
   // (or fallback to the same-origin ping route we expose ourselves).
   const endpoint =
     process.env.BACKEND_HEALTH_URL ||
-    process.env.NEXT_PUBLIC_API_URL ||
+    API_URL ||
     "";
 
   if (!endpoint) {

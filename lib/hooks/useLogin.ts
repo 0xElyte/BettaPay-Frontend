@@ -5,6 +5,7 @@ import { useNotify } from '@/lib/hooks/useNotify';
 import { decodeJwtPayload } from '@/lib/utils/jwt';
 import { useWalletStore, WalletState } from '@/lib/store/walletStore';
 import type { AuthLoginResponse } from '@/lib/types';
+import { API_URL } from '@/lib/config';
 
 export function useLogin() {
   const router = useRouter();
@@ -14,7 +15,7 @@ export function useLogin() {
   const setWalletModalOpen = useWalletStore((s: WalletState) => s.setWalletModalOpen);
   const { success, error, info } = useNotify();
 
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+  const apiBase = API_URL || 'http://localhost:3000';
 
   const handleAuthSuccess = useCallback(async (token: string) => {
     let payload: Record<string, unknown>;

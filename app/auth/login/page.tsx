@@ -10,6 +10,7 @@ import { NetworkTooltip } from '@/components/ui/network-tooltip';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAppTranslation } from '@/lib/i18n/useAppTranslation';
 import { useLogin } from '@/lib/hooks/useLogin';
+import { GOOGLE_CLIENT_ID } from '@/lib/config';
 
 // Module-level sentinel: fires the dev-mode missing-config warning at most
 // once across the lifetime of the JS bundle. Avoids the Strict Mode effect
@@ -35,7 +36,7 @@ export default function LoginPage() {
     error
   } = useLogin();
 
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const googleClientId = GOOGLE_CLIENT_ID;
   const googleConfigured = Boolean(googleClientId);
 
   // Surface the missing-config situation to developers exactly once. We
