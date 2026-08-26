@@ -32,7 +32,33 @@ export const CopyAddress = ({
     e.preventDefault();
     e.stopPropagation();
     try {
-      await navigator.clipboard.writeText(address);
+      let copiedSuccessfully = false;
+
+      if (navigator.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(address);
+          copiedSuccessfully = true;
+        } catch {
+          copiedSuccessfully = false;
+        }
+      }
+
+      if (!copiedSuccessfully) {
+        const textArea = document.createElement('textarea');
+        textArea.value = address;
+        textArea.setAttribute('readonly', '');
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        copiedSuccessfully = document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+
+      if (!copiedSuccessfully) {
+        throw new Error('Clipboard copy was not confirmed');
+      }
+
       setCopied(true);
       toast.success('Address copied to clipboard');
       setTimeout(() => setCopied(false), 2000);

@@ -4,6 +4,8 @@ import { STATUS_TONE_BADGE, type StatusTone } from '@/lib/status/palette';
 import { cn } from '@/lib/utils';
 import { CheckCircle2, Clock, XCircle, Loader2, TimerOff } from 'lucide-react';
 
+/** Supported payment statuses: pending, processing, success, and failed. */
+
 interface StatusBadgeProps {
   status: string;
   className?: string;
