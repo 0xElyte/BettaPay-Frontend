@@ -10,6 +10,7 @@ import { formatDate } from '@/lib/utils/format';
 import { sanitizeSearchQuery } from '@/lib/utils/sanitize';
 import { Search, SearchX, ExternalLink } from 'lucide-react';
 import { getStellarExplorerTxUrl } from '@/lib/utils/explorer';
+import { useWalletStore } from '@/lib/store/walletStore';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { TransactionDrawer } from '@/components/transactions/TransactionDrawer';
 import { useOfflineStore } from '@/lib/store/offlineStore';
@@ -37,6 +38,7 @@ interface TransactionCardProps {
 }
 
 const TransactionCard = memo(function TransactionCard({ tx, onClick }: TransactionCardProps) {
+  const network = useWalletStore((s) => s.network);
   return (
     <div
       className="border border-border/50 rounded-lg p-4 space-y-3 cursor-pointer hover:bg-muted/30 transition-colors"
@@ -57,7 +59,7 @@ const TransactionCard = memo(function TransactionCard({ tx, onClick }: Transacti
             <CopyAddress address={tx.txHash ?? ''} />
             {tx.txHash && (
               <a
-                href={getStellarExplorerTxUrl(tx.txHash)}
+                href={getStellarExplorerTxUrl(tx.txHash, network)}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="View on Stellar Explorer"
@@ -99,6 +101,7 @@ interface TransactionRowProps {
 // even though debouncedSearch hadn't changed yet. Extracting a memoized row
 // component gives React a props-based bailout, mirroring TransactionCard.
 const TransactionRow = memo(function TransactionRow({ tx, translateY, onClick }: TransactionRowProps) {
+  const network = useWalletStore((s) => s.network);
   return (
     <tr
       className="border-border/50 hover:bg-muted/30 cursor-pointer border-b"
@@ -129,7 +132,7 @@ const TransactionRow = memo(function TransactionRow({ tx, translateY, onClick }:
       <td className="w-[80px] text-center px-4 py-2 text-sm">
         {tx.txHash && (
           <a
-            href={getStellarExplorerTxUrl(tx.txHash)}
+            href={getStellarExplorerTxUrl(tx.txHash, network)}
             target="_blank"
             rel="noopener noreferrer"
             aria-label="View on Stellar Explorer"
