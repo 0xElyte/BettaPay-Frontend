@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { User } from '../types';
+import { BP_SESSION_KEY } from '@/lib/auth/session';
 
 interface AuthState {
   user: User | null;
@@ -30,8 +31,10 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: 'bp-session',
+      name: BP_SESSION_KEY,
       // Persist only a non-sensitive flag. Token, user, and role are kept in memory only.
+      // Aligns with middleware's auth_token+user_role cookie contract and
+      // useSessionCheck's SessionCheckResponse rehydration (lib/auth/session.ts).
       partialize: (state) => ({ isLoggedIn: state.isLoggedIn }),
     }
   )
