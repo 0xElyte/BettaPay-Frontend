@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,21 +19,71 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNotify } from '@/lib/hooks/useNotify';
+import { apiClient } from '@/lib/api/axios';
+import { CurrencySelector } from '@/components/payments/CurrencySelector';
+import Link from 'next/link';
+
+interface PaymentLink {
+  id: string;
+  label: string;
+  type: 'open' | 'fixed';
+  amount?: number | null;
+  currency?: string;
+  url?: string;
+  createdAt?: string;
+  created?: string;
+  clicks?: number;
+  converted?: number;
+}
+
+function normalizePaymentLinks(payload: unknown): PaymentLink[] {
+  const response = payload as { data?: unknown; links?: unknown; paymentLinks?: unknown } | null;
+  const links = Array.isArray(payload)
+    ? payload
+    : Array.isArray(response?.data)
+      ? response.data
+      : Array.isArray(response?.links)
+        ? response.links
+        : Array.isArray(response?.paymentLinks)
+          ? response.paymentLinks
+          : [];
+
+  return links.filter((link): link is PaymentLink => {
+    const item = link as Partial<PaymentLink>;
+    return typeof item.id === 'string' && typeof item.label === 'string';
+  });
+}
 
 export default function PaymentsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [currency, setCurrency] = useState('USDC');
+  const [paymentLinks, setPaymentLinks] = useState<PaymentLink[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { success, error } = useNotify();
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadPaymentLinks = async () => {
+      try {
+        const response = await apiClient.get('/api/payment-links');
+        if (isMounted) setPaymentLinks(normalizePaymentLinks(response.data));
+      } catch {
+        if (isMounted) error('Unable to load payment links');
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    loadPaymentLinks();
+    return () => { isMounted = false; };
+  }, []);
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
-    notify.success('Payment link created successfully');
+    success('Payment link created successfully');
     setIsCreateOpen(false);
   };
-
-  const mockLinks = [
-    { id: 'link_01', label: 'Consulting Retainer Q3', type: 'open', amount: null, currency: 'USDC', url: 'https://betta.pay/pay/link_01', created: '2023-10-25' },
-    { id: 'link_02', label: 'E-commerce Checkout', type: 'fixed', amount: 45.50, currency: 'USDC', url: 'https://betta.pay/pay/link_02', created: '2023-10-24' },
-    { id: 'link_03', label: 'Donation Campaign', type: 'open', amount: null, currency: 'USDC', url: 'https://betta.pay/pay/link_03', created: '2023-10-20' },
-  ];
 
   return (
     <div className="space-y-6">
@@ -79,15 +129,7 @@ export default function PaymentsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Accepted Currencies</Label>
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" className="flex-1 bg-brand-accent/10 border-brand-accent/50 text-brand-accent hover:bg-brand-accent/20">
-                    USDC
-                  </Button>
-                  <Button type="button" variant="outline" className="flex-1 bg-background/50 border-border/50 text-muted-foreground hover:bg-muted">
-                    XLM
-                  </Button>
-                </div>
+                <CurrencySelector value={currency} onValueChange={setCurrency} />
               </div>
 
               <DialogFooter className="pt-4">
@@ -99,7 +141,7 @@ export default function PaymentsPage() {
         </Dialog>
       </div>
 
-      {mockLinks.length === 0 ? (
+      {isLoading ? null : paymentLinks.length === 0 ? (
         <EmptyState
           icon={Link2}
           title="No payment links yet"
@@ -108,14 +150,16 @@ export default function PaymentsPage() {
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {mockLinks.map((link) => (
+          {paymentLinks.map((link) => {
+            const paymentUrl = link.url || `/pay/${link.id}`;
+            return (
             <Card key={link.id} className="bg-brand-surface border-border/50 shadow-sm hover:border-brand-accent/50 transition-colors group">
               <CardHeader className="flex flex-row items-start justify-between pb-2">
                 <div>
                   <CardTitle className="text-base font-medium text-brand-text-primary line-clamp-1">{link.label}</CardTitle>
                   <CardDescription className="mt-1">
                     {link.type === 'fixed' ? `${link.amount} ${link.currency}` : 'Open amount'}
-                    <span className="hidden sm:inline"> · Created {link.created}</span>
+                    <span className="hidden sm:inline"> · Created {link.createdAt || link.created || 'Unknown'}</span>
                   </CardDescription>
                 </div>
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground -mt-2 -mr-2">
@@ -123,14 +167,23 @@ export default function PaymentsPage() {
                 </Button>
               </CardHeader>
               <CardContent>
+                <div className="flex gap-4 text-xs text-muted-foreground">
+                  <span>{link.clicks ?? 0} clicks</span>
+                  <span>{link.converted ?? 0} conversions</span>
+                </div>
                 <div className="flex flex-col gap-2 mt-4 sm:flex-row sm:items-center">
                   <div className="flex-1 overflow-hidden min-w-0">
                     <div className="text-xs text-muted-foreground truncate max-w-[180px] sm:max-w-full bg-muted/50 p-2 rounded border border-border/50 font-mono">
-                      {link.url}
+                      {paymentUrl}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <CopyAddress address={link.url} showIconOnly truncate={false} />
+                    <CopyAddress address={paymentUrl} showIconOnly truncate={false} />
+                    <Link href={`/pay/${link.id}`} aria-label={`Open ${link.label}`}>
+                      <Button variant="outline" size="icon" className="h-8 w-8 border-border/50 bg-background/50 text-muted-foreground hover:text-brand-text-primary">
+                        <Link2 className="h-4 w-4" />
+                      </Button>
+                    </Link>
                     <Button variant="outline" size="icon" className="h-8 w-8 border-border/50 bg-background/50 text-muted-foreground hover:text-brand-text-primary">
                       <QrCode className="h-4 w-4" />
                     </Button>
@@ -138,7 +191,8 @@ export default function PaymentsPage() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

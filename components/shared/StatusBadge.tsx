@@ -3,13 +3,15 @@ import { PAYMENT_STATUS } from '@/lib/utils/constants';
 import { cn } from '@/lib/utils';
 import { CheckCircle2, Clock, XCircle, Loader2 } from 'lucide-react';
 
+/** Supported payment statuses: pending, processing, success, and failed. */
+
 interface StatusBadgeProps {
   status: string;
   className?: string;
 }
 
 export const StatusBadge = ({ status, className }: StatusBadgeProps) => {
-  const normalizedStatus = status.toLowerCase();
+  const normalizedStatus = status.trim().toLowerCase();
 
   const config: Record<string, { label: string; icon: React.ElementType; className: string }> = {
     [PAYMENT_STATUS.SUCCESS]: {
@@ -35,10 +37,14 @@ export const StatusBadge = ({ status, className }: StatusBadgeProps) => {
   };
 
   const currentConfig = config[normalizedStatus] || {
-    label: status,
+    label: 'Unknown',
     icon: Clock,
     className: 'bg-muted text-muted-foreground',
   };
+
+  if (!config[normalizedStatus] && process.env.NODE_ENV === 'development') {
+    console.warn(`[StatusBadge] Unmapped payment status: "${status}"`);
+  }
 
   const Icon = currentConfig.icon;
 
