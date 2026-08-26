@@ -41,12 +41,17 @@ jest.mock('next/link', () => {
 });
 
 jest.mock('@/components/charts/RevenueChart', () => {
-  return function DummyRevenueChart() {
-    return (
-      <div data-testid="responsive-container">
-        <svg data-testid="area-chart" />
-      </div>
-    );
+  const actual = jest.requireActual('@/components/charts/RevenueChart');
+  const DummyRevenueChart = () => (
+    <div data-testid="responsive-container">
+      <svg data-testid="area-chart" />
+    </div>
+  );
+  return {
+    __esModule: true,
+    default: DummyRevenueChart,
+    aggregatePaymentsByDay: actual.aggregatePaymentsByDay,
+    mockChartData: actual.mockChartData,
   };
 });
 

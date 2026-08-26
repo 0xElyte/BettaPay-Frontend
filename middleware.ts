@@ -1,34 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { isJwtExpiredOrInvalid } from '@/lib/utils/jwt';
-
-/** Clear session cookies and send the visitor back to login. */
-function rejectSession(request: NextRequest) {
-  const response = NextResponse.redirect(new URL('/auth/login', request.url));
-  for (const name of ['auth_token', 'user_role', 'merchant_onboarded']) {
-    response.cookies?.set(name, '', { path: '/', maxAge: 0 });
-  }
-  return response;
-}
 import { ensureCsrfCookieInMiddleware } from '@/lib/utils/csrf';
-import { getSessionFromCookies, isSessionValid } from '@/lib/auth/session';
 
 export function middleware(request: NextRequest) {
-  const session = getSessionFromCookies(request.cookies);
-  const token = session.token;
-  const role = session.role;
-import { getDefaultRoute } from '@/lib/utils';
-
-export function middleware(request: NextRequest) {
-  const rawToken = request.cookies.get('auth_token')?.value;
+  const token = request.cookies.get('auth_token')?.value;
   const role = request.cookies.get('user_role')?.value;
 
-  // A cookie holding a malformed, unsigned or already-expired token is not a
-  // session. Treat it as absent so no authenticated route is ever rendered on
-  // the strength of it. Signature authenticity is still the backend's call —
-  // this only rules out tokens that cannot possibly be valid.
-  const token = rawToken && !isJwtExpiredOrInvalid(rawToken) ? rawToken : undefined;
-  const hasStaleToken = Boolean(rawToken) && !token;
   // Helper to seed CSRF cookie on every response (allowed in middleware via NextResponse)
   const withCsrf = (response: NextResponse): NextResponse => {
     ensureCsrfCookieInMiddleware(request, response);
@@ -63,26 +40,20 @@ export function middleware(request: NextRequest) {
     return withCsrf(NextResponse.next());
   }
 
-  // Expired or malformed token on a protected route: clear it and start over.
-  if (hasStaleToken && !isAuthPage) {
-    return rejectSession(request);
-  }
-
   // If trying to access auth pages while logged in, redirect to dashboard
   // Exception: 2FA page is always accessible after partial login
   if (isAuthPage) {
-    if (isSessionValid(session)) {
+    if (token) {
       if (role === 'admin') {
         return withCsrf(NextResponse.redirect(new URL('/overview', request.url)));
       }
       return withCsrf(NextResponse.redirect(new URL('/dashboard', request.url)));
-        return NextResponse.redirect(new URL(getDefaultRoute(role), request.url));
     }
     return withCsrf(NextResponse.next());
   }
 
   // Require auth for everything else
-  if (!isSessionValid(session)) {
+  if (!token) {
     return withCsrf(NextResponse.redirect(new URL('/auth/login', request.url)));
   }
 
@@ -95,7 +66,6 @@ export function middleware(request: NextRequest) {
   // Role-based protection
   if (isAdminRoute && role !== 'admin') {
     return withCsrf(NextResponse.redirect(new URL('/dashboard', request.url))); // redirect merchants from admin
-    return NextResponse.redirect(new URL(getDefaultRoute(role), request.url)); // redirect merchants from admin
   }
 
   // Protect merchant routes from admins

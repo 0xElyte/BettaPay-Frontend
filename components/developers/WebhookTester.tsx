@@ -128,40 +128,6 @@ async function computeHmacSignature(secret: string, payloadStr: string): Promise
   }
 }
 
-async function computeHmacSignature(secret: string, payloadStr: string): Promise<string> {
-  if (typeof window !== "undefined" && window.crypto?.subtle) {
-    try {
-      const encoder = new TextEncoder();
-      const key = await window.crypto.subtle.importKey(
-        "raw",
-        encoder.encode(secret),
-        { name: "HMAC", hash: "SHA-256" },
-        false,
-        ["sign"]
-      );
-      const signatureBytes = await window.crypto.subtle.sign(
-        "HMAC",
-        key,
-        encoder.encode(payloadStr)
-      );
-      const hex = Array.from(new Uint8Array(signatureBytes))
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
-      return `sha256=${hex}`;
-    } catch {
-      // Fallback below
-    }
-  }
-
-  try {
-    const cryptoModule = await import("crypto");
-    const hex = cryptoModule.createHmac("sha256", secret).update(payloadStr).digest("hex");
-    return `sha256=${hex}`;
-  } catch {
-    return "";
-  }
-}
-
 interface WebhookTesterProps {
   initialEndpointUrl?: string;
   initialWebhookSecret?: string;
@@ -171,6 +137,7 @@ export function WebhookTester({
   initialEndpointUrl = "https://your-app.com/webhooks/bettapay",
   initialWebhookSecret = "whsec_test_secret123",
 }: WebhookTesterProps = {}) {
+  const { user } = useAuthStore();
   const [endpointUrl, setEndpointUrl] = useState(initialEndpointUrl);
   const [webhookSecret, setWebhookSecret] = useState(initialWebhookSecret);
   const [selectedEvent, setSelectedEvent] = useState<string>("payment.completed");
@@ -263,6 +230,7 @@ export function WebhookTester({
 
       setResponse({
         status: responseStatusCode,
+        statusText: res.statusText || (responseStatusCode >= 200 && responseStatusCode < 300 ? 'OK' : 'Error'),
         headers: responseHeaders,
         body: responseBody,
       });
@@ -273,6 +241,7 @@ export function WebhookTester({
           id: `del_${Date.now()}`,
           timestamp: new Date(),
           eventType: selectedEvent,
+          targetUrl: endpointUrl,
           status: isSuccess ? "success" : "failed",
           statusCode: responseStatusCode,
         },
@@ -288,6 +257,7 @@ export function WebhookTester({
       const errorMsg = err instanceof Error ? err.message : "Failed to deliver webhook";
       setResponse({
         status: 0,
+        statusText: 'Network Error',
         headers: {},
         body: {
           error: errorMsg,
@@ -299,6 +269,7 @@ export function WebhookTester({
           id: `del_${Date.now()}`,
           timestamp: new Date(),
           eventType: selectedEvent,
+          targetUrl: endpointUrl,
           status: "failed",
           statusCode: 0,
         },

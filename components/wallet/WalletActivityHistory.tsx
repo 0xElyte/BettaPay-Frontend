@@ -9,8 +9,6 @@ import { ArrowUpRight, ArrowDownLeft, Inbox, RefreshCcw, ExternalLink, Loader2, 
 import { getStellarExplorerTxUrl } from '@/lib/utils/explorer';
 import { useTransactionHistory, type StellarPayment } from '@/lib/hooks/useTransactionHistory';
 import { useWalletStore } from '@/lib/store/walletStore';
-import { useWalletStore } from '@/lib/store/walletStore';
-import { useTransactionHistory } from '@/lib/hooks/useTransactionHistory';
 
 export type WalletTx = StellarPayment;
 
