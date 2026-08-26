@@ -35,7 +35,7 @@ export default function LoginPage() {
     error,
   } = useLogin();
 
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim();
   const googleConfigured = Boolean(googleClientId);
 
   // Surface the missing-config situation to developers exactly once. We

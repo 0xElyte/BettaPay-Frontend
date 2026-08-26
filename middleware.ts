@@ -6,11 +6,17 @@ import { isJwtExpiredOrInvalid } from '@/lib/utils/jwt';
 function rejectSession(request: NextRequest) {
   const response = NextResponse.redirect(new URL('/auth/login', request.url));
   for (const name of ['auth_token', 'user_role', 'merchant_onboarded']) {
-    response.cookies.set(name, '', { path: '/', maxAge: 0 });
+    response.cookies?.set(name, '', { path: '/', maxAge: 0 });
   }
   return response;
 }
 import { ensureCsrfCookieInMiddleware } from '@/lib/utils/csrf';
+import { getSessionFromCookies, isSessionValid } from '@/lib/auth/session';
+
+export function middleware(request: NextRequest) {
+  const session = getSessionFromCookies(request.cookies);
+  const token = session.token;
+  const role = session.role;
 import { getDefaultRoute } from '@/lib/utils';
 
 export function middleware(request: NextRequest) {
@@ -65,7 +71,7 @@ export function middleware(request: NextRequest) {
   // If trying to access auth pages while logged in, redirect to dashboard
   // Exception: 2FA page is always accessible after partial login
   if (isAuthPage) {
-    if (token) {
+    if (isSessionValid(session)) {
       if (role === 'admin') {
         return withCsrf(NextResponse.redirect(new URL('/overview', request.url)));
       }
@@ -76,7 +82,7 @@ export function middleware(request: NextRequest) {
   }
 
   // Require auth for everything else
-  if (!token) {
+  if (!isSessionValid(session)) {
     return withCsrf(NextResponse.redirect(new URL('/auth/login', request.url)));
   }
 

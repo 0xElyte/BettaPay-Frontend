@@ -9,10 +9,13 @@ import { ArrowUpRight, ArrowDownLeft, Inbox, RefreshCcw, ExternalLink, Loader2, 
 import { getStellarExplorerTxUrl } from '@/lib/utils/explorer';
 import { useTransactionHistory, type StellarPayment } from '@/lib/hooks/useTransactionHistory';
 import { useWalletStore } from '@/lib/store/walletStore';
+import { useWalletStore } from '@/lib/store/walletStore';
+import { useTransactionHistory } from '@/lib/hooks/useTransactionHistory';
 
 export type WalletTx = StellarPayment;
 
 const WalletActivityItem = memo(function WalletActivityItem({ tx }: { tx: WalletTx }) {
+  const network = useWalletStore((s) => s.network);
   return (
     <div className="flex items-center gap-3 py-2.5 px-2 rounded-xl hover:bg-muted transition-colors">
       <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${tx.type === 'receive' ? 'bg-emerald-100 dark:bg-emerald-950/40' : 'bg-primary/20'}`}>
@@ -33,7 +36,7 @@ const WalletActivityItem = memo(function WalletActivityItem({ tx }: { tx: Wallet
       </span>
       {tx.txHash && (
         <a
-          href={getStellarExplorerTxUrl(tx.txHash)}
+          href={getStellarExplorerTxUrl(tx.txHash, network)}
           target="_blank"
           rel="noopener noreferrer"
           aria-label="View transaction on Stellar Explorer"

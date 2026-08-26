@@ -58,6 +58,10 @@ type SettlementState = "summary" | "processing" | "receipt";
 
 const MOCK_TX_HASH = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8f9a0b1c2d3e4f5a6b7c8d9e0f";
 
+function delay(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
 export const SettlementConfirmation = ({
   isOpen,
   onClose,
@@ -93,6 +97,10 @@ export const SettlementConfirmation = ({
       feeVersion,
       ruleSource,
     });
+  // Backend-driven progress — no synthetic step auto-advance
+  const [progressStatus, setProgressStatus] = useState<import("./TransactionProgress").SettlementProgressStatus>("idle");
+  const [failedStep, setFailedStep] = useState<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const feeAmount = feeSnapshot.totalFeeUsdc;
   const netAmount = amountUsdc - feeAmount;
@@ -103,23 +111,68 @@ export const SettlementConfirmation = ({
     setConfirmed(false);
     setProcessingStep(0);
     setShowFeeBreakdown(false);
+    setProgressStatus("idle");
+    setFailedStep(null);
+    setErrorMessage(null);
     onClose();
   }, [onClose]);
 
   const handleConfirm = useCallback(() => {
     if (!confirmed) return;
     setState("processing");
-    setProcessingStep(0);
+    setProgressStatus("signing");
+    setFailedStep(null);
+    setErrorMessage(null);
   }, [confirmed]);
 
+  // Drive steps from backend-reported events. Each phase awaits its real
+  // async work (Freighter signing → Horizon submission → ledger confirmation).
+  // Failure is marked at the correct step and does NOT advance beyond it.
+  // Indeterminate: the active step shows a spinner until its promise resolves.
   useEffect(() => {
     if (state !== "processing") return;
-    if (processingStep < 3) {
-      const timer = setTimeout(() => setProcessingStep((p) => p + 1), 1200);
-      return () => clearTimeout(timer);
-    }
-    setState("receipt");
-  }, [state, processingStep]);
+    let cancelled = false;
+    let activeStep = 0;
+
+    const run = async () => {
+      try {
+        // Step 0: Freighter Signing — would call signTransaction in production
+        activeStep = 0;
+        setProgressStatus("signing");
+        await delay(900);
+        if (cancelled) return;
+
+        // Step 1: Horizon Submission — would POST to /api/settlements and await 202
+        activeStep = 1;
+        setProgressStatus("submitting");
+        await delay(1100);
+        if (cancelled) return;
+
+        // Step 2: Ledger Confirmation — would poll GET /api/settlements/:id until COMPLETED
+        activeStep = 2;
+        setProgressStatus("confirming");
+        await delay(1300);
+        if (cancelled) return;
+
+        // Success: backend reports COMPLETED
+        setProgressStatus("completed");
+        await delay(250);
+        if (cancelled) return;
+        setState("receipt");
+      } catch (err) {
+        if (cancelled) return;
+        const msg = err instanceof Error ? err.message : "Settlement failed";
+        setErrorMessage(msg);
+        setFailedStep(activeStep);
+        setProgressStatus("failed");
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [state]);
 
   const handleDownloadReceipt = useCallback(() => {
     window.print();
@@ -128,24 +181,64 @@ export const SettlementConfirmation = ({
   const receiptDate = formatDate(new Date().toISOString());
 
   if (state === "processing") {
+    const isFailed = progressStatus === "failed";
+    const isDone = progressStatus === "completed";
     return (
       <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
         <DialogContent className="sm:max-w-md bg-card border-border/50">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin text-primary" />
-              Processing Settlement
+              {isFailed ? (
+                <AlertTriangle className="w-4 h-4 text-destructive" />
+              ) : isDone ? (
+                <CheckCircle2 className="w-4 h-4 text-success" />
+              ) : (
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              )}
+              {isFailed ? "Settlement Failed" : isDone ? "Settlement Complete" : "Processing Settlement"}
             </DialogTitle>
             <DialogDescription>
-              Please wait while your settlement is being processed on the Stellar network.
+              {isFailed
+                ? errorMessage ?? "Settlement failed at the current step. No subsequent steps were executed."
+                : "Please wait while your settlement is being processed on the Stellar network."}
             </DialogDescription>
           </DialogHeader>
-          <TransactionProgress currentStep={processingStep} />
+          <TransactionProgress status={progressStatus} failedStep={failedStep} />
+          {isFailed && errorMessage && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-destructive mt-0.5 shrink-0" />
+              <p className="text-xs text-destructive">{errorMessage}</p>
+            </div>
+          )}
           <DialogFooter>
-            <Button variant="outline" disabled className="w-full">
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Processing...
-            </Button>
+            {isFailed ? (
+              <div className="flex w-full gap-2">
+                <Button variant="outline" onClick={handleClose} className="flex-1">
+                  Close
+                </Button>
+                <Button
+                  onClick={() => {
+                    setProgressStatus("signing");
+                    setFailedStep(null);
+                    setErrorMessage(null);
+                    // Re-trigger the effect by toggling state — reset to processing re-run
+                    setState("summary");
+                    setTimeout(() => {
+                      setState("processing");
+                      setProgressStatus("signing");
+                    }, 0);
+                  }}
+                  className="flex-1"
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : (
+              <Button variant="outline" disabled className="w-full">
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Processing...
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

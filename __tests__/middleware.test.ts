@@ -7,12 +7,14 @@ jest.mock('next/server', () => {
         status: 200,
         headers: new Map(),
         next: true,
+        cookies: { set: jest.fn() },
       })),
       redirect: jest.fn().mockImplementation((url) => ({
         status: 307,
         headers: new Map([['location', url.toString()]]),
         redirect: true,
         destination: url.toString(),
+        cookies: { set: jest.fn() },
       })),
     },
   };

@@ -9,6 +9,7 @@ import { StatusBadge } from '@/components/shared/StatusBadge';
 import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay';
 import { formatDate, truncateAddress } from '@/lib/utils/format';
 import { getStellarExplorerTxUrl } from '@/lib/utils/explorer';
+import { useWalletStore } from '@/lib/store/walletStore';
 import { useNotify } from '@/lib/hooks/useNotify';
 import { cn } from '@/lib/utils';
 
@@ -89,6 +90,7 @@ export const TransactionDrawer = ({ transaction, isOpen, onClose }: TransactionD
   // Retain the last transaction while the closing slide-out animation plays,
   // since the parent clears `transaction` at the same moment it closes.
   const [tx, setTx] = useState<ApiPayment | null>(transaction);
+  const network = useWalletStore((s) => s.network);
   useEffect(() => {
     if (transaction) setTx(transaction);
   }, [transaction]);
@@ -96,7 +98,7 @@ export const TransactionDrawer = ({ transaction, isOpen, onClose }: TransactionD
   if (!tx) return null;
 
   const dash = '—';
-  const explorerUrl = tx.txHash ? getStellarExplorerTxUrl(tx.txHash) : null;
+  const explorerUrl = tx.txHash ? getStellarExplorerTxUrl(tx.txHash, network) : null;
 
   return (
     <DialogPrimitive.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>

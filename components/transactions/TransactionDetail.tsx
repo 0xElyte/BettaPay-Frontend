@@ -23,6 +23,8 @@ import { Transaction } from '@/lib/mock/transactions';
 import { formatDate } from '@/lib/utils/format';
 import { CurrencyDisplay } from '@/components/shared';
 import { StatusBadge } from '@/components/shared';
+import { getStellarExplorerTxUrl } from '@/lib/utils/explorer';
+import { useWalletStore } from '@/lib/store/walletStore';
 import { useNotify } from '@/lib/hooks/useNotify';
 
 interface TransactionDetailProps {
@@ -37,6 +39,7 @@ export const TransactionDetail: React.FC<TransactionDetailProps> = ({
   onClose,
 }) => {
   const { success, info } = useNotify();
+  const network = useWalletStore((s) => s.network);
   if (!transaction) return null;
 
   const handleCopy = (text: string, label: string) => {
@@ -45,7 +48,7 @@ export const TransactionDetail: React.FC<TransactionDetailProps> = ({
   };
 
   const openExplorer = () => {
-    window.open(`https://stellar.expert/explorer/public/tx/${transaction.txHash}`, '_blank');
+    window.open(getStellarExplorerTxUrl(transaction.txHash, network), '_blank');
   };
 
   const detailRows = [

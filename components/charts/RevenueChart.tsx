@@ -250,3 +250,4 @@ export default function RevenueChart({ height = 260, data }: RevenueChartProps) 
     </div>
   );
 }
+
