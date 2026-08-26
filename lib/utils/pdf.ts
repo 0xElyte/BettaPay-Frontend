@@ -10,6 +10,8 @@ export interface InvoiceMerchant {
   businessName: string;
   email?: string | null;
   country?: string | null;
+  address?: string | null;
+  registrationNumber?: string | null;
 }
 
 export interface SettlementFees {
@@ -144,6 +146,14 @@ function renderInvoicePage(
   }
   if (merchant.country) {
     doc.text(merchant.country, PAGE_MARGIN, infoY);
+    infoY += 4.5;
+  }
+  if (merchant.address) {
+    doc.text(merchant.address, PAGE_MARGIN, infoY);
+    infoY += 4.5;
+  }
+  if (merchant.registrationNumber) {
+    doc.text(`Reg. No.: ${merchant.registrationNumber}`, PAGE_MARGIN, infoY);
   }
 
   // Settlement status (right column)
