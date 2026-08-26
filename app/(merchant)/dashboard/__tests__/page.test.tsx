@@ -40,6 +40,16 @@ jest.mock('next/link', () => {
   };
 });
 
+jest.mock('@/components/charts/RevenueChart', () => {
+  return function DummyRevenueChart() {
+    return (
+      <div data-testid="responsive-container">
+        <svg data-testid="area-chart" />
+      </div>
+    );
+  };
+});
+
 // Mock recharts because ResponsiveContainer needs actual DOM measurements which JSDOM lacks
 jest.mock('recharts', () => {
   return {

@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { getDefaultRoute } from "@/lib/utils";
 import { Button } from "@/components/ui";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui";
 import { useNotify } from "@/lib/hooks/useNotify";
@@ -173,8 +176,9 @@ export default function OnboardingPage() {
   const skip = () => {
     clearSavedProgress();
     localStorage.setItem("onboardingCompleted", "false");
+    localStorage.removeItem("onboardingDraft");
     notify.success("Onboarding saved for later. You can finish it from Settings.");
-    router.push("/dashboard");
+    router.push(getDefaultRoute(user?.role));
   };
 
   const submit = async () => {
@@ -194,7 +198,7 @@ export default function OnboardingPage() {
       const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
       document.cookie = `merchant_onboarded=true; Path=/; SameSite=Lax; Max-Age=86400${secureFlag}`;
       notify.success("Your merchant profile is ready!");
-      router.push("/dashboard");
+      router.push(getDefaultRoute(user?.role));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to save your onboarding details.";
       notify.error(message);

@@ -13,6 +13,8 @@ function useInvoiceMerchant(): InvoiceMerchant {
   return {
     businessName: user?.businessName ?? user?.name ?? 'Merchant',
     email: user?.email,
+    address: user?.address,
+    registrationNumber: user?.registrationNumber,
   };
 }
 

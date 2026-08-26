@@ -7,9 +7,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useSessionCheck } from "@/lib/hooks/useSessionCheck";
 import { useCrossTabAuth } from "@/lib/hooks/useCrossTabAuth";
+import { useCrossTabRateLimit } from "@/lib/hooks/useCrossTabRateLimit";
 import { setAppRouter } from "@/lib/navigation/appRouter";
 import { OfflineBanner } from "@/components/ui";
 import { initRum } from "@/lib/rum";
+import { initErrorReporting } from "@/lib/errorReporting";
 import { useRouteChange } from "@/lib/rum/useRouteChange";
 import { useHydrationCapture } from "@/lib/rum/useHydrationCapture";
 import { isPublicRoute, isAuthRoute } from "@/lib/auth/session";
@@ -62,6 +64,12 @@ export function Providers({ children }: { children: ReactNode }) {
     return cleanup;
   }, []);
 
+  // Install global handlers for uncaught errors and unhandled rejections.
+  useEffect(() => {
+    const cleanup = initErrorReporting();
+    return cleanup;
+  }, []);
+
   useRouteChange();
   useHydrationCapture();
   const { isVerifying } = useSessionCheck();
@@ -75,6 +83,7 @@ export function Providers({ children }: { children: ReactNode }) {
   // protected content until the check settles.
   const isProtectedRoute = Boolean(pathname && !isPublicRoute(pathname) && !isAuthRoute(pathname));
   const showFlashGuard = isVerifying && !isAuthenticated && isLoggedIn && isProtectedRoute;
+  useCrossTabRateLimit();
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -1,5 +1,54 @@
+import type { SdkCall } from '@/lib/docs/snippet-validation';
+import type { HttpMethod } from '@/lib/docs/types';
+
 export type Language = 'javascript' | 'python' | 'php' | 'go';
 export type Operation = 'create-payment-link' | 'list-transactions' | 'initiate-settlement';
+
+export interface OperationBinding {
+  /** Endpoint id in `lib/docs/endpoints.ts`. */
+  endpointId: string;
+  /**
+   * The route this operation is documented against, restated here on purpose.
+   *
+   * The generated samples in `lib/docs/snippets.ts` are derived from the
+   * registry, so they cannot disagree with it. These hand-written snippets
+   * can, and so can the registry itself — restating the verb and path means a
+   * route rename in `endpoints.ts` fails the snippet suite until someone comes
+   * back here and confirms the examples still describe reality.
+   */
+  method: HttpMethod;
+  path: string;
+  /** The SDK call the snippets are expected to demonstrate. */
+  call: SdkCall;
+}
+
+/**
+ * Which documented endpoint each operation exercises, and the SDK call that
+ * fronts it. `lib/docs/__tests__/snippets.test.ts` uses this map to check that
+ * every snippet below names the right resource and passes only fields the
+ * endpoint documents — so these examples cannot quietly drift away from
+ * `lib/docs/endpoints.ts` as the API evolves.
+ */
+export const OPERATION_ENDPOINTS: Record<Operation, OperationBinding> = {
+  'create-payment-link': {
+    endpointId: 'payments-create',
+    method: 'POST',
+    path: '/api/payments',
+    call: { resource: 'payments', action: 'create' },
+  },
+  'list-transactions': {
+    endpointId: 'payments-list',
+    method: 'GET',
+    path: '/api/payments',
+    call: { resource: 'payments', action: 'list' },
+  },
+  'initiate-settlement': {
+    endpointId: 'settlements-create',
+    method: 'POST',
+    path: '/api/settlements',
+    call: { resource: 'settlements', action: 'create' },
+  },
+};
 
 export const codeSnippets: Record<Operation, Record<Language, string>> = {
   'create-payment-link': {
@@ -10,16 +59,14 @@ const client = new BettaPay({
   network: 'mainnet',
 });
 
-const link = await client.paymentLinks.create({
-  label: 'My Product',
+const payment = await client.payments.create({
+  amountUsdc: 25.0,
   currency: 'USDC',
-  amount: 100,
-  type: 'fixed',
-  description: 'Payment for services',
+  source: 'checkout',
 });
 
-console.log(link.url);
-// Output: https://betta.pay/pay/link_xxx`,
+console.log(payment.url);
+// Output: https://betta.pay/pay/9b2f`,
 
     python: `from bettapay import BettaPay
 
@@ -28,16 +75,14 @@ client = BettaPay(
     network='mainnet'
 )
 
-link = client.payment_links.create(
-    label='My Product',
+payment = client.payments.create(
+    amountUsdc=25.0,
     currency='USDC',
-    amount=100,
-    type='fixed',
-    description='Payment for services'
+    source='checkout'
 )
 
-print(link.url)
-# Output: https://betta.pay/pay/link_xxx`,
+print(payment.url)
+# Output: https://betta.pay/pay/9b2f`,
 
     php: `<?php
 require 'vendor/autoload.php';
@@ -49,44 +94,43 @@ $client = new Client([
     'network' => 'mainnet'
 ]);
 
-$link = $client->paymentLinks->create([
-    'label' => 'My Product',
+$payment = $client->payments->create([
+    'amountUsdc' => 25.0,
     'currency' => 'USDC',
-    'amount' => 100,
-    'type' => 'fixed',
-    'description' => 'Payment for services'
+    'source' => 'checkout'
 ]);
 
-echo $link->url;
-// Output: https://betta.pay/pay/link_xxx`,
+echo $payment->url;
+// Output: https://betta.pay/pay/9b2f`,
 
     go: `package main
 
 import (
+	"context"
 	"fmt"
+
 	"github.com/bettapay/sdk-go"
 )
 
 func main() {
+	ctx := context.Background()
 	client := bettapay.NewClient(
 		bettapay.WithAPIKey("bp_live_YOUR_API_KEY"),
 		bettapay.WithNetwork("mainnet"),
 	)
 
-	link, err := client.PaymentLinks.Create(ctx, &bettapay.CreatePaymentLinkRequest{
-		Label:       "My Product",
-		Currency:    "USDC",
-		Amount:      100,
-		Type:        "fixed",
-		Description: "Payment for services",
+	payment, err := client.Payments.Create(ctx, &bettapay.CreatePaymentRequest{
+		AmountUsdc: 25.0,
+		Currency:   "USDC",
+		Source:     "checkout",
 	})
 
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println(link.URL)
-	// Output: https://betta.pay/pay/link_xxx
+	fmt.Println(payment.URL)
+	// Output: https://betta.pay/pay/9b2f
 }`,
   },
 
@@ -98,14 +142,13 @@ const client = new BettaPay({
   network: 'mainnet',
 });
 
-const transactions = await client.transactions.list({
-  limit: 20,
-  offset: 0,
+const payments = await client.payments.list({
   status: 'completed',
+  limit: 50,
 });
 
-console.log(transactions.data);
-// Output: [{ id: 'txn_xxx', amount: 100, ... }]`,
+console.log(payments.data);
+// Output: [{ id: '9b2f...', amountUsdc: 25, ... }]`,
 
     python: `from bettapay import BettaPay
 
@@ -114,14 +157,13 @@ client = BettaPay(
     network='mainnet'
 )
 
-transactions = client.transactions.list(
-    limit=20,
-    offset=0,
-    status='completed'
+payments = client.payments.list(
+    status='completed',
+    limit=50
 )
 
-print(transactions.data)
-# Output: [{ 'id': 'txn_xxx', 'amount': 100, ... }]`,
+print(payments.data)
+# Output: [{ 'id': '9b2f...', 'amountUsdc': 25, ... }]`,
 
     php: `<?php
 require 'vendor/autoload.php';
@@ -133,40 +175,41 @@ $client = new Client([
     'network' => 'mainnet'
 ]);
 
-$transactions = $client->transactions->list([
-    'limit' => 20,
-    'offset' => 0,
-    'status' => 'completed'
+$payments = $client->payments->list([
+    'status' => 'completed',
+    'limit' => 50
 ]);
 
-print_r($transactions->data);
-// Output: Array { [0] => { 'id' => 'txn_xxx', ... } }`,
+print_r($payments->data);
+// Output: Array { [0] => { 'id' => '9b2f...', ... } }`,
 
     go: `package main
 
 import (
+	"context"
 	"fmt"
+
 	"github.com/bettapay/sdk-go"
 )
 
 func main() {
+	ctx := context.Background()
 	client := bettapay.NewClient(
 		bettapay.WithAPIKey("bp_live_YOUR_API_KEY"),
 		bettapay.WithNetwork("mainnet"),
 	)
 
-	transactions, err := client.Transactions.List(ctx, &bettapay.ListTransactionsRequest{
-		Limit:  20,
-		Offset: 0,
+	payments, err := client.Payments.List(ctx, &bettapay.ListPaymentsRequest{
 		Status: "completed",
+		Limit:  50,
 	})
 
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println(transactions.Data)
-	// Output: [{ Id: "txn_xxx", Amount: 100, ... }]
+	fmt.Println(payments.Data)
+	// Output: [{ ID: "9b2f...", AmountUsdc: 25, ... }]
 }`,
   },
 
@@ -178,14 +221,13 @@ const client = new BettaPay({
   network: 'mainnet',
 });
 
-const settlement = await client.settlements.initiate({
-  destination: 'G1234567890ABCDEF...',
-  amount: 1000,
-  currency: 'USDC',
+const settlement = await client.settlements.create({
+  amountUsdc: 100.0,
+  destination: 'bank_acct_123',
 });
 
 console.log(settlement.id);
-// Output: settlement_xxx`,
+// Output: 7d5a...`,
 
     python: `from bettapay import BettaPay
 
@@ -194,14 +236,13 @@ client = BettaPay(
     network='mainnet'
 )
 
-settlement = client.settlements.initiate(
-    destination='G1234567890ABCDEF...',
-    amount=1000,
-    currency='USDC'
+settlement = client.settlements.create(
+    amountUsdc=100.0,
+    destination='bank_acct_123'
 )
 
 print(settlement.id)
-# Output: settlement_xxx`,
+# Output: 7d5a...`,
 
     php: `<?php
 require 'vendor/autoload.php';
@@ -213,32 +254,33 @@ $client = new Client([
     'network' => 'mainnet'
 ]);
 
-$settlement = $client->settlements->initiate([
-    'destination' => 'G1234567890ABCDEF...',
-    'amount' => 1000,
-    'currency' => 'USDC'
+$settlement = $client->settlements->create([
+    'amountUsdc' => 100.0,
+    'destination' => 'bank_acct_123'
 ]);
 
 echo $settlement->id;
-// Output: settlement_xxx`,
+// Output: 7d5a...`,
 
     go: `package main
 
 import (
+	"context"
 	"fmt"
+
 	"github.com/bettapay/sdk-go"
 )
 
 func main() {
+	ctx := context.Background()
 	client := bettapay.NewClient(
 		bettapay.WithAPIKey("bp_live_YOUR_API_KEY"),
 		bettapay.WithNetwork("mainnet"),
 	)
 
-	settlement, err := client.Settlements.Initiate(ctx, &bettapay.InitiateSettlementRequest{
-		Destination: "G1234567890ABCDEF...",
-		Amount:      1000,
-		Currency:    "USDC",
+	settlement, err := client.Settlements.Create(ctx, &bettapay.CreateSettlementRequest{
+		AmountUsdc:  100.0,
+		Destination: "bank_acct_123",
 	})
 
 	if err != nil {
@@ -246,7 +288,7 @@ func main() {
 	}
 
 	fmt.Println(settlement.ID)
-	// Output: settlement_xxx
+	// Output: 7d5a...
 }`,
   },
 };

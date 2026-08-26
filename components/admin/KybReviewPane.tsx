@@ -46,6 +46,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { STATUS_TONE_BADGE, type StatusTone } from "@/lib/status/palette";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -86,17 +87,20 @@ interface KybReviewPaneProps {
 // ─── Helper: status badge ─────────────────────────────────────────────────────
 
 function KybStatusBadge({ status }: { status: MerchantKybProfile["kybStatus"] }) {
+  // Tinted-alpha pairings such as `bg-orange-500/15 text-orange-600` sat around
+  // 3.5:1 and failed AA. These map onto the audited status tones instead.
   const map: Record<
     MerchantKybProfile["kybStatus"],
-    { label: string; className: string }
+    { label: string; tone: StatusTone }
   > = {
-    pending: { label: "Pending Review", className: "bg-yellow-500/15 text-yellow-600 border-yellow-500/30" },
-    unverified: { label: "Unverified", className: "bg-orange-500/15 text-orange-600 border-orange-500/30" },
-    approved: { label: "Approved", className: "bg-green-500/15 text-green-600 border-green-500/30" },
-    rejected: { label: "Rejected", className: "bg-red-500/15 text-red-600 border-red-500/30" },
+    pending: { label: "Pending Review", tone: "warn" },
+    unverified: { label: "Unverified", tone: "neutral" },
+    approved: { label: "Approved", tone: "ok" },
+    rejected: { label: "Rejected", tone: "down" },
   };
 
-  const { label, className } = map[status] ?? { label: status, className: "" };
+  const { label, tone } = map[status] ?? { label: status, tone: "neutral" as StatusTone };
+  const className = STATUS_TONE_BADGE[tone];
   return (
     <Badge variant="outline" className={cn("text-xs font-semibold", className)}>
       {label}
@@ -275,13 +279,13 @@ export default function KybReviewPane({
 
             {/* Rejection reason (shown when rejected) */}
             {profile.kybStatus === "rejected" && profile.rejectionReason && (
-              <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-800 p-3 flex gap-2">
-                <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+              <div className="rounded-lg border border-status-down-border bg-status-down-bg p-3 flex gap-2">
+                <AlertCircle className="w-4 h-4 text-status-down shrink-0 mt-0.5" aria-hidden="true" />
                 <div>
-                  <p className="text-sm font-medium text-red-700 dark:text-red-400">
+                  <p className="text-sm font-semibold text-status-down">
                     Rejection reason
                   </p>
-                  <p className="text-sm text-red-600 dark:text-red-300 mt-0.5">
+                  <p className="text-sm text-status-down mt-0.5">
                     {profile.rejectionReason}
                   </p>
                 </div>
@@ -430,7 +434,7 @@ export default function KybReviewPane({
         <div className="shrink-0 border-t px-6 py-4 flex gap-3">
           <Button
             variant="outline"
-            className="flex-1 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20"
+            className="flex-1 border-status-down-border text-status-down hover:bg-status-down-bg"
             onClick={() => openConfirm("rejected")}
             disabled={mutation.isPending}
           >

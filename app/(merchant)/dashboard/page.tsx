@@ -280,7 +280,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {payments.slice(0, 3).map((link) => {
+                {payments.slice(0, 5).map((link) => {
                   const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
                   const linkUrl = `${baseUrl}/pay/${link.id}`;
                   const clicks = link.clicks ?? 0;
@@ -310,7 +310,7 @@ export default function DashboardPage() {
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                        <span className="text-sm font-bold text-foreground">{link.amountNgn ? `₦${link.amountNgn.toLocaleString()}` : <CurrencyDisplay amount={link.amountUsdc} />}</span>
+                        <span className="text-sm font-bold text-foreground"><CurrencyDisplay amount={link.amountUsdc} currency="USDC" /></span>
                         <span className="text-xs text-muted-foreground">{link.clicks ?? 0} clicks</span>
                       </div>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

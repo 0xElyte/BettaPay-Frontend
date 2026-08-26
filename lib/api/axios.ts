@@ -1,11 +1,13 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../store/authStore';
-import { useRateLimitStore } from '../store/rateLimitStore';
+import { useRateLimitStore, isRequestRateLimited } from '../store/rateLimitStore';
 import { getCsrfTokenFromCookie, CSRF_HEADER_NAME } from '../utils/csrf';
 import { toast } from 'sonner';
 import { announce } from '@/lib/utils/announce';
-import { parseApiError, isTimeoutError } from '../utils/apiError';
+import { parseApiError, isTimeoutError, ApiError } from '../utils/apiError';
 import { getAppRouter } from '../navigation/appRouter';
+import { isJwtExpiredOrInvalid } from '../utils/jwt';
+import { captureException } from '../errorReporting';
 
 // Deduplication: avoid showing multiple toasts for simultaneous errors
 const recentErrors = new Map<string, number>();
@@ -61,8 +63,80 @@ function notifyError(message: string, key?: string) {
   }
 }
 
-// Use cookie-based auth (HttpOnly cookie set by the server). Do not read tokens from localStorage.
-const apiBaseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+/** Fallback used when nothing else supplies a base URL. */
+export const DEFAULT_API_BASE_URL = 'http://localhost:3001';
+
+/**
+ * Explicit override set through `setApiBaseUrl`. Takes precedence over every
+ * other source so tests and QA tooling can retarget the client at will.
+ */
+let baseUrlOverride: string | null = null;
+
+/** The missing-config warning is noisy; emit it at most once per session. */
+let hasWarnedAboutBaseUrl = false;
+
+/** Trim trailing slashes so joining a path never produces a double slash. */
+function normalizeBaseUrl(url: string): string {
+  return url.trim().replace(/\/+$/, '');
+}
+
+/**
+ * Runtime escape hatch for environments that cannot rebuild to change the
+ * endpoint. `process.env.NEXT_PUBLIC_*` is inlined into the client bundle at
+ * build time, so a deployed bundle can only be retargeted through a value that
+ * is read at request time — this global, or `setApiBaseUrl`.
+ */
+function readRuntimeBaseUrl(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  const runtime = (window as unknown as Record<string, unknown>).__BETTAPAY_API_URL__;
+  return typeof runtime === 'string' && runtime.trim() ? runtime : undefined;
+}
+
+/**
+ * Resolve the base URL for the next request.
+ *
+ * Precedence: explicit override → runtime global → build-time env → default.
+ * Called per request rather than captured at module load, so a change to any
+ * of these sources takes effect on the very next call.
+ */
+export function resolveApiBaseUrl(): string {
+  const configured =
+    baseUrlOverride ?? readRuntimeBaseUrl() ?? process.env.NEXT_PUBLIC_API_URL;
+
+  if (configured && configured.trim()) {
+    return normalizeBaseUrl(configured);
+  }
+
+  if (!hasWarnedAboutBaseUrl && typeof window !== 'undefined') {
+    hasWarnedAboutBaseUrl = true;
+    console.warn(
+      '[API Client] NEXT_PUBLIC_API_URL is not set. Defaulting to http://localhost:3001. ' +
+      'This will cause API calls to fail in production. Please set NEXT_PUBLIC_API_URL environment variable.'
+    );
+  }
+
+  return DEFAULT_API_BASE_URL;
+}
+
+/**
+ * Point the client at a different backend. Affects every subsequent request;
+ * in-flight requests keep the URL they were dispatched with.
+ *
+ * Pass `null` (or use `resetApiBaseUrl`) to fall back to the configured value.
+ */
+export function setApiBaseUrl(url: string | null): void {
+  baseUrlOverride = url && url.trim() ? normalizeBaseUrl(url) : null;
+}
+
+/** Clear an override set by `setApiBaseUrl`. */
+export function resetApiBaseUrl(): void {
+  baseUrlOverride = null;
+}
+
+/** The base URL the next request would use. */
+export function getApiBaseUrl(): string {
+  return resolveApiBaseUrl();
+}
 
 // Default timeout for all requests unless a longer one is needed (e.g. payment submission).
 export const DEFAULT_TIMEOUT_MS = 15000;
@@ -72,15 +146,13 @@ export const PAYMENT_TIMEOUT_MS = 30000;
 // URLs matching these paths get the extended payment timeout.
 const PAYMENT_TIMEOUT_PATHS: ReadonlyArray<string> = ['/payments', '/settlements'];
 
-if (!process.env.NEXT_PUBLIC_API_URL && typeof window !== 'undefined') {
-  console.warn(
-    '[API Client] NEXT_PUBLIC_API_URL is not set. Defaulting to http://localhost:3001. ' +
-    'This will cause API calls to fail in production. Please set NEXT_PUBLIC_API_URL environment variable.'
-  );
-}
-
+// Auth is cookie-based (HttpOnly cookie set by the server); tokens are never
+// read from localStorage.
+//
+// No `baseURL` here on purpose: leaving the instance default unset means a
+// per-request baseURL from a caller is still distinguishable in the request
+// interceptor, which resolves the current value for everything else.
 export const apiClient = axios.create({
-  baseURL: apiBaseURL,
   timeout: DEFAULT_TIMEOUT_MS,
   headers: {
     'Content-Type': 'application/json',
@@ -109,7 +181,59 @@ function resolveRequestTimeout(url: string | undefined): number {
   return PAYMENT_TIMEOUT_PATHS.some((path) => safeUrl.includes(path)) ? PAYMENT_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
 }
 
+/** Error code used for requests refused locally by the shared 429 window. */
+export const RATE_LIMIT_BLOCKED_CODE = 'RATE_LIMIT_BLOCKED';
+
+/** True for the synthetic error raised when a request is held back locally. */
+function isRateLimitBlockedError(error: unknown): boolean {
+  return error instanceof ApiError && error.code === RATE_LIMIT_BLOCKED_CODE;
+}
+
+/** Error code for a request refused because the local session is already dead. */
+export const SESSION_EXPIRED_CODE = 'SESSION_EXPIRED';
+
+function isSessionExpiredError(error: unknown): boolean {
+  return error instanceof ApiError && error.code === SESSION_EXPIRED_CODE;
+}
+
 apiClient.interceptors.request.use((config) => {
+  // Reject a request whose session token has already expired instead of
+  // spending a round trip to be told 401. The token is only ever inspected
+  // here for expiry — never for identity or role, which the server owns.
+  const { token } = useAuthStore.getState();
+  const isRetryAfterRefresh = Boolean(
+    (config as InternalAxiosRequestConfig & { _retry?: boolean })._retry
+  );
+
+  if (token && !isRetryAfterRefresh && isJwtExpiredOrInvalid(token)) {
+    // Drops the dead token (redirectToLogin logs out) so nothing renders an
+    // authenticated view from it.
+    redirectToLogin();
+    throw new ApiError(
+      'Your session has expired. Please sign in again.',
+      SESSION_EXPIRED_CODE,
+      401
+    );
+  }
+
+  // Hold requests back while a rate-limit window is open — including one
+  // opened in another tab. Without this, sibling tabs keep firing into a limit
+  // the user is already waiting out, extending it for everyone.
+  if (isRequestRateLimited(config.url)) {
+    const { secondsRemaining } = useRateLimitStore.getState();
+    throw new ApiError(
+      `Rate limited. Please try again in ${secondsRemaining} seconds.`,
+      RATE_LIMIT_BLOCKED_CODE,
+      429
+    );
+  }
+
+  // Resolve the base URL at dispatch time so runtime endpoint switches (QA,
+  // tests) apply to the next request instead of being frozen at import.
+  if (!config.baseURL) {
+    config.baseURL = resolveApiBaseUrl();
+  }
+
   const method = (config.method || '').toLowerCase();
   if (STATE_METHODS.includes(method as (typeof STATE_METHODS)[number])) {
     const csrfToken = getCsrfTokenFromCookie();
@@ -165,9 +289,31 @@ function redirectToLogin() {
   }
 }
 
+// Send server errors and network failures to the reporting backend. Only the
+// method, path and status travel with the report — never request bodies,
+// headers, or query strings, which routinely carry PII.
+function reportApiFailure(error: AxiosError, kind: string) {
+  const method = (error.config?.method || 'get').toUpperCase();
+  const path = (error.config?.url || 'unknown').split('?')[0];
+  const status = error.response?.status ?? 0;
+
+  captureException(
+    new Error(`API ${kind}: ${method} ${path} -> ${status || 'no response'}`),
+    { source: 'api' }
+  );
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
+    // Requests refused by the shared rate-limit window never reached the
+    // network. They still travel through this handler (a rejected request
+    // interceptor shares the promise chain), so return early rather than
+    // reporting them as a network failure and toasting a second time.
+    if (isRateLimitBlockedError(error) || isSessionExpiredError(error)) {
+      return Promise.reject(error);
+    }
+
     const originalRequest = error.config as InternalAxiosRequestConfig & {
       _retry?: boolean;
     };
@@ -214,9 +360,11 @@ apiClient.interceptors.response.use(
       notifyError('The request timed out. Please try again.', `timeout_${originalRequest?.url || 'unknown'}`);
     } else if (!error.response) {
       notifyError('Network error. Please check your connection.', 'network_error');
+      reportApiFailure(error, 'network');
     } else if (error.response?.status >= 500) {
       const endpoint = originalRequest?.url || error.config?.url || 'unknown';
       notifyError('A server error occurred. Please try again later.', `5xx_${error.response.status}_${endpoint}`);
+      reportApiFailure(error, `http_${error.response.status}`);
     }
 
     return Promise.reject(parseApiError(error));
