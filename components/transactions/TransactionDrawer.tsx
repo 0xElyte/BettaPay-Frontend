@@ -90,6 +90,7 @@ export const TransactionDrawer = ({ transaction, isOpen, onClose }: TransactionD
   // Retain the last transaction while the closing slide-out animation plays,
   // since the parent clears `transaction` at the same moment it closes.
   const [tx, setTx] = useState<ApiPayment | null>(transaction);
+  const network = useWalletStore((s) => s.network);
   useEffect(() => {
     if (transaction) setTx(transaction);
   }, [transaction]);
@@ -97,7 +98,6 @@ export const TransactionDrawer = ({ transaction, isOpen, onClose }: TransactionD
   if (!tx) return null;
 
   const dash = '—';
-  const network = useWalletStore((s) => s.network);
   const explorerUrl = tx.txHash ? getStellarExplorerTxUrl(tx.txHash, network) : null;
 
   return (
