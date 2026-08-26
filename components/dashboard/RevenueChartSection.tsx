@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui';
 import { ErrorDisplay } from '@/components/shared';
 import { TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ErrorBoundary } from '@/components/shared';
 
 const RevenueChart = dynamic(() => import('@/components/charts/RevenueChart'), {
   ssr: false,
@@ -74,7 +75,9 @@ export const RevenueChartSection = memo(function RevenueChartSection({
             />
           </div>
         ) : (
+        <ErrorBoundary>
           <RevenueChart height={260} />
+        </ErrorBoundary>
         )}
         {/* Summary row */}
         <div className="flex items-center gap-6 pt-4 border-t border-border mt-2">

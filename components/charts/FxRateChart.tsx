@@ -1,17 +1,26 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
+import { useTheme } from "next-themes";
 import {
   ResponsiveContainer,
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
   CartesianGrid,
 } from "recharts";
+// Imported directly (not via the barrel) to keep this lazy-loaded chunk lean.
+import { ErrorDisplay } from "@/components/shared/ErrorDisplay";
 
-const fxHistory = [
+export interface FxRatePoint {
+  date: string;
+  rate: number;
+}
+
+/** 7 days of USDC/NGN rates — used when the caller does not supply live data. */
+const fxHistory: FxRatePoint[] = [
   { date: "Jan 7", rate: 1480 },
   { date: "Jan 8", rate: 1495 },
   { date: "Jan 9", rate: 1510 },
@@ -21,13 +30,15 @@ const fxHistory = [
   { date: "Jan 13", rate: 1550 },
 ];
 
-interface FxTooltipProps {
+const formatNgn = (value: number) => `₦${value.toLocaleString()}`;
+
+export interface FxTooltipProps {
   active?: boolean;
   payload?: { value: number }[];
   label?: string;
 }
 
-const FxTooltip = ({ active, payload, label }: FxTooltipProps) => {
+export const FxTooltip = ({ active, payload, label }: FxTooltipProps) => {
   if (active && payload && payload.length) {
     return (
       <div 
@@ -35,7 +46,7 @@ const FxTooltip = ({ active, payload, label }: FxTooltipProps) => {
       >
         <p className="font-semibold mb-1 text-foreground">{label}</p>
         <p className="font-bold text-primary">
-          ₦{payload[0]?.value?.toLocaleString()}
+          {formatNgn(payload[0]?.value ?? 0)}
         </p>
       </div>
     );
@@ -45,10 +56,22 @@ const FxTooltip = ({ active, payload, label }: FxTooltipProps) => {
 
 interface FxRateChartProps {
   height?: number;
+  /** Live rate history. Falls back to 7 days of mock data when omitted. */
+  data?: FxRatePoint[];
+  /** Set when the caller's rate fetch failed — renders an in-chart error state. */
+  error?: string | Error | null;
+  onRetry?: () => void;
 }
 
-export default function FxRateChart({ height = 240 }: FxRateChartProps) {
+export default function FxRateChart({
+  height = 240,
+  data,
+  error = null,
+  onRetry,
+}: FxRateChartProps) {
   const [isMobile, setIsMobile] = useState(false);
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)");
@@ -58,13 +81,37 @@ export default function FxRateChart({ height = 240 }: FxRateChartProps) {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
+  const chartData = data && data.length > 0 ? data : fxHistory;
+  const hasError = Boolean(error) || (data !== undefined && data.length === 0);
+
+  if (hasError) {
+    return (
+      <div className="w-full flex items-center justify-center" style={{ height }}>
+        <ErrorDisplay
+          message={
+            typeof error === "string"
+              ? error
+              : "Unable to load FX rate history."
+          }
+          onRetry={onRetry}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="w-full" style={{ height }}>
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart
-          data={fxHistory}
+        <AreaChart
+          data={chartData}
           margin={{ top: 4, right: 4, bottom: 0, left: isMobile ? 0 : -10 }}
         >
+          <defs>
+            <linearGradient id="colorFxRate" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="var(--primary)" stopOpacity={isDark ? 0.4 : 0.25} />
+              <stop offset="95%" stopColor="var(--primary)" stopOpacity={isDark ? 0.05 : 0} />
+            </linearGradient>
+          </defs>
           <CartesianGrid
             strokeDasharray="3 3"
             stroke="var(--border)"
@@ -81,16 +128,19 @@ export default function FxRateChart({ height = 240 }: FxRateChartProps) {
             fontSize={11}
             tickLine={false}
             axisLine={false}
-            tickFormatter={(v) => `₦${v}`}
+            tickFormatter={formatNgn}
             tick={{ fill: "var(--muted-foreground)" }}
             domain={["auto", "auto"]}
+            width={isMobile ? 52 : 64}
           />
           <Tooltip content={<FxTooltip />} />
-          <Line
+          <Area
             type="monotone"
             dataKey="rate"
             stroke="var(--primary)"
             strokeWidth={2.5}
+            fillOpacity={1}
+            fill="url(#colorFxRate)"
             dot={false}
             activeDot={{
               r: 5,
@@ -99,7 +149,7 @@ export default function FxRateChart({ height = 240 }: FxRateChartProps) {
               strokeWidth: 2,
             }}
           />
-        </LineChart>
+        </AreaChart>
       </ResponsiveContainer>
     </div>
   );

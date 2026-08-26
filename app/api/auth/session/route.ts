@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { generateCsrfToken } from '@/lib/utils/csrf';
+import { generateCsrfToken, buildCsrfCookieHeader } from '@/lib/utils/csrf';
 
 export async function GET(req: NextRequest) {
   const token = req.cookies.get('auth_token')?.value;
@@ -22,25 +22,86 @@ export async function GET(req: NextRequest) {
   });
 }
 
+/**
+ * Roles this app understands. Anything else is treated as least privilege.
+ */
+const KNOWN_ROLES: ReadonlySet<string> = new Set(['admin', 'merchant']);
+
+/** Least-privilege default when the backend has not confirmed a role. */
+const FALLBACK_ROLE = 'merchant';
+
+function normalizeRole(role: unknown): string {
+  return typeof role === 'string' && KNOWN_ROLES.has(role) ? role : FALLBACK_ROLE;
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const token = body.token;
-    const role = body.role || '';
 
-    const res = NextResponse.json({ ok: true });
+    // The role is deliberately NOT read from the request body. It used to be,
+    // which meant a caller could mint a `user_role=admin` cookie simply by
+    // asking for one — the middleware trusts that cookie for route access.
+    // The backend is the only thing allowed to say what a token is worth.
+    let role = FALLBACK_ROLE;
+    let confirmedByBackend = false;
+    let revokedSessionCount: number | undefined;
 
-    // Determine environment for Secure flag
+    try {
+      const upstreamResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/session`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+          cache: 'no-store',
+        },
+      );
+
+      if (upstreamResponse.ok) {
+        const upstreamBody = (await upstreamResponse.json()) as {
+          revokedSessionCount?: unknown;
+          role?: unknown;
+          user?: { role?: unknown };
+        };
+        if (typeof upstreamBody.revokedSessionCount === 'number') {
+          revokedSessionCount = upstreamBody.revokedSessionCount;
+        }
+        role = normalizeRole(upstreamBody.role ?? upstreamBody.user?.role);
+        confirmedByBackend = true;
+      } else if (upstreamResponse.status === 401 || upstreamResponse.status === 403) {
+        // The backend rejected the token outright — do not set any cookie.
+        return NextResponse.json(
+          { ok: false, error: 'Invalid session token' },
+          { status: 401 },
+        );
+      }
+    } catch {
+      // Local cookie setup remains available when the auth service is offline,
+      // but the session is capped at the least-privilege role.
+    }
+
     const isProduction = process.env.NODE_ENV === 'production';
     const secureFlag = isProduction ? '; Secure' : '';
 
-    // Set HttpOnly cookie for auth token
-    res.headers.set('Set-Cookie', `auth_token=${token}; HttpOnly; Path=/; SameSite=Lax${secureFlag}`);
-    // Also set a non-HttpOnly role cookie so middleware/server-side can read role where needed
-    res.headers.append('Set-Cookie', `user_role=${role}; Path=/; SameSite=Lax${secureFlag}`);
-    // Set CSRF token cookie (non-HttpOnly so the client JS can read it for double-submit)
+    // Rotate the CSRF token on every login — this is the primary token rotation
+    // point. A fresh token is tied to the new authenticated session.
     const csrfToken = generateCsrfToken();
-    res.headers.append('Set-Cookie', `csrf_token=${csrfToken}; Path=/; SameSite=Strict; Max-Age=86400${secureFlag}`);
+
+    const res = NextResponse.json({ ok: true, revokedSessionCount, role, confirmedByBackend });
+
+    // auth_token: HttpOnly so JS cannot read it (XSS protection)
+    res.headers.set(
+      'Set-Cookie',
+      `auth_token=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=86400${secureFlag}`
+    );
+    // user_role: non-HttpOnly so middleware / server-side can read it
+    res.headers.append(
+      'Set-Cookie',
+      `user_role=${role}; Path=/; SameSite=Lax; Max-Age=86400${secureFlag}`
+    );
+    // csrf_token: non-HttpOnly (JS must read it), SameSite=Strict
+    res.headers.append('Set-Cookie', buildCsrfCookieHeader(csrfToken));
 
     return res;
   } catch (error) {
@@ -50,12 +111,26 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE() {
-  const res = NextResponse.json({ ok: true });
   const isProduction = process.env.NODE_ENV === 'production';
   const secureFlag = isProduction ? '; Secure' : '';
-  // Clear cookies
-  res.headers.set('Set-Cookie', `auth_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax${secureFlag}`);
-  res.headers.append('Set-Cookie', `user_role=; Path=/; Max-Age=0; SameSite=Lax${secureFlag}`);
-  res.headers.append('Set-Cookie', `csrf_token=; Path=/; Max-Age=0; SameSite=Strict${secureFlag}`);
+
+  const res = NextResponse.json({ ok: true });
+  // Expire all three cookies atomically on logout
+  res.headers.set(
+    'Set-Cookie',
+    `auth_token=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax${secureFlag}`
+  );
+  res.headers.append(
+    'Set-Cookie',
+    `user_role=; Path=/; Max-Age=0; SameSite=Lax${secureFlag}`
+  );
+  res.headers.append(
+    'Set-Cookie',
+    `csrf_token=; Path=/; Max-Age=0; SameSite=Strict${secureFlag}`
+  );
+  res.headers.append(
+    'Set-Cookie',
+    `merchant_onboarded=; Path=/; Max-Age=0; SameSite=Lax${secureFlag}`
+  );
   return res;
 }

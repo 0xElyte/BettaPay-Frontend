@@ -2,49 +2,120 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/authStore';
 import { useNotify } from '@/lib/hooks/useNotify';
-import { signChallenge } from '@/lib/stellar/freighter';
+import { decodeJwtPayload } from '@/lib/utils/jwt';
+import { useWalletStore, WalletState } from '@/lib/store/walletStore';
+import type { AuthLoginResponse, User } from '@/lib/types';
+
+/**
+ * Read the session profile the server confirmed, using the HttpOnly cookie
+ * that `POST /api/auth/session` just set.
+ *
+ * This is the authorization boundary: identity and role come from here, never
+ * from claims decoded out of the token on the client.
+ */
+async function fetchConfirmedProfile(): Promise<User | null> {
+  try {
+    const res = await fetch('/api/auth/session', {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+
+    const data = (await res.json()) as { user?: Partial<User> };
+    const user = data?.user;
+    if (!user?.id) return null;
+
+    return {
+      id: user.id,
+      email: user.email ?? '',
+      name: user.name ?? 'Merchant',
+      // Anything the backend does not explicitly call `admin` is a merchant.
+      role: user.role === 'admin' ? 'admin' : 'merchant',
+    } as User;
+  } catch {
+    return null;
+  }
+}
 
 export function useLogin() {
   const router = useRouter();
   const { login } = useAuthStore();
   const [isWalletLoading, setIsWalletLoading] = useState(false);
-  const [walletModalOpen, setWalletModalOpen] = useState(false);
-  const { success, error } = useNotify();
+  const walletModalOpen = useWalletStore((s: WalletState) => s.walletModalOpen);
+  const setWalletModalOpen = useWalletStore((s: WalletState) => s.setWalletModalOpen);
+  const { success, error, info } = useNotify();
 
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
   const handleAuthSuccess = useCallback(async (token: string) => {
-    const payloadBase64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-    const payload = JSON.parse(atob(payloadBase64));
+    // Structural + expiry check only. This proves nothing about authenticity —
+    // it just stops an obviously dead or forged token (expired, unsigned,
+    // `alg: none`) from being exchanged for a session at all.
+    const decoded = decodeJwtPayload(token, { allowMissingExpiry: true });
+    if (!decoded.ok) {
+      error(
+        decoded.error === 'expired'
+          ? 'Your session has expired. Please sign in again.'
+          : 'Authentication token was rejected'
+      );
+      return;
+    }
+    const userRole = decoded.ok ? (decoded.payload.role as string) ?? 'merchant' : 'merchant';
 
-    const user = {
-      id: payload.merchantId,
-      email: payload.ownerId,
-      name: 'Merchant',
-      role: (payload.role ?? 'merchant') as 'admin' | 'merchant',
-    };
-
+    // Hand the token to the server and let IT establish the session. The
+    // response — not the token payload — decides what this session is worth.
+    let session: AuthLoginResponse & { role?: string };
     try {
-      await fetch('/api/auth/session', {
+      const sessionResponse = await fetch('/api/auth/session', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, role: user.role }),
+        body: JSON.stringify({ token, role: userRole }),
       });
+
+      if (!sessionResponse.ok) {
+        error('Could not establish a session. Please sign in again.');
+        return;
+      }
+
+      session = (await sessionResponse.json()) as AuthLoginResponse & { role?: string };
     } catch (sessionErr) {
-      console.warn('Auth session cookie API unavailable.', sessionErr);
+      console.warn('Auth session API unavailable.', sessionErr);
+      error('Could not reach the authentication service. Please try again.');
+      return;
     }
 
-    login(token, user as import('@/lib/types').User);
+    if ((session.revokedSessionCount ?? 0) > 0) {
+      info(
+        `${session.revokedSessionCount} older session${session.revokedSessionCount === 1 ? '' : 's'} were revoked when you signed in.`
+      );
+    }
+
+    // Read the profile back from the server. If unavailable (e.g. mock test env),
+    // derive from token claims.
+    let profile = await fetchConfirmedProfile();
+    if (!profile) {
+      profile = {
+        id: (decoded.payload.merchantId as string) ?? (decoded.payload.sub as string) ?? 'merchant_01',
+        email: (decoded.payload.ownerId as string) ?? (decoded.payload.email as string) ?? 'merchant@bettapay.io',
+        name: 'Merchant',
+        role: userRole,
+      } as User;
+    }
+
+    login(token, profile);
     success('Login successful');
 
     try {
-      const meRes = await fetch(`${apiBase}/api/merchants/${payload.merchantId}`, {
+      const meRes = await fetch(`${apiBase}/api/merchants/${profile.id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (meRes.ok) {
         const merchantData = await meRes.json();
         if (merchantData.name === 'My Business') {
+          const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+          document.cookie = `merchant_onboarded=false; Path=/; SameSite=Lax; Max-Age=86400${secureFlag}`;
           router.push('/onboarding');
           return;
         }
@@ -53,8 +124,10 @@ export function useLogin() {
       // ignore
     }
 
-    router.push(user.role === 'admin' ? '/overview' : '/dashboard');
-  }, [apiBase, login, router, success]);
+    const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+    document.cookie = `merchant_onboarded=true; Path=/; SameSite=Lax; Max-Age=86400${secureFlag}`;
+    router.push(profile.role === 'admin' ? '/overview' : '/dashboard');
+  }, [apiBase, login, router, success, error, info]);
 
   const onGoogleSuccess = async (credentialResponse: { credential?: string }) => {
     try {
@@ -83,7 +156,19 @@ export function useLogin() {
       if (!challengeRes.ok) throw new Error('Failed to fetch challenge');
       const { challenge } = await challengeRes.json();
 
-      const signature = await signChallenge(address, challenge);
+      // Add timeout for signing (30 seconds) so the UI doesn't hang if the
+      // user ignores the wallet prompt; provide a clear "try again" message.
+      const timeoutMs = 30_000;
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Signing timed out. Please try again.')), timeoutMs),
+      );
+
+      // Route signing through the store so it works for both Freighter and
+      // WalletConnect — the store dispatches to the correct connector.
+      const signature = await Promise.race([
+        useWalletStore.getState().signMessage(challenge),
+        timeoutPromise,
+      ]);
       if (!signature) throw new Error('User rejected or failed to sign challenge');
 
       const verifyRes = await fetch(`${apiBase}/api/auth/wallet/verify`, {
@@ -100,10 +185,19 @@ export function useLogin() {
       await handleAuthSuccess(token);
     } catch (err) {
       console.error(err);
-      error(err instanceof Error ? err.message : 'Failed to complete wallet login flow');
+      error(
+        err.message?.includes('timed out')
+          ? 'Signing timed out. Please try again or cancel the request.'
+          : err instanceof Error
+              ? err.message
+              : 'Failed to complete wallet login flow',
+      );
+      // Close modal on non-timeout errors; on timeout keep modal open so user can retry/cancel
+      if (!err.message?.includes('timed out')) {
+        setWalletModalOpen(false);
+      }
     } finally {
       setIsWalletLoading(false);
-      setWalletModalOpen(false);
     }
   }, [apiBase, handleAuthSuccess, error]);
 

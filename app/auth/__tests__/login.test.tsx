@@ -69,12 +69,26 @@ jest.mock('@/components/layout/Header', () => () => <header data-testid="mock-he
 jest.mock('@/components/layout/Footer', () => () => <footer data-testid="mock-footer" />);
 
 // Mock walletStore so RegisterPage renders without open handles
-jest.mock('@/lib/store/walletStore', () => ({
-  useWalletStore: jest.fn(() => ({
+jest.mock('@/lib/store/walletStore', () => {
+  const mockState: Record<string, unknown> = {
     connect: jest.fn().mockResolvedValue(undefined),
     address: null,
-  })),
-}));
+    walletModalOpen: false,
+    setWalletModalOpen: jest.fn(),
+    signMessage: jest.fn().mockResolvedValue('mock_signature'),
+    walletConnectPending: false,
+    connectError: null,
+  };
+  const fn = jest.fn((selector: (s: typeof mockState) => unknown) => selector(mockState));
+  (fn as unknown as Record<string, unknown>).getState = () => mockState;
+  (fn as unknown as Record<string, unknown>).setState = jest.fn();
+  return {
+    useWalletStore: Object.assign(fn, {
+      getState: () => mockState,
+      setState: jest.fn(),
+    }),
+  };
+});
 
 // Mock apiClient
 jest.mock('@/lib/api/axios', () => ({

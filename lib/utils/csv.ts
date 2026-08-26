@@ -1,3 +1,15 @@
+// RFC 4180 compliant CSV utilities used when exporting tables for download.
+//
+// We always wrap text fields in double quotes so embedded commas, newlines
+// and unicode characters survive a round-trip through spreadsheet tools,
+// and we double any embedded `"` character to escape it cleanly. Numeric
+// fields are emitted raw (without quotes) to keep them arithmetic-friendly
+// in Excel / Google Sheets.
+//
+// We also prepend a UTF-8 BOM ("\ufeff") to the output so that Excel — which
+// otherwise guesses based on system locale — recognises the file as UTF-8
+// and renders non-ASCII characters (e.g. ₦ in NGN amounts) correctly.
+
 export interface CSVColumn<T = Record<string, unknown>> {
   header: string;
   key: keyof T | ((item: T) => string | number | null | undefined);

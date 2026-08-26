@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from 'next/dynamic';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   Card,
   CardContent,
@@ -23,7 +24,7 @@ import { ErrorDisplay } from "@/components/shared";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useWalletStore } from "@/lib/store/walletStore";
 import Image from "next/image";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui";
 
@@ -81,9 +82,20 @@ export default function WalletPage() {
     success("Balances updated");
   }, [refreshBalances, success]);
 
-  const primaryBalance = balances.length > 0
-    ? balances.reduce((max, b) => parseFloat(b.balance) > parseFloat(max.balance) ? b : max, balances[0])
-    : null;
+  const primaryBalance = useMemo(() => {
+    if (balances.length === 0) return null;
+    
+    const USDC_priority = balances.find((b) => b.assetCode === 'USDC');
+    if (USDC_priority) return USDC_priority;
+    
+    const USDT_priority = balances.find((b) => b.assetCode === 'USDT');
+    if (USDT_priority) return USDT_priority;
+    
+    return balances.reduce(
+      (max, b) => parseFloat(b.balance) > parseFloat(max.balance) ? b : max,
+      balances[0]
+    );
+  }, [balances]);
 
   if (balancesError) {
     return (
@@ -289,7 +301,7 @@ export default function WalletPage() {
             <EmptyState
               icon={Wallet}
               title="No assets found"
-              description="This account has no balances yet. Fund it with XLM or add a trustline to get started."
+              description="This account has no balances yet. Fund it with XLM or add a trustline to start receiving payments."
               action={{ label: "Refresh Balances", onClick: handleRefresh }}
             />
           </CardContent>
@@ -344,8 +356,13 @@ export default function WalletPage() {
             <DialogDescription>Scan to transfer Stellar assets</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center py-4 space-y-4">
-            <div className="w-48 h-48 bg-muted rounded-xl flex items-center justify-center border border-border">
-              <QrCode className="w-32 h-32 text-foreground/80" />
+            <div className="w-48 h-48 bg-white rounded-xl flex items-center justify-center border border-border p-2">
+              <QRCodeSVG
+                value={address ? `web+stellar:pay?destination=${address}` : ''}
+                size={160}
+                level="M"
+                includeMargin={false}
+              />
             </div>
             <p className="text-xs text-muted-foreground font-mono break-all max-w-full">
               {address}

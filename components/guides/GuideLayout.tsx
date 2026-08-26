@@ -16,16 +16,10 @@ import GuideProgress from "@/components/guides/GuideProgress";
 import GuideTOC from "@/components/guides/GuideTOC";
 import {
   difficultyBadgeStyles,
+  difficultyLabels,
   getAdjacentGuides,
   getGuide,
-  type GuideMeta,
 } from "@/lib/guides";
-
-const difficultyLabel: Record<GuideMeta["difficulty"], string> = {
-  beginner: "Beginner",
-  intermediate: "Intermediate",
-  advanced: "Advanced",
-};
 
 const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -69,7 +63,7 @@ export default function GuideLayout({
 
   return (
     <div className="min-h-screen bg-card text-foreground flex flex-col">
-      <GuideProgress />
+      <GuideProgress slug={slug} containerId={CONTENT_ID} />
       <Header />
 
       <main className="flex-1">
@@ -93,7 +87,7 @@ export default function GuideLayout({
                   difficultyBadgeStyles[guide.difficulty]
                 )}
               >
-                {difficultyLabel[guide.difficulty]}
+                {difficultyLabels[guide.difficulty]}
               </Badge>
               {guide.tags.slice(0, 3).map((tag) => (
                 <span
@@ -130,7 +124,36 @@ export default function GuideLayout({
               top on mobile, and grid-placed into the right column on desktop. */}
           <div className="mt-8 lg:grid lg:grid-cols-[minmax(0,1fr)_16rem] lg:gap-12">
             <aside className="mb-6 lg:mb-0 lg:col-start-2 lg:row-start-1">
-              <GuideTOC containerId={CONTENT_ID} />
+              <div className="lg:sticky lg:top-24">
+                <GuideTOC containerId={CONTENT_ID} />
+
+                <nav
+                  aria-label="Documentation"
+                  className="mt-6 border-t border-border pt-5"
+                >
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Documentation
+                  </p>
+                  <ul className="space-y-1 text-sm">
+                    <li>
+                      <Link
+                        href="/guides"
+                        className="block border-l-2 border-transparent py-1 pl-3 text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+                      >
+                        All guides
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        href="/docs"
+                        className="block border-l-2 border-transparent py-1 pl-3 text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+                      >
+                        API Reference
+                      </Link>
+                    </li>
+                  </ul>
+                </nav>
+              </div>
             </aside>
 
             <div className="min-w-0 lg:col-start-1 lg:row-start-1">

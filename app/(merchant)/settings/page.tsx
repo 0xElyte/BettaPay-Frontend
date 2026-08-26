@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui';
 import { Button } from '@/components/ui';
 import { Input } from '@/components/ui';
@@ -47,6 +47,25 @@ export default function SettingsPage() {
     refetch: refetchProfile,
   } = useMerchantProfile(user?.id);
 
+  // Track whether any non-profile tab has unsaved changes so we can guard
+  // against accidental navigation. ProfileEditor tracks its own dirty state
+  // internally via react-hook-form isDirty; we surface a parallel flag here
+  // for the fee/webhook tabs which use uncontrolled local state.
+  const tabDirtyRef = useRef(false);
+
+  // Register a beforeunload guard that fires when the user closes the tab or
+  // navigates away via the browser address bar.
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (tabDirtyRef.current) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
   // Fee Rules State
   const [feeType, setFeeType] = useState<'percentage' | 'flat'>('percentage');
   const [feeRate, setFeeRate] = useState('0.5');
@@ -56,7 +75,6 @@ export default function SettingsPage() {
   const [webhookUrl, setWebhookUrl] = useState('https://example.com/webhooks/bettapay');
   const [webhookSecret, setWebhookSecret] = useState('whsec_live_9876543210abcdef');
   const [showSecret, setShowSecret] = useState(false);
-
   // API Keys State
   const [apiKeys, setApiKeys] = useState([
     { id: 'key_1', name: 'Production Backend', prefix: 'bp_live_', scopes: ['read', 'write'], created: '2026-06-01' },
@@ -66,10 +84,75 @@ export default function SettingsPage() {
   const [newKeyName, setNewKeyName] = useState('');
   const [newKeyScope, setNewKeyScope] = useState('write');
 
-  // Security State
+  // Security State & Validation
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
+
+  // Derived live errors for immediate feedback (used for rendering)
+  const passwordErrors = useMemo<{
+    current?: string;
+    newPass?: string;
+    confirm?: string;
+  }>(() => {
+    const errors: { current?: string; newPass?: string; confirm?: string } = {};
+
+    if (!currentPassword) {
+      errors.current = 'Current password is required';
+    }
+
+    if (newPassword.length < 8) {
+      errors.newPass = 'Password must be at least 8 characters long';
+    } else if (!/[0-9]/.test(newPassword)) {
+      errors.newPass = 'Password must contain at least one number';
+    } else if (!/[A-Z]/.test(newPassword)) {
+      errors.newPass = 'Password must contain at least one uppercase letter';
+    }
+
+    if (confirmNewPassword !== newPassword) {
+      errors.confirm = 'Passwords do not match';
+    }
+
+    return errors;
+  }, [currentPassword, newPassword, confirmNewPassword]);
+
+  const validatePassword = useCallback(() => {
+    return Object.keys(passwordErrors).length === 0;
+  }, [passwordErrors]);
+
+  const isPasswordValid = useMemo(() => {
+    return (
+      currentPassword.length > 0 &&
+      newPassword.length >= 8 &&
+      /[0-9]/.test(newPassword) &&
+      /[A-Z]/.test(newPassword) &&
+      confirmNewPassword === newPassword
+    );
+  }, [currentPassword, newPassword, confirmNewPassword]);
+
+  const handlePasswordChange = useCallback(async () => {
+    if (!validatePassword()) return;
+    setIsSubmitting(true);
+    try {
+      await apiClient.post('/api/auth/change-password', {
+        currentPassword,
+        newPassword,
+      });
+      notify.success('Password updated');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+    } catch (err: unknown) {
+      const apiMessage =
+        (err as { response?: { data?: { error?: string; message?: string } } })
+          ?.response?.data?.error ??
+        (err as { response?: { data?: { error?: string; message?: string } } })
+          ?.response?.data?.message;
+      notify.error(apiMessage ?? 'Current password is incorrect or the request failed');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [currentPassword, newPassword, validatePassword, notify]);
 
   const [notificationPreferences, setNotificationPreferences] = useState<Record<string, boolean>>({
     paymentReceived: true,
@@ -78,6 +161,50 @@ export default function SettingsPage() {
     fxRateChanges: true,
   });
 
+  useEffect(() => {
+    const syncPreferences = async () => {
+      try {
+        const response = await fetch('/api/notifications', { cache: 'no-store' });
+        const payload = await response.json();
+
+        if (payload?.preferences) {
+          setNotificationPreferences({
+            paymentReceived: payload.preferences.settlement ?? true,
+            settlementProcessed: payload.preferences.settlement ?? true,
+            failedTransactions: payload.preferences.webhook_failure ?? true,
+            fxRateChanges: payload.preferences.rate_alert ?? true,
+          });
+        }
+      } catch {
+        // ignore failed sync; keep client defaults
+      }
+    };
+
+    syncPreferences();
+  }, []);
+
+  const handleNotificationPreferenceToggle = useCallback(async (id: string) => {
+    const nextPreferences = {
+      ...notificationPreferences,
+      [id]: !notificationPreferences[id],
+    };
+
+    setNotificationPreferences(nextPreferences);
+
+    const mappedPreferences = {
+      settlement: nextPreferences.paymentReceived || nextPreferences.settlementProcessed,
+      webhook_failure: nextPreferences.failedTransactions,
+      rate_alert: nextPreferences.fxRateChanges,
+      kyc: true,
+    };
+
+    await fetch('/api/notifications', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'set_preferences', preferences: mappedPreferences }),
+    });
+  }, [notificationPreferences]);
+
   const handleLogout = useCallback(() => {
     logout();
     notify.success('Logged out successfully');
@@ -85,6 +212,15 @@ export default function SettingsPage() {
   }, [logout, notify, router]);
 
   const handleTabChange = useCallback((id: string) => {
+    // Guard against switching tabs when fee/webhook state is dirty.
+    // ProfileEditor handles its own dirty guard internally.
+    if (tabDirtyRef.current) {
+      const confirmed = window.confirm(
+        'You have unsaved changes. Leave this tab and discard them?'
+      );
+      if (!confirmed) return;
+      tabDirtyRef.current = false;
+    }
     setActiveTab(id);
   }, []);
 
@@ -95,8 +231,13 @@ export default function SettingsPage() {
       await apiClient.patch(`/api/merchants/${user.id}`, data);
       notify.success('Profile updated');
       refetchProfile();
-    } catch {
-      notify.error('Failed to update profile');
+    } catch (err: unknown) {
+      const apiMessage =
+        (err as { response?: { data?: { error?: string; message?: string } } })
+          ?.response?.data?.error ??
+        (err as { response?: { data?: { error?: string; message?: string } } })
+          ?.response?.data?.message;
+      notify.error(apiMessage ?? 'Failed to update profile — please try again');
     } finally {
       setIsSubmitting(false);
     }
@@ -194,7 +335,7 @@ export default function SettingsPage() {
               <CardContent className="space-y-5">
                 <div className="space-y-2">
                   <Label className="text-xs font-semibold text-foreground">Fee Deduction Model</Label>
-                  <Select value={feeType} onValueChange={(val) => setFeeType(val as 'percentage' | 'flat')}>
+                  <Select value={feeType} onValueChange={(val) => { setFeeType(val as 'percentage' | 'flat'); tabDirtyRef.current = true; }}>
                     <SelectTrigger className="h-10 border-border rounded-xl">
                       <SelectValue />
                     </SelectTrigger>
@@ -211,7 +352,7 @@ export default function SettingsPage() {
                     <Input
                       type="number"
                       value={feeRate}
-                      onChange={(e) => setFeeRate(e.target.value)}
+                      onChange={(e) => { setFeeRate(e.target.value); tabDirtyRef.current = true; }}
                       className="h-10 border-border rounded-xl"
                     />
                   </div>
@@ -220,7 +361,7 @@ export default function SettingsPage() {
                     <Input
                       type="number"
                       value={minThreshold}
-                      onChange={(e) => setMinThreshold(e.target.value)}
+                      onChange={(e) => { setMinThreshold(e.target.value); tabDirtyRef.current = true; }}
                       className="h-10 border-border rounded-xl"
                     />
                   </div>
@@ -228,7 +369,20 @@ export default function SettingsPage() {
 
                 <Button
                   className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl h-10 px-6"
-                  onClick={() => notify.success('Fee rules updated')}
+                  onClick={async () => {
+                    try {
+                      await apiClient.patch('/api/merchants/fee-rules', { feeType, feeRate, minThreshold });
+                      notify.success('Fee rules updated');
+                      tabDirtyRef.current = false;
+                    } catch (err: unknown) {
+                      const apiMessage =
+                        (err as { response?: { data?: { error?: string; message?: string } } })
+                          ?.response?.data?.error ??
+                        (err as { response?: { data?: { error?: string; message?: string } } })
+                          ?.response?.data?.message;
+                      notify.error(apiMessage ?? 'Failed to save fee rules — please try again');
+                    }
+                  }}
                 >
                   Save Fee Rules
                 </Button>
@@ -247,7 +401,7 @@ export default function SettingsPage() {
                   <Label className="text-xs font-semibold text-foreground">Webhook Endpoint URL</Label>
                   <Input
                     value={webhookUrl}
-                    onChange={(e) => setWebhookUrl(e.target.value)}
+                    onChange={(e) => { setWebhookUrl(e.target.value); tabDirtyRef.current = true; }}
                     className="h-10 border-border rounded-xl font-mono text-sm"
                   />
                 </div>
@@ -271,7 +425,23 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="flex items-center gap-3 pt-2">
-                  <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl h-10 px-6" onClick={() => notify.success('Webhook URL saved')}>
+                  <Button
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl h-10 px-6"
+                    onClick={async () => {
+                      try {
+                        await apiClient.patch('/api/merchants/webhook', { url: webhookUrl });
+                        notify.success('Webhook URL saved');
+                        tabDirtyRef.current = false;
+                      } catch (err: unknown) {
+                        const apiMessage =
+                          (err as { response?: { data?: { error?: string; message?: string } } })
+                            ?.response?.data?.error ??
+                          (err as { response?: { data?: { error?: string; message?: string } } })
+                            ?.response?.data?.message;
+                        notify.error(apiMessage ?? 'Failed to save webhook URL — ensure it is a valid HTTPS endpoint');
+                      }
+                    }}
+                  >
                     Save Webhook Config
                   </Button>
                   <Button variant="outline" onClick={handleTestWebhook} className="rounded-xl h-10 px-4 text-xs font-semibold">
@@ -332,7 +502,7 @@ export default function SettingsPage() {
                     <Toggle
                       checked={notificationPreferences[id]}
                       label={label}
-                      onClick={() => setNotificationPreferences(curr => ({ ...curr, [id]: !curr[id] }))}
+                      onClick={() => handleNotificationPreferenceToggle(id)}
                     />
                   </div>
                 ))}
@@ -344,26 +514,65 @@ export default function SettingsPage() {
             <Card className="border border-border bg-card shadow-sm">
               <CardHeader>
                 <CardTitle className="text-base font-semibold text-foreground">Security</CardTitle>
+                <CardDescription>Update your account password. Passwords must be at least 8 characters long and include an uppercase letter and a number.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Current Password</Label>
-                  <Input value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} type="password" placeholder="••••••••" className="h-10 border-border rounded-xl bg-card text-sm" />
+                  <Input
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    type="password"
+                    placeholder="••••••••"
+                    className="h-10 border-border rounded-xl bg-card text-sm"
+                  />
+                  {passwordErrors.current && <p className="text-xs text-destructive mt-1">{passwordErrors.current}</p>}
                 </div>
+
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">New Password</Label>
-                  <Input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} type="password" placeholder="••••••••" className="h-10 border-border rounded-xl bg-card text-sm" />
+                  <Input
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    type="password"
+                    placeholder="••••••••"
+                    className="h-10 border-border rounded-xl bg-card text-sm"
+                  />
+                  {passwordErrors.newPass ? (
+                    <p className="text-xs text-destructive mt-1 font-medium">{passwordErrors.newPass}</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground mt-1">Must be at least 8 characters with 1 uppercase letter and 1 number</p>
+                  )}
                 </div>
+
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Confirm New Password</Label>
-                  <Input value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} type="password" placeholder="••••••••" className="h-10 border-border rounded-xl bg-card text-sm" />
+                  <Input
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    type="password"
+                    placeholder="••••••••"
+                    className="h-10 border-border rounded-xl bg-card text-sm"
+                  />
+                  {passwordErrors.confirm && <p className="text-xs text-destructive mt-1">{passwordErrors.confirm}</p>}
                 </div>
+
                 <Button
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl h-10 px-6 text-sm"
-                  onClick={() => notify.success('Password updated')}
+                  disabled={!isPasswordValid || isSubmitting}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl h-10 px-6 text-sm disabled:opacity-50"
+                  onClick={handlePasswordChange}
                 >
                   Update Password
                 </Button>
+                <div className="flex items-center justify-between gap-4 border-t border-border pt-5">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Active sessions</p>
+                    <p className="text-xs text-muted-foreground">Review signed-in devices and revoke access.</p>
+                  </div>
+                  <Button variant="outline" onClick={() => router.push('/settings/sessions')}>
+                    Manage sessions
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}

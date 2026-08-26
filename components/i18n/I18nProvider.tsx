@@ -2,20 +2,30 @@
 
 import { ReactNode, useEffect, useState } from "react";
 import { createInstance } from "i18next";
-import { I18nextProvider } from "react-i18next";
+import { I18nextProvider, initReactI18next } from "react-i18next";
+// HttpBackend imported for potential future use with runtime locale loading
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import HttpBackend from "i18next-http-backend";
 
-import { defaultLocale, detectPreferredLocale, resources } from "@/lib/i18n/config";
+import { defaultLocale, detectPreferredLocale, fallbackResources } from "@/lib/i18n/config";
+import { supportedLocales } from "@/lib/i18n/locales";
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [i18n] = useState(() => {
     const instance = createInstance();
-    void instance.init({
-      resources,
-      lng: defaultLocale,
-      fallbackLng: defaultLocale,
-      interpolation: { escapeValue: false },
-      initAsync: false,
-    });
+    void instance
+      .use(initReactI18next)
+      .init({
+        fallbackLng: defaultLocale,
+        supportedLngs: [...supportedLocales],
+        ns: ["translation"],
+        defaultNS: "translation",
+        // Dictionaries are bundled directly; no runtime HTTP fetching.
+        resources: fallbackResources,
+        interpolation: { escapeValue: false },
+        initAsync: false,
+        react: { useSuspense: false },
+      });
     return instance;
   });
 

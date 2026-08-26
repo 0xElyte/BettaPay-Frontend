@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, Skeleton, Button, Input } from '@/components/ui';
-import { ErrorDisplay } from '@/components/shared';
+import { ErrorBoundary, ErrorDisplay } from '@/components/shared';
 import { RefreshCcw, TrendingUp, TrendingDown, Info, Bell, BellRing, Trash2, Plus, ArrowRightLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNotify } from '@/lib/hooks/useNotify';
@@ -17,6 +17,7 @@ import {
 import { useRates } from '@/lib/api/hooks';
 import { useRateAlertStore } from '@/lib/store/rateAlertStore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui';
+
 
 const FxRateChart = dynamic(() => import('@/components/charts/FxRateChart'), {
   ssr: false,
@@ -198,7 +199,9 @@ export default function FxRatesPage() {
                 <CardTitle className="text-base font-semibold text-foreground">USDC/NGN — 7 Day Chart</CardTitle>
               </CardHeader>
               <CardContent>
+              <ErrorBoundary>
                 <FxRateChart height={240} />
+              </ErrorBoundary>
               </CardContent>
             </Card>
 

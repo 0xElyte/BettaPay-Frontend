@@ -56,7 +56,7 @@ export function ProfileEditor({
     setValue,
     watch,
     reset,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<MerchantProfileFormValues>({
     resolver: zodResolver(merchantProfileSchema),
     defaultValues: {
@@ -89,6 +89,19 @@ export function ProfileEditor({
     }
   }, [initialData, reset]);
 
+  // Warn the user if they try to leave via browser back/close with unsaved changes.
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        // Modern browsers ignore the custom message but still show the prompt.
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty]);
+
   const handleLogoChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -97,7 +110,7 @@ export function ProfileEditor({
         reader.onloadend = () => {
           const result = reader.result as string;
           setLogoPreview(result);
-          setValue('logoUrl', result, { shouldValidate: true });
+          setValue('logoUrl', result, { shouldValidate: true, shouldDirty: true });
         };
         reader.readAsDataURL(file);
       }
@@ -107,7 +120,7 @@ export function ProfileEditor({
 
   const handleRemoveLogo = useCallback(() => {
     setLogoPreview(null);
-    setValue('logoUrl', null, { shouldValidate: true });
+    setValue('logoUrl', null, { shouldValidate: true, shouldDirty: true });
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -118,6 +131,7 @@ export function ProfileEditor({
       if (!value) return;
       setValue('businessType', value, {
         shouldValidate: true,
+        shouldDirty: true,
       });
     },
     [setValue]
@@ -126,8 +140,10 @@ export function ProfileEditor({
   const onFormSubmit = useCallback(
     async (data: MerchantProfileFormValues) => {
       await onSubmit(data);
+      // Reset dirty state after a successful save so the guard clears.
+      reset(data);
     },
-    [onSubmit]
+    [onSubmit, reset]
   );
 
   if (isLoading) {
@@ -167,6 +183,11 @@ export function ProfileEditor({
         <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
           <Building2 className="w-4 h-4 text-primary" />
           Business Profile
+          {isDirty && (
+            <span className="ml-2 text-xs font-normal text-warning bg-warning/10 border border-warning/20 px-2 py-0.5 rounded-full">
+              Unsaved changes
+            </span>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -382,11 +403,11 @@ export function ProfileEditor({
             </div>
           </div>
 
-          {/* Submit */}
+          {/* Submit — disabled until the form has unsaved changes */}
           <Button
             type="submit"
-            disabled={isSubmitting}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl h-10 px-6 text-sm"
+            disabled={!isDirty || isSubmitting}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl h-10 px-6 text-sm disabled:opacity-50"
           >
             {isSubmitting ? (
               <>

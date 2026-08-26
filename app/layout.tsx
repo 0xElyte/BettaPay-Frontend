@@ -1,10 +1,26 @@
 import type { Metadata } from "next";
+import { Fraunces, DM_Sans } from "next/font/google";
 import { Toaster } from "@/components/ui";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { I18nProvider } from '@/components/i18n/I18nProvider';
+import { TranslationCoveragePanel } from '@/components/i18n/TranslationCoveragePanel';
+
+
+const fraunces = Fraunces({
+  subsets: ["latin", "latin-ext"],
+  display: "swap",
+  variable: "--font-heading",
+});
+
+const dmSans = DM_Sans({
+  weight: ["400", "500", "600", "700"],
+  subsets: ["latin", "latin-ext"],
+  display: "swap",
+  variable: "--font-body",
+});
 
 
 export const metadata: Metadata = {
@@ -15,13 +31,17 @@ export const metadata: Metadata = {
 };
 
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
-
 }>) {
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID; 
+  // CSRF cookie is now seeded in `middleware.ts` via `ensureCsrfCookieInMiddleware`
+  // (using NextResponse.cookies.set, which is allowed in middleware). The
+  // previous `await ensureCsrfCookie()` call here triggered
+  // `Cookies can only be modified in a Server Action or Route Handler` in
+  // Next 14.2+ when called from a Server Component layout.
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   // Pass the clientId straight to GoogleOAuthProvider only when configured;
   // otherwise pass an empty placeholder so the provider target render does
   // not blow up if a GoogleLogin button somehow ends up rendered. The login
@@ -29,7 +49,7 @@ export default function RootLayout({
   // missing so users still get an explanatory UI instead of a silent failure.
 
   return (
-    <html lang="en" className={cn("font-sans antialiased")}>
+    <html lang="en" className={cn("font-sans antialiased", fraunces.variable, dmSans.variable)}>
       <body className="min-h-screen bg-background text-foreground">
         <a
           href="#main-content"
@@ -44,6 +64,7 @@ export default function RootLayout({
               <Toaster />
               <div id="announcer" aria-live="polite" aria-atomic="true" className="sr-only" />
             </Providers>
+            <TranslationCoveragePanel />
           </I18nProvider>
         </GoogleOAuthProvider>
       </body>

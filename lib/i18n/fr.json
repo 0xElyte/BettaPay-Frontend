@@ -1,7 +1,67 @@
 {
-  "common": { "language": "Langue", "skipToContent": "Aller au contenu principal" },
-  "languages": { "en": "Anglais", "fr": "Français", "pt": "Portugais", "sw": "Swahili" },
-  "navigation": { "features": "Fonctionnalités", "developers": "Développeurs", "company": "Entreprise", "login": "Se connecter", "getStarted": "Commencer" },
-  "landing": { "badge": "Disponible sur le testnet Soroban", "headline": "Réglez partout.", "headlineAccent": "Instantanément et sans garde.", "primaryCta": "Accepter les cryptomonnaies", "secondaryCta": "Découvrir les fonctionnalités" },
-  "login": { "title": "Bon retour", "or": "ou", "connectWallet": "Connecter le portefeuille Freighter", "learnMore": "En savoir plus sur BettaPay" }
+  "common": {
+    "brand": "BettaPay",
+    "language": "Langue",
+    "skipToContent": "Aller au contenu principal"
+  },
+  "languages": {
+    "en": "Anglais",
+    "fr": "Français",
+    "pt": "Portugais",
+    "sw": "Swahili"
+  },
+  "navigation": {
+    "features": "Fonctionnalités",
+    "developers": "Développeurs",
+    "company": "Entreprise",
+    "login": "Se connecter",
+    "getStarted": "Commencer"
+  },
+  "landing": {
+    "badge": "Disponible sur le testnet Soroban",
+    "headline": "Réglez partout.",
+    "headlineAccent": "Instantanément et sans garde.",
+    "description": "La plateforme de paiement nouvelle génération pour les entreprises africaines. Acceptez l'USDC, convertissez automatiquement via les ancres SEP-24 et recevez vos règlements directement sur votre compte bancaire.",
+    "primaryCta": "Accepter les cryptomonnaies",
+    "secondaryCta": "Découvrir les fonctionnalités",
+    "featuresTitle": "Propulsé par Stellar et Soroban",
+    "featuresDescription": "Une infrastructure de paiement de niveau entreprise conçue pour la rapidité, des frais réduits et une transparence parfaite.",
+    "features": {
+      "settlement": { "title": "Règlement instantané", "description": "Les transactions sont réglées en 3 à 5 secondes. Fini l'attente de plusieurs jours pour les virements transfrontaliers." },
+      "offRamps": { "title": "Rampes de sortie fiat SEP-24", "description": "Routage automatisé vers les ancres Stellar pour des versements directs en naira nigérian sur votre compte bancaire." },
+      "fees": { "title": "Répartition intelligente des frais", "description": "Les contrats Soroban calculent et répartissent automatiquement les frais de plateforme de manière fiable et on-chain." }
+    }
+  },
+  "login": {
+    "title": "Bon retour",
+    "description": "Connectez-vous pour gérer vos paiements, consulter vos règlements et accepter des cryptomonnaies de clients du monde entier.",
+    "or": "ou",
+    "connectWallet": "Connecter le portefeuille Freighter",
+    "learnMore": "En savoir plus sur BettaPay",
+    "forgotPassword": "Mot de passe oublié ?",
+    "benefits": {
+      "settlement": { "title": "Règlement instantané", "description": "Les transactions sont réglées en quelques secondes sur Stellar Soroban" },
+      "currency": { "title": "Multidevise", "description": "Acceptez l'USDC, convertissez automatiquement en monnaie locale" },
+      "custody": { "title": "Non dépositaire", "description": "Vous gardez toujours le contrôle de vos fonds et de vos clés" }
+    }
+  },
+  "forgotPassword": {
+    "title": "Réinitialiser votre mot de passe",
+    "description": "Entrez l'adresse e-mail associée à votre compte et nous vous enverrons un lien de réinitialisation.",
+    "emailLabel": "Adresse e-mail",
+    "emailPlaceholder": "vous@exemple.com",
+    "submit": "Envoyer le lien",
+    "submitting": "Envoi en cours…",
+    "backToLogin": "Retour à la connexion",
+    "confirmation": {
+      "title": "Vérifiez votre boîte de réception",
+      "description": "Si cet e-mail est enregistré, vous recevrez un lien de réinitialisation sous peu. Vérifiez vos spams si vous ne le voyez pas dans les prochaines minutes.",
+      "backToLogin": "Retour à la connexion"
+    },
+    "errors": {
+      "invalidEmail": "Veuillez saisir une adresse e-mail valide.",
+      "tooManyRequests": "Trop de tentatives. Veuillez attendre quelques minutes et réessayer.",
+      "generic": "Une erreur s'est produite. Veuillez réessayer plus tard."
+    }
+  }
 }

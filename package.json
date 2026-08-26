@@ -7,9 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "typecheck:snippets": "tsc -p tsconfig.snippets.json",
     "test": "jest --passWithNoTests",
     "test:watch": "jest --watch",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "i18n:check": "node scripts/check-locale-parity.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -26,6 +29,7 @@
     "date-fns": "^4.4.0",
     "framer-motion": "^12.40.0",
     "i18next": "^26.3.6",
+    "i18next-http-backend": "^4.0.1",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "lucide-react": "^1.17.0",

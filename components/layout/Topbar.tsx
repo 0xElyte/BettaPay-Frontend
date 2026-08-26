@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Bell, Search, Menu, LogOut, Settings, KeyRound, Moon, Sun, Monitor, Repeat } from "lucide-react";
+import { Search, Menu, LogOut, Settings, KeyRound, Moon, Sun, Monitor, Repeat } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui";
 import { Input } from "@/components/ui";
@@ -18,6 +18,7 @@ import { useAuthStore } from "@/lib/store/authStore";
 import { useWalletStore } from "@/lib/store/walletStore";
 import { useRouter } from "next/navigation";
 import { useNotify } from "@/lib/hooks/useNotify";
+import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 
 interface TopbarProps {
   onMenuClick?: () => void;
@@ -33,10 +34,6 @@ export const Topbar = ({ onMenuClick, isMenuOpen, title, unreadNotificationCount
   const router = useRouter();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [isMounted, setIsMounted] = useState(false);
-  const notificationLabel =
-    unreadNotificationCount > 0
-      ? `Notifications (${unreadNotificationCount} unread)`
-      : "Notifications";
 
   const handleLogout = useCallback(() => {
     logout();
@@ -50,24 +47,11 @@ export const Topbar = ({ onMenuClick, isMenuOpen, title, unreadNotificationCount
 
   const isDark = isMounted && resolvedTheme === "dark";
 
-  const toggleTheme = useCallback(() => {
-    const THEME_CYCLE: Array<"light" | "dark" | "system"> = ["light", "dark", "system"];
-    const current = theme as "light" | "dark" | "system";
-    const next = THEME_CYCLE[(THEME_CYCLE.indexOf(current) + 1) % THEME_CYCLE.length];
-    setTheme(next);
-  }, [theme, setTheme]);
-
   const themeIcon = !isMounted ? null : theme === "system"
     ? <Monitor className="h-4.5 w-4.5" />
     : isDark
       ? <Sun className="h-4.5 w-4.5" />
       : <Moon className="h-4.5 w-4.5" />;
-
-  const themeLabel = !isMounted ? "Toggle theme" : theme === "system"
-    ? "Using system theme — click for light"
-    : isDark
-      ? "Switch to system theme"
-      : "Switch to dark theme";
 
   const initials = user?.name
     ? user.name
@@ -79,6 +63,7 @@ export const Topbar = ({ onMenuClick, isMenuOpen, title, unreadNotificationCount
     : "MC";
 
   const walletNetwork = useWalletStore((s) => s.network);
+  const isConnected = useWalletStore((s) => s.isConnected);
   const setNetwork = useWalletStore((s) => s.setNetwork);
   const isTestnet = walletNetwork === 'testnet';
   const isDev = process.env.NODE_ENV === 'development';
@@ -112,24 +97,7 @@ export const Topbar = ({ onMenuClick, isMenuOpen, title, unreadNotificationCount
       </div>
 
       <div className="flex items-center gap-3 flex-1 justify-end">
-        {/* Search */}
-        <form
-          role="search"
-          aria-label="Site search"
-          className="relative w-full max-w-xs hidden lg:block"
-          onSubmit={(e) => e.preventDefault()}
-        >
-          <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <Input
-            type="search"
-            aria-label="Search transactions and payment links"
-            placeholder="Search..."
-            className="pl-9 bg-muted border-border focus-visible:ring-ring rounded-xl h-9 text-sm placeholder:text-muted-foreground"
-          />
-        </form>
+
 
         {/* Network Indicator */}
         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border bg-muted/50 text-xs font-medium">
@@ -138,7 +106,7 @@ export const Topbar = ({ onMenuClick, isMenuOpen, title, unreadNotificationCount
             aria-hidden="true"
           />
           <span className="text-foreground">
-            {isTestnet ? 'Testnet' : 'Mainnet'}
+            {isConnected ? (isTestnet ? 'Testnet' : 'Mainnet') : 'No wallet connected'}
           </span>
           {isDev && (
             <button
@@ -153,16 +121,32 @@ export const Topbar = ({ onMenuClick, isMenuOpen, title, unreadNotificationCount
         </div>
 
         {/* Notifications */}
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={notificationLabel}
-          className="relative text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl min-h-[44px] min-w-[44px]"
-        >
-          <Bell className="h-4.5 w-4.5" />
-          <span aria-hidden="true" className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive border-2 border-background"></span>
-        </Button>
+        <NotificationCenter unreadNotificationCount={unreadNotificationCount} />
 
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Select theme"
+              className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl min-h-[44px] min-w-[44px]"
+            >
+              {themeIcon}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="rounded-xl border-border">
+            <DropdownMenuItem onClick={() => setTheme("light")} className="cursor-pointer rounded-lg">
+              <Sun className="mr-2 h-4 w-4" /> Light
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setTheme("dark")} className="cursor-pointer rounded-lg">
+              <Moon className="mr-2 h-4 w-4" /> Dark
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setTheme("system")} className="cursor-pointer rounded-lg">
+              <Monitor className="mr-2 h-4 w-4" /> System
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {/* Theme toggle */}
         <Button
           variant="ghost"
           size="icon"

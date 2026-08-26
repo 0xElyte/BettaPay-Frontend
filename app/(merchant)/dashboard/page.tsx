@@ -6,6 +6,7 @@ import { Button } from '@/components/ui';
 import { DashboardSkeleton } from '@/components/skeletons/DashboardSkeleton';
 import { CurrencyDisplay, StatCard, ErrorDisplay } from '@/components/shared';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { OnboardingChecklist } from '@/components/dashboard/OnboardingChecklist';
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -32,8 +33,6 @@ import { useAuthStore } from '@/lib/store/authStore';
 import Link from 'next/link';
 import { useNotify } from '@/lib/hooks/useNotify';
 import { cn } from '@/lib/utils';
-
-
 
 const PERIOD_OPTIONS = ['7D', '30D', '90D'] as const;
 type Period = typeof PERIOD_OPTIONS[number];
@@ -113,6 +112,9 @@ export default function DashboardPage() {
           </>
         }
       />
+
+      {/* ── Onboarding Checklist ── */}
+      <OnboardingChecklist />
 
       {/* ── KPI Stat Cards (memoised — not affected by period changes) ── */}
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
@@ -195,7 +197,7 @@ export default function DashboardPage() {
                 />
               </div>
             ) : (
-              <RevenueChart height={260} />
+              <RevenueChart height={260} data={payments} />
             )}
             {/* Summary row */}
             <div className="flex items-center gap-6 pt-4 border-t border-border mt-2">
@@ -281,6 +283,11 @@ export default function DashboardPage() {
                 {payments.slice(0, 5).map((link) => {
                   const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
                   const linkUrl = `${baseUrl}/pay/${link.id}`;
+                  const clicks = link.clicks ?? 0;
+                  const converted = link.converted ?? 0;
+                  const conversionRate = clicks > 0 ? (converted / clicks) * 100 : 0;
+                  const rateLabel = clicks > 0 ? `${conversionRate.toFixed(0)}%` : 'No data';
+
                   return (
                     <Link
                       key={link.id}
@@ -295,9 +302,11 @@ export default function DashboardPage() {
                         <p className="text-xs text-muted-foreground font-mono truncate">{linkUrl}</p>
                         <div className="flex items-center gap-2 mt-1.5">
                           <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                            <div className="h-full bg-amber-400 rounded-full" style={{ width: '50%' }} />
+                            {clicks > 0 && (
+                              <div className="h-full bg-amber-400 rounded-full" style={{ width: `${conversionRate}%` }} />
+                            )}
                           </div>
-                          <span className="text-xs text-muted-foreground font-medium">—</span>
+                          <span className="text-xs text-muted-foreground font-medium">{rateLabel}</span>
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-1 flex-shrink-0">

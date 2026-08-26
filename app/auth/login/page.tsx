@@ -2,7 +2,10 @@
 
 import { Suspense } from 'react';
 import { Loader2, Shield, Zap, Globe, ArrowRight } from 'lucide-react';
+import { useNotify } from '@/lib/hooks/useNotify';
+import { getDefaultRoute } from '@/lib/utils';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 
 import { Button } from '@/components/ui';
 import { WalletModalFallback } from '@/components/wallet/WalletModalFallback';
@@ -26,14 +29,12 @@ const benefits = [
 
 export default function LoginPage() {
   const { t } = useAppTranslation();
-
   const {
     isWalletLoading,
     walletModalOpen,
     setWalletModalOpen,
     onGoogleSuccess,
     onWalletConnected,
-    error
   } = useLogin();
 
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
@@ -56,8 +57,8 @@ export default function LoginPage() {
 
   return (
     <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <Suspense fallback={<WalletModalFallback open={walletModalOpen} onOpenChange={setWalletModalOpen} />}>
-        <WalletModal open={walletModalOpen} onOpenChange={setWalletModalOpen} onConnected={onWalletConnected} />
+      <Suspense fallback={<WalletModalFallback />}>
+        <WalletModal onConnected={onWalletConnected} />
       </Suspense>
 
       {/* Heading */}
@@ -115,6 +116,16 @@ export default function LoginPage() {
           {isWalletLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           {t('login.connectWallet')}
         </Button>
+
+        {/* Forgot password */}
+        <div className="text-center pt-1">
+          <Link
+            href="/auth/forgot-password"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {t('login.forgotPassword')}
+          </Link>
+        </div>
       </div>
 
       {/* Benefits */}
@@ -126,8 +137,8 @@ export default function LoginPage() {
                 <item.icon className="w-4 h-4 text-primary" />
               </div>
               <div>
-                <p className="text-sm font-medium text-foreground">{t(`login.benefits.${item.key}.title`)}</p>
-                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{t(`login.benefits.${item.key}.description`)}</p>
+                <p className="text-sm font-medium text-foreground">{t(`login.benefits.${item.key}.title` as never)}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{t(`login.benefits.${item.key}.description` as never)}</p>
               </div>
             </div>
           ))}

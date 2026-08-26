@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "incremental": false
+  },
+  "include": [
+    "next-env.d.ts",
+    "lib/docs/**/*.ts",
+    "lib/status/**/*.ts",
+    "lib/a11y/**/*.ts",
+    "components/developers/codeSnippets.ts",
+    "__tests__/status-contrast.test.ts"
+  ],
+  "exclude": ["node_modules"]
+}

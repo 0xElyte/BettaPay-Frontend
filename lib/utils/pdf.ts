@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { ApiSettlement } from '@/lib/api/hooks';
+import { sanitizeFilename } from '@/lib/utils/sanitize';
 
 /** Platform fee applied to settlements, matches SettlementConfirmation. */
 export const SETTLEMENT_FEE_PERCENT = 1;
@@ -9,6 +10,8 @@ export interface InvoiceMerchant {
   businessName: string;
   email?: string | null;
   country?: string | null;
+  address?: string | null;
+  registrationNumber?: string | null;
 }
 
 export interface SettlementFees {
@@ -143,6 +146,14 @@ function renderInvoicePage(
   }
   if (merchant.country) {
     doc.text(merchant.country, PAGE_MARGIN, infoY);
+    infoY += 4.5;
+  }
+  if (merchant.address) {
+    doc.text(merchant.address, PAGE_MARGIN, infoY);
+    infoY += 4.5;
+  }
+  if (merchant.registrationNumber) {
+    doc.text(`Reg. No.: ${merchant.registrationNumber}`, PAGE_MARGIN, infoY);
   }
 
   // Settlement status (right column)
@@ -266,7 +277,11 @@ export async function downloadSettlementInvoice(
   merchant: InvoiceMerchant
 ): Promise<void> {
   const doc = await generateSettlementInvoice(settlement, merchant);
-  doc.save(`${buildInvoiceNumber(settlement.id)}.pdf`);
+  const now = new Date();
+  const date = now.toISOString().slice(0, 10);
+  const time = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+  const raw = `${buildInvoiceNumber(settlement.id)}-${date}-${time}`;
+  doc.save(`${sanitizeFilename(raw)}.pdf`);
 }
 
 /** Generate one combined PDF (one invoice per page) for multiple settlements. */
@@ -281,6 +296,17 @@ export async function downloadSettlementInvoicesBatch(
     if (index > 0) doc.addPage();
     renderInvoicePage(doc, settlement, merchant, logo);
   });
-  const date = new Date().toISOString().slice(0, 10);
-  doc.save(`bettapay-invoices-${date}.pdf`);
+
+  const dates = settlements
+    .map((s) => s.createdAt?.slice(0, 10))
+    .filter(Boolean)
+    .sort();
+  const firstDate = dates[0] ?? 'unknown';
+  const lastDate = dates[dates.length - 1] ?? firstDate;
+  const range = firstDate === lastDate ? firstDate : `${firstDate}-to-${lastDate}`;
+
+  const now = new Date();
+  const time = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+  const raw = `bettapay-invoices-${range}-${settlements.length}items-${time}`;
+  doc.save(`${sanitizeFilename(raw)}.pdf`);
 }

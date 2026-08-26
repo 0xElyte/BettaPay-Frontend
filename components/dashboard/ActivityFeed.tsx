@@ -4,8 +4,13 @@ import { memo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import { Button } from "@/components/ui";
 import { Skeleton } from "@/components/ui";
-import { ErrorDisplay } from "@/components/shared";
-import { useActivityFeed, type ActivityEvent, type ActivityEventType } from "@/lib/hooks/useActivityFeed";
+import { EmptyState, ErrorDisplay } from "@/components/shared";
+import {
+  useActivityFeed,
+  type ActivityEvent,
+  type ActivityEventType,
+  type ActivityConnectionStatus,
+} from "@/lib/hooks/useActivityFeed";
 import {
   ArrowRight,
   CheckCircle2,
@@ -15,9 +20,12 @@ import {
   KeyRound,
   ChevronRight,
   Zap,
+  WifiOff,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+
+// ─── Event icon / colour config ───────────────────────────────────────────────
 
 const EVENT_CONFIG: Record<
   ActivityEventType,
@@ -50,6 +58,64 @@ const EVENT_CONFIG: Record<
   },
 };
 
+// ─── Connection status indicator ─────────────────────────────────────────────
+
+/**
+ * Small dot indicator rendered in the card header.
+ * - connected → animated green ping (live stream)
+ * - polling   → static amber dot (fallback polling)
+ * - disconnected / connecting → nothing (or spinner handled by isLoading)
+ */
+function ConnectionDot({
+  status,
+  hasEvents,
+}: {
+  status: ActivityConnectionStatus;
+  hasEvents: boolean;
+}) {
+  if (!hasEvents && status !== "connected" && status !== "polling") return null;
+
+  if (status === "connected") {
+    return (
+      <span
+        className="relative flex h-2 w-2"
+        title="Live — receiving real-time updates"
+        aria-label="Live connection"
+      >
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+      </span>
+    );
+  }
+
+  if (status === "polling") {
+    return (
+      <span
+        className="relative flex h-2 w-2"
+        title="Polling every 30 seconds (real-time unavailable)"
+        aria-label="Polling mode"
+      >
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
+      </span>
+    );
+  }
+
+  return null;
+}
+
+/** Compact banner shown when the feed is in a degraded state. */
+function PollingBanner({ status }: { status: ActivityConnectionStatus }) {
+  if (status !== "polling") return null;
+  return (
+    <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs mb-2">
+      <WifiOff className="w-3 h-3 shrink-0" />
+      Real-time stream unavailable — refreshing every 30 s
+    </div>
+  );
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 function formatTimestamp(ts: string): string {
   const diff = Date.now() - new Date(ts).getTime();
   const mins = Math.floor(diff / 60_000);
@@ -61,7 +127,13 @@ function formatTimestamp(ts: string): string {
   return `${days}d ago`;
 }
 
-const ActivityItem = memo(function ActivityItem({ event }: { event: ActivityEvent }) {
+// ─── Activity item ────────────────────────────────────────────────────────────
+
+const ActivityItem = memo(function ActivityItem({
+  event,
+}: {
+  event: ActivityEvent;
+}) {
   const config = EVENT_CONFIG[event.type] ?? {
     icon: Clock,
     color: "text-muted-foreground",
@@ -117,19 +189,19 @@ function FeedSkeleton() {
   );
 }
 
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export interface ActivityFeedProps {
   className?: string;
 }
 
 export function ActivityFeed({ className }: ActivityFeedProps) {
-  const { events, isLoading, error, refetch } = useActivityFeed(20);
+  const { events, isLoading, error, refetch, connectionStatus } =
+    useActivityFeed(20);
 
   return (
     <Card
-      className={cn(
-        "border border-border bg-card shadow-sm",
-        className,
-      )}
+      className={cn("border border-border bg-card shadow-sm", className)}
     >
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
@@ -137,12 +209,10 @@ export function ActivityFeed({ className }: ActivityFeedProps) {
             <CardTitle className="text-base font-semibold text-foreground">
               Activity Feed
             </CardTitle>
-            {!isLoading && events.length > 0 && (
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-              </span>
-            )}
+            <ConnectionDot
+              status={connectionStatus}
+              hasEvents={events.length > 0}
+            />
           </div>
           <Link href="/transactions">
             <Button
@@ -154,7 +224,10 @@ export function ActivityFeed({ className }: ActivityFeedProps) {
           </Link>
         </div>
       </CardHeader>
+
       <CardContent className="pt-0">
+        <PollingBanner status={connectionStatus} />
+
         {error ? (
           <div className="py-8">
             <ErrorDisplay message={error} onRetry={refetch} />
@@ -162,13 +235,12 @@ export function ActivityFeed({ className }: ActivityFeedProps) {
         ) : isLoading ? (
           <FeedSkeleton />
         ) : events.length === 0 ? (
-          <div className="py-8 text-center">
-            <Clock className="w-8 h-8 text-muted-foreground/50 mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">No activity yet</p>
-            <p className="text-xs text-muted-foreground/70 mt-0.5">
-              Events will appear as they happen
-            </p>
-          </div>
+          <EmptyState
+            icon={Clock}
+            title="No activity yet"
+            description="Events will appear here as payments, settlements, and webhook deliveries occur."
+            compact
+          />
         ) : (
           <div className="space-y-1">
             {events.map((event) => (

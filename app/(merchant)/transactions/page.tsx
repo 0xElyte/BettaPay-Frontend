@@ -1,15 +1,14 @@
 "use client";
 
-import { useState, memo, useMemo, useRef } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { useDebounceValue } from 'usehooks-ts';
 import { Card, CardContent, Input, Button, Skeleton, NetworkTooltip, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui';
-import { StatusBadge, CopyAddress, CurrencyDisplay, ErrorDisplay, EmptyState } from '@/components/shared';
+import { StatusBadge, CopyAddress, CurrencyDisplay, ErrorDisplay, EmptyState, ExportMenu } from '@/components/shared';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { usePayments, type ApiPayment } from '@/lib/api/hooks';
 import { formatDate } from '@/lib/utils/format';
 import { sanitizeSearchQuery } from '@/lib/utils/sanitize';
-import { buildCsv, escapeCsvField } from '@/lib/utils/csv';
-import { Search, Download, SearchX, ExternalLink } from 'lucide-react';
+import { Search, SearchX, ExternalLink } from 'lucide-react';
 import { getStellarExplorerTxUrl } from '@/lib/utils/explorer';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { TransactionDrawer } from '@/components/transactions/TransactionDrawer';
@@ -89,12 +88,72 @@ const TransactionCard = memo(function TransactionCard({ tx, onClick }: Transacti
   );
 });
 
+interface TransactionRowProps {
+  tx: Transaction;
+  translateY: number;
+  onClick: (tx: Transaction) => void;
+}
+
+// Rendered inline inside virtualItems.map(...) previously — every row got a
+// brand-new inline JSX subtree on each parent render (e.g. every keystroke
+// in the search input), so React re-rendered the entire visible table body
+// even though debouncedSearch hadn't changed yet. Extracting a memoized row
+// component gives React a props-based bailout, mirroring TransactionCard.
+const TransactionRow = memo(function TransactionRow({ tx, translateY, onClick }: TransactionRowProps) {
+  return (
+    <tr
+      className="border-border/50 hover:bg-muted/30 cursor-pointer border-b"
+      onClick={() => onClick(tx)}
+      style={{ transform: `translateY(${translateY}px)` }}
+    >
+      <td className="text-muted-foreground whitespace-nowrap px-4 py-2 text-sm">
+        {formatDate(tx.createdAt)}
+      </td>
+      <td className="px-4 py-2 text-sm">
+        <CopyAddress address={tx.payerAddress ?? ''} />
+      </td>
+      <td className="px-4 py-2 text-sm">
+        <CopyAddress address={tx.txHash ?? ''} />
+      </td>
+      <td className="text-muted-foreground px-4 py-2 text-sm">
+        {tx.source ?? '—'}
+      </td>
+      <td className="text-right font-medium px-4 py-2 text-sm">
+        <CurrencyDisplay amount={tx.amountUsdc} currency="USDC" />
+      </td>
+      <td className="text-right text-muted-foreground px-4 py-2 text-sm">
+        <CurrencyDisplay amount={tx.amountNgn ?? 0} currency="NGN" showDecimals={false} />
+      </td>
+      <td className="text-center px-4 py-2 text-sm">
+        <StatusBadge status={tx.status} />
+      </td>
+      <td className="w-[80px] text-center px-4 py-2 text-sm">
+        {tx.txHash && (
+          <a
+            href={getStellarExplorerTxUrl(tx.txHash)}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="View on Stellar Explorer"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Button variant="ghost" size="icon" className="min-h-[44px] min-w-[44px] rounded-lg">
+              <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
+            </Button>
+          </a>
+        )}
+      </td>
+    </tr>
+  );
+});
+
 export default function TransactionsPage() {
   const { data: payments, isLoading, error: fetchError, refetch } = usePayments();
-  const notify = useNotify();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const sanitizedOnChange = (value: string) => setSearchTerm(sanitizeSearchQuery(value));
+  const sanitizedOnChange = useCallback(
+    (value: string) => setSearchTerm(sanitizeSearchQuery(value)),
+    [],
+  );
   const [debouncedSearch] = useDebounceValue(searchTerm, 300);
 
   const [statusFilter, setStatusFilter] = useState('all');
@@ -137,38 +196,27 @@ export default function TransactionsPage() {
 
   const activeFilterCount = (statusFilter !== 'all' ? 1 : 0) + (assetFilter !== 'all' ? 1 : 0) + (dateRangeFilter !== 'all' ? 1 : 0);
 
-  const handleExportCsv = () => {
-    if (filteredTransactions.length === 0) {
-      notify.error("No transactions to export");
-      return;
-    }
-    // CSV field escaping follows RFC 4180: wrap text in double quotes and
-    // double any embedded `"` so embedded quotes cannot break parsing.
-    // Numeric columns stay unquoted so spreadsheets preserve their type.
-    const headers = "Date,Payer,TxHash,Source,AmountUSDC,AmountNGN,Status\n";
-    const rows = filteredTransactions.map(tx =>
-      [
-        escapeCsvField(tx.createdAt),
-        escapeCsvField(tx.payerAddress),
-        escapeCsvField(tx.txHash),
-        escapeCsvField(tx.source),
+  const handleClearFilters = () => {
+    setStatusFilter('all');
+    setAssetFilter('all');
+    setDateRangeFilter('all');
+  };
+
+  // Export the FULL filtered dataset — never the virtualized visible slice —
+  // so the downloaded CSV matches exactly what the filters/search show.
+  const exportRows = useMemo(
+    () =>
+      filteredTransactions.map((tx) => [
+        tx.createdAt,
+        tx.payerAddress,
+        tx.txHash,
+        tx.source,
         tx.amountUsdc,
         tx.amountNgn ?? 0,
-        escapeCsvField(tx.status),
-      ].join(",")
-    );
-    // The BOM in buildCsv() makes Excel recognise the file as UTF-8 so the
-    // ₦ glyph in NGN amounts renders without manual encoding selection.
-    const csv = buildCsv(headers, rows);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `bettapay_transactions_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    notify.success(`Exported ${filteredTransactions.length} transactions`);
-  };
+        tx.status,
+      ]),
+    [filteredTransactions],
+  );
 
   const virtualizer = useVirtualizer({
     count: filteredTransactions.length,
@@ -235,7 +283,9 @@ export default function TransactionsPage() {
                     <SelectItem value="all">All Status</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
                     <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="processing">Processing</SelectItem>
                     <SelectItem value="failed">Failed</SelectItem>
+                    <SelectItem value="expired">Expired</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -261,17 +311,25 @@ export default function TransactionsPage() {
                   </SelectContent>
                 </Select>
 
-                <NetworkTooltip show={!isOnline}>
+                {activeFilterCount > 0 && (
                   <Button
-                    variant="outline"
-                    disabled={!isOnline}
-                    aria-disabled={!isOnline}
-                    onClick={handleExportCsv}
-                    className="border-border/50 bg-card"
+                    variant="ghost"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={handleClearFilters}
                   >
-                    <Download className="w-4 h-4 mr-2" />
-                    Export CSV
+                    Clear all filters
                   </Button>
+                )}
+
+                <NetworkTooltip show={!isOnline}>
+                  <ExportMenu
+                    id="export-csv-btn"
+                    filename="transactions"
+                    headers={['Date', 'Payer', 'TxHash', 'Source', 'AmountUSDC', 'AmountNGN', 'Status']}
+                    rows={exportRows}
+                    disabled={!isOnline}
+                    className="border-border/50 bg-card"
+                  />
                 </NetworkTooltip>
 
                 <Button
@@ -299,11 +357,11 @@ export default function TransactionsPage() {
                   {filteredTransactions.length === 0 ? (
                     <EmptyState
                       icon={SearchX}
-                      title={searchTerm || activeFilterCount > 0 ? 'No transactions match filters' : 'No transactions found'}
+                      title={searchTerm || activeFilterCount > 0 ? 'No transactions match filters' : 'No transactions yet'}
                       description={
                         searchTerm || activeFilterCount > 0
                           ? 'Try adjusting your search terms or clearing active filters.'
-                          : 'Transactions will appear here once payments are received.'
+                          : 'Transactions will appear here once you receive payments through your payment links.'
                       }
                       action={
                         searchTerm || activeFilterCount > 0
@@ -345,51 +403,12 @@ export default function TransactionsPage() {
                               {virtualItems.map((virtualItem) => {
                                 const tx = filteredTransactions[virtualItem.index];
                                 return (
-                                  <tr
+                                  <TransactionRow
                                     key={virtualItem.key}
-                                    className="border-border/50 hover:bg-muted/30 cursor-pointer border-b"
-                                    onClick={() => setSelectedTx(tx)}
-                                    style={{
-                                      transform: `translateY(${virtualItem.start}px)`,
-                                    }}
-                                  >
-                                    <td className="text-muted-foreground whitespace-nowrap px-4 py-2 text-sm">
-                                      {formatDate(tx.createdAt)}
-                                    </td>
-                                    <td className="px-4 py-2 text-sm">
-                                      <CopyAddress address={tx.payerAddress ?? ''} />
-                                    </td>
-                                    <td className="px-4 py-2 text-sm">
-                                      <CopyAddress address={tx.txHash ?? ''} />
-                                    </td>
-                                    <td className="text-muted-foreground px-4 py-2 text-sm">
-                                      {tx.source ?? '—'}
-                                    </td>
-                                    <td className="text-right font-medium px-4 py-2 text-sm">
-                                      <CurrencyDisplay amount={tx.amountUsdc} currency="USDC" />
-                                    </td>
-                                    <td className="text-right text-muted-foreground px-4 py-2 text-sm">
-                                      <CurrencyDisplay amount={tx.amountNgn ?? 0} currency="NGN" showDecimals={false} />
-                                    </td>
-                                    <td className="text-center px-4 py-2 text-sm">
-                                      <StatusBadge status={tx.status} />
-                                    </td>
-                                    <td className="w-[80px] text-center px-4 py-2 text-sm">
-                                      {tx.txHash && (
-                                        <a
-                                          href={getStellarExplorerTxUrl(tx.txHash)}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          aria-label="View on Stellar Explorer"
-                                          onClick={(e) => e.stopPropagation()}
-                                        >
-                                          <Button variant="ghost" size="icon" className="min-h-[44px] min-w-[44px] rounded-lg">
-                                            <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
-                                          </Button>
-                                        </a>
-                                      )}
-                                    </td>
-                                  </tr>
+                                    tx={tx}
+                                    translateY={virtualItem.start}
+                                    onClick={setSelectedTx}
+                                  />
                                 );
                               })}
                             </tbody>

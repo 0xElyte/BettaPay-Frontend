@@ -52,6 +52,41 @@ const config: Config = {
           DEFAULT: "var(--info)",
           foreground: "var(--info-foreground)",
         },
+        // Status badge palette. Opaque fg/bg/border triples per status level so
+        // badge contrast is exact and verifiable — see app/globals.css and
+        // lib/status/palette.ts.
+        status: {
+          ok: {
+            DEFAULT: "var(--status-ok-fg)",
+            bg: "var(--status-ok-bg)",
+            border: "var(--status-ok-border)",
+          },
+          warn: {
+            DEFAULT: "var(--status-warn-fg)",
+            bg: "var(--status-warn-bg)",
+            border: "var(--status-warn-border)",
+          },
+          down: {
+            DEFAULT: "var(--status-down-fg)",
+            bg: "var(--status-down-bg)",
+            border: "var(--status-down-border)",
+          },
+          info: {
+            DEFAULT: "var(--status-info-fg)",
+            bg: "var(--status-info-bg)",
+            border: "var(--status-info-border)",
+          },
+          progress: {
+            DEFAULT: "var(--status-progress-fg)",
+            bg: "var(--status-progress-bg)",
+            border: "var(--status-progress-border)",
+          },
+          neutral: {
+            DEFAULT: "var(--status-neutral-fg)",
+            bg: "var(--status-neutral-bg)",
+            border: "var(--status-neutral-border)",
+          },
+        },
         border: "var(--border)",
         input: "var(--input)",
         ring: "var(--ring)",
@@ -89,10 +124,14 @@ const config: Config = {
         "surface-xl": "var(--shadow-xl)",
       },
       fontFamily: {
+        // Resolves the `font-sans` utility for body text.
+        // Reads from the --font-body CSS variable set by next/font/google (DM Sans),
+        // with a clean system-ui fallback.
+        sans: ["var(--font-body)", "system-ui", "sans-serif"],
         // Resolves the `font-heading` utility used in card.tsx and dialog.tsx.
-        // Reads from the --font-heading CSS variable set in globals.css (Inter),
-        // with a safe system-ui fallback.
-        heading: ["var(--font-heading)", "system-ui", "sans-serif"],
+        // Reads from the --font-heading CSS variable set by next/font/google (Fraunces),
+        // with a safe serif fallback.
+        heading: ["var(--font-heading)", "Georgia", "serif"],
       },
     },
   },

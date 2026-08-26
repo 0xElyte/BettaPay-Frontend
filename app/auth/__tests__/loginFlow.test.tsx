@@ -27,19 +27,42 @@ jest.mock('next/link', () => {
 // Mock dynamic import of WalletModal to a synchronous component
 jest.mock('next/dynamic', () => {
   return () => {
-    return (props: any) => {
-      if (!props.open) return <div data-testid="mock-wallet-modal" />;
+    return (props: Record<string, unknown>) => {
+      const onConnected = props.onConnected as ((addr: string) => void) | undefined;
       return (
         <div data-testid="mock-wallet-modal">
           <button
             data-testid="connect-wallet-button"
-            onClick={() => props.onConnected?.('GBX1234567890ABCDEF')}
+            onClick={() => onConnected?.('GBX1234567890ABCDEF')}
           >
             Simulate Connect
           </button>
         </div>
       );
     };
+  };
+});
+
+// Mock walletStore for useLogin hook
+jest.mock('@/lib/store/walletStore', () => {
+  const mockState: Record<string, unknown> = {
+    connect: jest.fn().mockResolvedValue(undefined),
+    address: 'GBX1234567890ABCDEF',
+    walletModalOpen: false,
+    setWalletModalOpen: jest.fn(),
+    signMessage: jest.fn().mockResolvedValue('mock_base64_signature'),
+    walletConnectPending: false,
+    connectError: null,
+    balances: [],
+  };
+  const fn = jest.fn((selector: (s: typeof mockState) => unknown) => selector(mockState));
+  (fn as unknown as Record<string, unknown>).getState = () => mockState;
+  (fn as unknown as Record<string, unknown>).setState = jest.fn();
+  return {
+    useWalletStore: Object.assign(fn, {
+      getState: () => mockState,
+      setState: jest.fn(),
+    }),
   };
 });
 
@@ -98,6 +121,7 @@ describe('Login Flow Integration Tests', () => {
     (useNotify as jest.Mock).mockReturnValue({
       success: jest.fn(),
       error: jest.fn(),
+      info: jest.fn(),
     });
     // Reset Zustand auth state without triggering the real fetch in logout()
     useAuthStore.setState({
@@ -105,6 +129,7 @@ describe('Login Flow Integration Tests', () => {
       token: null,
       role: null,
       isAuthenticated: false,
+      isLoggedIn: false,
     });
   });
 
@@ -138,6 +163,32 @@ describe('Login Flow Integration Tests', () => {
       const { success } = useNotify();
       expect(success).toHaveBeenCalledWith('Login successful');
       expect(mockPush).toHaveBeenCalledWith('/dashboard');
+    });
+  });
+
+  it('warns when login revokes older sessions', async () => {
+    const user = userEvent.setup();
+    const info = jest.fn();
+    (useNotify as jest.Mock).mockReturnValue({
+      success: jest.fn(),
+      error: jest.fn(),
+      info,
+    });
+    (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
+      if (url.includes('/api/auth/google')) {
+        return { ok: true, json: () => Promise.resolve({ token: MERCHANT_JWT }) };
+      }
+      if (url === '/api/auth/session') {
+        return { ok: true, json: () => Promise.resolve({ ok: true, revokedSessionCount: 2 }) };
+      }
+      return { ok: true, json: () => Promise.resolve({}) };
+    });
+
+    render(<LoginPage />);
+    await user.click(screen.getByTestId('mock-google-login'));
+
+    await waitFor(() => {
+      expect(info).toHaveBeenCalledWith('2 older sessions were revoked when you signed in.');
     });
   });
 
