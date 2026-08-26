@@ -9,7 +9,6 @@ describe('StatusBadge', () => {
 
     expect(screen.getByText('Completed')).toBeInTheDocument();
     expect(container.querySelector('svg')).toBeInTheDocument();
-    expect(screen.getByText('Completed').closest('span')).toHaveClass('text-success');
     expect(screen.getByText('Completed').closest('span')).toHaveClass('text-status-ok');
   });
 

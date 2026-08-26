@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -21,17 +22,33 @@ import {
   Clock,
   AlertTriangle,
   Loader2,
+  ChevronDown,
+  ChevronUp,
+  ShieldCheck,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/format";
+import {
+  calculateFeeSnapshot,
+  formatFeeBps,
+  type FeeSnapshot,
+} from "@/lib/utils/settlementRules";
 
-interface SettlementConfirmationProps {
+export interface SettlementConfirmationProps {
   isOpen: boolean;
   onClose: () => void;
   amountUsdc?: number;
   amountNgn?: number;
   exchangeRate?: number;
   feePercent?: number;
+  feeBps?: number;
+  discountBps?: number;
+  discountTier?: string;
+  capAmountUsdc?: number;
+  feeVersion?: string;
+  ruleSource?: 'merchant' | 'default' | 'governance';
+  feeSnapshot?: FeeSnapshot;
   expectedDelivery?: string;
   bankName?: string;
   accountNumber?: string;
@@ -48,28 +65,52 @@ function delay(ms: number) {
 export const SettlementConfirmation = ({
   isOpen,
   onClose,
-  amountUsdc = 12450.00,
+  amountUsdc = 12450.0,
   amountNgn = 19297500,
   exchangeRate = 1550,
-  feePercent = 1,
+  feePercent,
+  feeBps,
+  discountBps,
+  discountTier,
+  capAmountUsdc,
+  feeVersion,
+  ruleSource,
+  feeSnapshot: providedFeeSnapshot,
   expectedDelivery = "24-48 business hours",
   bankName = "GTBank",
   accountNumber = "012****567",
 }: SettlementConfirmationProps) => {
   const [state, setState] = useState<SettlementState>("summary");
   const [confirmed, setConfirmed] = useState(false);
+  const [processingStep, setProcessingStep] = useState(0);
+  const [showFeeBreakdown, setShowFeeBreakdown] = useState(false);
+
+  // Compute or use provided fee snapshot
+  const resolvedFeeBps = feeBps ?? (feePercent !== undefined ? feePercent * 100 : 100);
+  const feeSnapshot: FeeSnapshot =
+    providedFeeSnapshot ??
+    calculateFeeSnapshot(amountUsdc, {
+      feeBps: resolvedFeeBps,
+      discountBps,
+      discountTier,
+      capAmountUsdc,
+      feeVersion,
+      ruleSource,
+    });
   // Backend-driven progress — no synthetic step auto-advance
   const [progressStatus, setProgressStatus] = useState<import("./TransactionProgress").SettlementProgressStatus>("idle");
   const [failedStep, setFailedStep] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const feeAmount = amountUsdc * (feePercent / 100);
+  const feeAmount = feeSnapshot.totalFeeUsdc;
   const netAmount = amountUsdc - feeAmount;
   const netAmountNgn = netAmount * exchangeRate;
 
   const handleClose = useCallback(() => {
     setState("summary");
     setConfirmed(false);
+    setProcessingStep(0);
+    setShowFeeBreakdown(false);
     setProgressStatus("idle");
     setFailedStep(null);
     setErrorMessage(null);
@@ -224,7 +265,7 @@ export const SettlementConfirmation = ({
                   <span className="text-xs font-mono font-semibold text-foreground print:text-gray-900">{MOCK_TX_HASH}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground print:text-gray-500">Settled Amount</span>
+                  <span className="text-xs text-muted-foreground print:text-gray-500">Settled Amount (Net)</span>
                   <span className="text-sm font-bold text-foreground print:text-gray-900">
                     <CurrencyDisplay amount={netAmount} />
                   </span>
@@ -240,8 +281,18 @@ export const SettlementConfirmation = ({
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-muted-foreground print:text-gray-500">Platform Fee</span>
                   <span className="text-xs font-semibold text-foreground print:text-gray-900">
-                    <CurrencyDisplay amount={feeAmount} /> ({feePercent}%)
+                    <CurrencyDisplay amount={feeAmount} /> ({formatFeeBps(feeSnapshot.effectiveFeeBps)})
                   </span>
+                </div>
+                {feeSnapshot.discountAppliedUsdc > 0 && (
+                  <div className="flex justify-between items-center text-xs text-emerald-600 dark:text-emerald-400">
+                    <span>Discount Applied</span>
+                    <span>- <CurrencyDisplay amount={feeSnapshot.discountAppliedUsdc} /> ({feeSnapshot.discountTier || `${feeSnapshot.discountBps} bps`})</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground print:text-gray-500">Rule Snapshot</span>
+                  <span className="text-xs font-mono text-foreground print:text-gray-900">{feeSnapshot.feeVersion || 'v1.0.0'} ({feeSnapshot.ruleSource || 'governance'})</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-muted-foreground print:text-gray-500">Date</span>
@@ -292,7 +343,7 @@ export const SettlementConfirmation = ({
             Confirm Settlement
           </DialogTitle>
           <DialogDescription>
-            Review the details below before initiating the USDC → NGN conversion.
+            Review the details and verified settlement rule below before initiating the USDC → NGN conversion.
           </DialogDescription>
         </DialogHeader>
 
@@ -316,18 +367,90 @@ export const SettlementConfirmation = ({
               <span className="text-xs text-muted-foreground">Exchange Rate</span>
               <span className="text-xs font-semibold text-foreground">₦{exchangeRate.toLocaleString()} / USDC</span>
             </div>
+
             <div className="flex items-center justify-between py-2 border-b border-border">
               <span className="text-xs text-muted-foreground">Effective Rate (incl. fee)</span>
               <span className="text-xs font-semibold text-foreground">
-                ₦{(exchangeRate * (1 - feePercent / 100)).toLocaleString()} / USDC
+                ₦{((netAmountNgn / (amountUsdc || 1))).toLocaleString(undefined, { maximumFractionDigits: 2 })} / USDC
               </span>
             </div>
+
             <div className="flex items-center justify-between py-2 border-b border-border">
-              <span className="text-xs text-muted-foreground">Platform Fee ({feePercent}%)</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">Platform Fee</span>
+                <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-mono">
+                  {formatFeeBps(feeSnapshot.effectiveFeeBps)}
+                </span>
+              </div>
               <span className="text-xs font-semibold text-foreground">
                 <CurrencyDisplay amount={feeAmount} />
               </span>
             </div>
+
+            {/* Expandable Fee Breakdown & Audit Section */}
+            <div className="rounded-xl border border-border/60 bg-card/60 p-3 space-y-2">
+              <button
+                type="button"
+                onClick={() => setShowFeeBreakdown(!showFeeBreakdown)}
+                className="w-full flex items-center justify-between text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                aria-expanded={showFeeBreakdown}
+              >
+                <span className="flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                  Fee Rule Snapshot & Breakdown
+                </span>
+                {showFeeBreakdown ? (
+                  <ChevronUp className="w-3.5 h-3.5" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5" />
+                )}
+              </button>
+
+              {showFeeBreakdown && (
+                <div className="pt-2 border-t border-border space-y-2 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Base Fee Rule</span>
+                    <span className="font-mono text-foreground">{formatFeeBps(feeSnapshot.bps)} (<CurrencyDisplay amount={feeSnapshot.baseFeeUsdc} />)</span>
+                  </div>
+
+                  {feeSnapshot.discountAppliedUsdc > 0 && (
+                    <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
+                      <span>Discount Tier ({feeSnapshot.discountTier || `${feeSnapshot.discountBps} bps`})</span>
+                      <span>- <CurrencyDisplay amount={feeSnapshot.discountAppliedUsdc} /></span>
+                    </div>
+                  )}
+
+                  {feeSnapshot.capApplied && (
+                    <div className="flex justify-between items-center text-primary">
+                      <span>Fee Cap Applied</span>
+                      <span>Max <CurrencyDisplay amount={feeSnapshot.capAmountUsdc ?? 0} /></span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center text-[11px] text-muted-foreground pt-1 border-t border-border/40">
+                    <span>Rule Source & Version</span>
+                    <span className="font-mono">{feeSnapshot.ruleSource || 'governance'} · {feeSnapshot.feeVersion || 'v1.0.0'}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-[11px] text-muted-foreground">
+                    <span>Audit Net Check</span>
+                    <span className="font-mono">
+                      Gross ({amountUsdc.toFixed(2)}) - Fee ({feeAmount.toFixed(2)}) = Net ({netAmount.toFixed(2)})
+                    </span>
+                  </div>
+
+                  <div className="pt-1">
+                    <Link
+                      href="/settlement/actions"
+                      className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+                    >
+                      Inspect governance rules & pending actions <ExternalLink className="w-3 h-3" />
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center justify-between py-2 border-b border-border">
               <span className="text-xs text-muted-foreground">You&apos;ll Receive (USDC)</span>
               <span className="text-xs font-bold text-foreground">

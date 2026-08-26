@@ -51,11 +51,35 @@ export default function ClicksChart({ data, height = 260 }: ClicksChartProps) {
   const isDark = resolvedTheme === "dark";
 
   return (
-    <div className={cn("w-full")} style={{ height }}>
+    <div
+      role="region"
+      aria-label="Payment link clicks chart"
+      className={cn("w-full relative")}
+      style={{ height }}
+    >
+      <table className="sr-only" aria-label="Payment link clicks data table">
+        <caption>Payment link clicks over time</caption>
+        <thead>
+          <tr>
+            <th scope="col">Date</th>
+            <th scope="col">Clicks</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, index) => (
+            <tr key={index}>
+              <td>{row.date}</td>
+              <td>{row.clicks}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={data}
           margin={{ top: 4, right: 4, bottom: 0, left: -16 }}
+          accessibilityLayer
         >
           <defs>
             <linearGradient id="colorClicks" x1="0" y1="0" x2="0" y2="1">
@@ -76,6 +100,7 @@ export default function ClicksChart({ data, height = 260 }: ClicksChartProps) {
             axisLine={false}
             tick={{ fill: "var(--muted-foreground)" }}
             interval="preserveStartEnd"
+            aria-label="Date"
           />
           <YAxis
             stroke="var(--muted-foreground)"
@@ -84,11 +109,13 @@ export default function ClicksChart({ data, height = 260 }: ClicksChartProps) {
             axisLine={false}
             allowDecimals={false}
             tick={{ fill: "var(--muted-foreground)" }}
+            aria-label="Clicks"
           />
           <Tooltip content={<ChartTooltip />} />
           <Area
             type="monotone"
             dataKey="clicks"
+            name="Clicks"
             stroke="var(--primary)"
             strokeWidth={2.5}
             fillOpacity={1}

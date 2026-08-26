@@ -376,7 +376,7 @@ export default function WalletPage() {
       </Dialog>
 
       {/* Transaction history */}
-      <WalletActivityHistory />
+      <WalletActivityHistory address={address} />
     </div>
   );
 }

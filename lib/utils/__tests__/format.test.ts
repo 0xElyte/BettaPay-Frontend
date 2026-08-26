@@ -4,6 +4,7 @@ import {
   truncateAddress,
   formatDate,
   formatNumber,
+  formatRelativeTime,
   getActiveLocale,
 } from '@/lib/utils/format';
 
@@ -161,6 +162,47 @@ describe('utils/format', () => {
     });
   });
 
+  describe('formatRelativeTime()', () => {
+    const fixedNow = new Date('2025-01-15T12:00:00.000Z').getTime();
+
+    it('formats past and future times in English (default)', () => {
+      const twoHoursAgo = new Date('2025-01-15T10:00:00.000Z');
+      const inThreeDays = new Date('2025-01-18T12:00:00.000Z');
+
+      expect(formatRelativeTime(twoHoursAgo, fixedNow, 'en')).toBe('2 hours ago');
+      expect(formatRelativeTime(inThreeDays, fixedNow, 'en')).toBe('in 3 days');
+    });
+
+    it('formats relative time in French', () => {
+      const twoHoursAgo = new Date('2025-01-15T10:00:00.000Z');
+      const formatted = formatRelativeTime(twoHoursAgo, fixedNow, 'fr');
+      expect(formatted).toBe('il y a 2 heures');
+    });
+
+    it('formats relative time in Portuguese', () => {
+      const twoHoursAgo = new Date('2025-01-15T10:00:00.000Z');
+      const formatted = formatRelativeTime(twoHoursAgo, fixedNow, 'pt');
+      expect(formatted).toBe('há 2 horas');
+    });
+
+    it('formats relative time in Swahili', () => {
+      const twoHoursAgo = new Date('2025-01-15T10:00:00.000Z');
+      const formatted = formatRelativeTime(twoHoursAgo, fixedNow, 'sw');
+      expect(formatted).toMatch(/masaa 2 yaliyopita|saa 2 zilizopita/i);
+    });
+
+    it('responds to document.documentElement.lang', () => {
+      document.documentElement.lang = 'fr';
+      const twoHoursAgo = new Date('2025-01-15T10:00:00.000Z');
+      expect(formatRelativeTime(twoHoursAgo, fixedNow)).toBe('il y a 2 heures');
+      document.documentElement.lang = '';
+    });
+
+    it('returns empty string for invalid date input', () => {
+      expect(formatRelativeTime('invalid-date', fixedNow)).toBe('');
+    });
+  });
+
   describe('getActiveLocale()', () => {
     afterEach(() => {
       document.documentElement.lang = '';
@@ -179,4 +221,5 @@ describe('utils/format', () => {
     });
   });
 });
+
 

@@ -100,11 +100,35 @@ export default function FxRateChart({
   }
 
   return (
-    <div className="w-full" style={{ height }}>
+    <div
+      role="region"
+      aria-label="USDC to NGN exchange rate chart"
+      className="w-full relative"
+      style={{ height }}
+    >
+      <table className="sr-only" aria-label="USDC to NGN exchange rate data table">
+        <caption>USDC to NGN exchange rate history</caption>
+        <thead>
+          <tr>
+            <th scope="col">Date</th>
+            <th scope="col">Exchange Rate (NGN)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {chartData.map((row, index) => (
+            <tr key={index}>
+              <td>{row.date}</td>
+              <td>{formatNgn(row.rate)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={chartData}
           margin={{ top: 4, right: 4, bottom: 0, left: isMobile ? 0 : -10 }}
+          accessibilityLayer
         >
           <defs>
             <linearGradient id="colorFxRate" x1="0" y1="0" x2="0" y2="1">
@@ -123,6 +147,7 @@ export default function FxRateChart({
             tickLine={false}
             axisLine={false}
             tick={{ fill: "var(--muted-foreground)" }}
+            aria-label="Date"
           />
           <YAxis
             fontSize={11}
@@ -132,11 +157,13 @@ export default function FxRateChart({
             tick={{ fill: "var(--muted-foreground)" }}
             domain={["auto", "auto"]}
             width={isMobile ? 52 : 64}
+            aria-label="Exchange Rate (NGN)"
           />
           <Tooltip content={<FxTooltip />} />
           <Area
             type="monotone"
             dataKey="rate"
+            name="Exchange Rate (NGN)"
             stroke="var(--primary)"
             strokeWidth={2.5}
             fillOpacity={1}

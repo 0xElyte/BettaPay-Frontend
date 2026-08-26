@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Search, Menu, LogOut, Settings, KeyRound, Moon, Sun, Monitor, Repeat } from "lucide-react";
+import { Menu, LogOut, Settings, KeyRound, Moon, Sun, Monitor, Repeat } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui";
-import { Input } from "@/components/ui";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui";
 import {
   DropdownMenu,
@@ -124,16 +123,18 @@ export const Topbar = ({ onMenuClick, isMenuOpen, title, unreadNotificationCount
         <NotificationCenter unreadNotificationCount={unreadNotificationCount} />
 
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Select theme"
-              className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl min-h-[44px] min-w-[44px]"
-            >
-              {themeIcon}
-            </Button>
-          </DropdownMenuTrigger>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Select theme"
+                className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl min-h-[44px] min-w-[44px]"
+              >
+                {themeIcon}
+              </Button>
+            }
+          />
           <DropdownMenuContent align="end" className="rounded-xl border-border">
             <DropdownMenuItem onClick={() => setTheme("light")} className="cursor-pointer rounded-lg">
               <Sun className="mr-2 h-4 w-4" /> Light
@@ -146,16 +147,6 @@ export const Topbar = ({ onMenuClick, isMenuOpen, title, unreadNotificationCount
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        {/* Theme toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={themeLabel}
-          className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl min-h-[44px] min-w-[44px]"
-          onClick={toggleTheme}
-        >
-          {themeIcon}
-        </Button>
 
         {/* User menu */}
         <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>

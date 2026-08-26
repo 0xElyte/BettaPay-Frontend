@@ -3,11 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getDefaultRoute } from "@/lib/utils";
 import { Button } from "@/components/ui";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui";
+import { getDefaultRoute } from "@/lib/utils";
 import { useNotify } from "@/lib/hooks/useNotify";
 import { useAuthStore } from "@/lib/store/authStore";
 import { apiClient } from "@/lib/api/axios";
