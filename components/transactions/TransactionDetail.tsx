@@ -8,7 +8,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui';
 import { 
   Copy, 
   ExternalLink, 
@@ -21,8 +21,10 @@ import {
 } from 'lucide-react';
 import { Transaction } from '@/lib/mock/transactions';
 import { formatDate } from '@/lib/utils/format';
-import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay';
-import { StatusBadge } from '@/components/shared/StatusBadge';
+import { CurrencyDisplay } from '@/components/shared';
+import { StatusBadge } from '@/components/shared';
+import { getStellarExplorerTxUrl } from '@/lib/utils/explorer';
+import { useWalletStore } from '@/lib/store/walletStore';
 import { useNotify } from '@/lib/hooks/useNotify';
 
 interface TransactionDetailProps {
@@ -32,12 +34,12 @@ interface TransactionDetailProps {
 }
 
 export const TransactionDetail: React.FC<TransactionDetailProps> = ({
-  // initialize notification hooks
-  const { success, info, error } = useNotify();
   transaction,
   isOpen,
   onClose,
 }) => {
+  const { success, info } = useNotify();
+  const network = useWalletStore((s) => s.network);
   if (!transaction) return null;
 
   const handleCopy = (text: string, label: string) => {
@@ -46,7 +48,7 @@ export const TransactionDetail: React.FC<TransactionDetailProps> = ({
   };
 
   const openExplorer = () => {
-    window.open(`https://stellar.expert/explorer/public/tx/${transaction.txHash}`, '_blank');
+    window.open(getStellarExplorerTxUrl(transaction.txHash, network), '_blank');
   };
 
   const detailRows = [
@@ -103,12 +105,12 @@ export const TransactionDetail: React.FC<TransactionDetailProps> = ({
         
         <div className="space-y-6 py-4">
           {/* Amount Summary */}
-          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 flex flex-col items-center justify-center text-center">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Total Amount</p>
-            <div className="text-3xl font-bold text-slate-900">
+          <div className="bg-muted p-6 rounded-2xl border border-border flex flex-col items-center justify-center text-center">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Total Amount</p>
+            <div className="text-3xl font-bold text-foreground">
               <CurrencyDisplay amount={transaction.amountUsdc} currency="USDC" />
             </div>
-            <p className="text-sm font-medium text-slate-500 mt-1">
+            <p className="text-sm font-medium text-muted-foreground mt-1">
               ≈ ₦{transaction.amountNgn.toLocaleString()} NGN
             </p>
           </div>
@@ -116,12 +118,12 @@ export const TransactionDetail: React.FC<TransactionDetailProps> = ({
           {/* Details Table */}
           <div className="space-y-4">
             {detailRows.map((row, i) => (
-              <div key={i} className="flex items-start justify-between gap-4 border-b border-slate-50 pb-3 last:border-0 last:pb-0">
-                <div className="flex items-center gap-2 text-slate-400">
+              <div key={i} className="flex items-start justify-between gap-4 border-b border-border pb-3 last:border-0 last:pb-0">
+                <div className="flex items-center gap-2 text-muted-foreground">
                   <row.icon className="size-3.5" />
                   <span className="text-xs font-medium">{row.label}</span>
                 </div>
-                <div className="text-xs font-semibold text-slate-700 text-right">
+                <div className="text-xs font-semibold text-foreground text-right">
                   {row.value}
                 </div>
               </div>
@@ -138,7 +140,7 @@ export const TransactionDetail: React.FC<TransactionDetailProps> = ({
               <Share2 className="w-3.5 h-3.5" />
             </Button>
           </div>
-          <Button className="bg-slate-900 text-white hover:bg-slate-800" size="sm" onClick={openExplorer}>
+          <Button className="bg-foreground text-background hover:bg-foreground/90" size="sm" onClick={openExplorer}>
             View in Explorer <ExternalLink className="w-3.5 h-3.5 ml-2" />
           </Button>
         </DialogFooter>

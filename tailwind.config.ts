@@ -40,6 +40,53 @@ const config: Config = {
           DEFAULT: "var(--destructive)",
           foreground: "var(--destructive-foreground)",
         },
+        success: {
+          DEFAULT: "var(--success)",
+          foreground: "var(--success-foreground)",
+        },
+        warning: {
+          DEFAULT: "var(--warning)",
+          foreground: "var(--warning-foreground)",
+        },
+        info: {
+          DEFAULT: "var(--info)",
+          foreground: "var(--info-foreground)",
+        },
+        // Status badge palette. Opaque fg/bg/border triples per status level so
+        // badge contrast is exact and verifiable — see app/globals.css and
+        // lib/status/palette.ts.
+        status: {
+          ok: {
+            DEFAULT: "var(--status-ok-fg)",
+            bg: "var(--status-ok-bg)",
+            border: "var(--status-ok-border)",
+          },
+          warn: {
+            DEFAULT: "var(--status-warn-fg)",
+            bg: "var(--status-warn-bg)",
+            border: "var(--status-warn-border)",
+          },
+          down: {
+            DEFAULT: "var(--status-down-fg)",
+            bg: "var(--status-down-bg)",
+            border: "var(--status-down-border)",
+          },
+          info: {
+            DEFAULT: "var(--status-info-fg)",
+            bg: "var(--status-info-bg)",
+            border: "var(--status-info-border)",
+          },
+          progress: {
+            DEFAULT: "var(--status-progress-fg)",
+            bg: "var(--status-progress-bg)",
+            border: "var(--status-progress-border)",
+          },
+          neutral: {
+            DEFAULT: "var(--status-neutral-fg)",
+            bg: "var(--status-neutral-bg)",
+            border: "var(--status-neutral-border)",
+          },
+        },
         border: "var(--border)",
         input: "var(--input)",
         ring: "var(--ring)",
@@ -60,25 +107,31 @@ const config: Config = {
           border: "var(--sidebar-border)",
           ring: "var(--sidebar-ring)",
         },
-        brand: {
-          primary: "var(--brand-primary)",
-          surface: "var(--brand-surface)",
-          "surface-alt": "var(--brand-surface-alt)",
-          accent: "var(--brand-accent)",
-          "accent-hover": "var(--brand-accent-hover)",
-          success: "var(--brand-success)",
-          warning: "var(--brand-warning)",
-          error: "var(--brand-error)",
-          "text-primary": "var(--brand-text-primary)",
-          "text-secondary": "var(--brand-text-secondary)",
-          "text-muted": "var(--brand-text-muted)",
-          border: "var(--brand-border)",
-        },
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      boxShadow: {
+        card: "var(--shadow-card)",
+        "card-hover": "var(--shadow-card-hover)",
+        button: "var(--shadow-button)",
+        dropdown: "var(--shadow-dropdown)",
+        glow: "var(--shadow-glow)",
+        "glow-hover": "var(--shadow-glow-hover)",
+        "nav-bottom": "var(--shadow-nav-bottom)",
+        "surface-xl": "var(--shadow-xl)",
+      },
+      fontFamily: {
+        // Resolves the `font-sans` utility for body text.
+        // Reads from the --font-body CSS variable set by next/font/google (DM Sans),
+        // with a clean system-ui fallback.
+        sans: ["var(--font-body)", "system-ui", "sans-serif"],
+        // Resolves the `font-heading` utility used in card.tsx and dialog.tsx.
+        // Reads from the --font-heading CSS variable set by next/font/google (Fraunces),
+        // with a safe serif fallback.
+        heading: ["var(--font-heading)", "Georgia", "serif"],
       },
     },
   },

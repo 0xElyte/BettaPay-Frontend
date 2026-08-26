@@ -1,12 +1,14 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { User, Role } from '../types';
+import { User } from '../types';
+import { BP_SESSION_KEY } from '@/lib/auth/session';
 
 interface AuthState {
   user: User | null;
   token: string | null;
-  role: Role | null;
+  role: string | null;
   isAuthenticated: boolean;
+  isLoggedIn: boolean;
   login: (token: string, user: User) => void;
   logout: () => void;
 }
@@ -18,10 +20,10 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       role: null,
       isAuthenticated: false,
-      // Store token in memory only; do NOT persist it to localStorage. Server should set HttpOnly cookie for auth.
-      login: (token, user) => set({ user, token, role: user.role, isAuthenticated: true }),
+      isLoggedIn: false,
+      login: (token, user) => set({ user, token, role: user.role, isAuthenticated: true, isLoggedIn: true }),
       logout: () => {
-        set({ user: null, token: null, role: null, isAuthenticated: false });
+        set({ user: null, token: null, role: null, isAuthenticated: false, isLoggedIn: false });
         // Ask backend to clear the auth cookie (best-effort, backend may not exist in this demo)
         if (typeof window !== 'undefined') {
           fetch('/api/auth/session', { method: 'DELETE', credentials: 'include' }).catch(() => {});
@@ -29,9 +31,11 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: 'auth-storage',
-      // Persist only minimal non-sensitive state. Token and user object are intentionally excluded.
-      partialize: (state) => ({ role: state.role }),
+      name: BP_SESSION_KEY,
+      // Persist only a non-sensitive flag. Token, user, and role are kept in memory only.
+      // Aligns with middleware's auth_token+user_role cookie contract and
+      // useSessionCheck's SessionCheckResponse rehydration (lib/auth/session.ts).
+      partialize: (state) => ({ isLoggedIn: state.isLoggedIn }),
     }
   )
 );

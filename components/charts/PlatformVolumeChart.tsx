@@ -1,0 +1,112 @@
+"use client";
+
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
+import { useTheme } from 'next-themes';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+import { Skeleton } from '@/components/ui';
+
+interface ChartDataItem {
+  name: string;
+  volume: number;
+  fee: number;
+}
+
+export default function PlatformVolumeChart({ height = 300 }: { height?: number }) {
+
+  const { data, isLoading, isError } = useQuery<ChartDataItem[]>({
+    queryKey: ['platform-volume'],
+    queryFn: async () => {
+      const response = await axios.get<ChartDataItem[]>('/api/platform-volume');
+      return response.data;
+    },
+  });
+
+  if (isLoading) {
+    return <Skeleton className="h-[300px] w-full rounded-xl" />;
+  }
+
+  if (isError || !data) {
+    return <p className="text-destructive font-medium p-4 text-center">Failed to load platform volume data.</p>;
+  }
+
+  return (
+    <div
+      role="region"
+      aria-label="Platform volume and fees chart"
+      className="w-full relative"
+      style={{ height }}
+    >
+      <table className="sr-only" aria-label="Platform volume and fees data table">
+        <caption>Platform volume and fee breakdown</caption>
+        <thead>
+          <tr>
+            <th scope="col">Period</th>
+            <th scope="col">Volume (USD)</th>
+            <th scope="col">Fee (USD)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, index) => (
+            <tr key={index}>
+              <td>{row.name}</td>
+              <td>${row.volume.toLocaleString()}</td>
+              <td>${row.fee.toLocaleString()}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} accessibilityLayer>
+          <XAxis
+            dataKey="name"
+            stroke="var(--muted-foreground)"
+            fontSize={12}
+            tickLine={false}
+            axisLine={false}
+            aria-label="Time Period"
+          />
+          <YAxis
+            yAxisId="left"
+            stroke="var(--muted-foreground)"
+            fontSize={12}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(value) => `$${value / 1000}k`}
+            aria-label="Amount in USD"
+          />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: isDark ? 'var(--card)' : 'var(--card)',
+              borderColor: isDark ? 'var(--border)' : 'var(--border)',
+              color: isDark ? 'var(--foreground)' : 'var(--foreground)',
+            }}
+            cursor={{ fill: 'var(--accent)' }}
+          />
+          <Legend
+            verticalAlign="top"
+            align="right"
+            wrapperStyle={{ paddingBottom: '10px', fontSize: '12px' }}
+          />
+          <Bar
+            yAxisId="left"
+            dataKey="volume"
+            name="Transaction Volume"
+            fill="var(--border)"
+            radius={[4, 4, 0, 0]}
+          />
+          <Bar
+            yAxisId="left"
+            dataKey="fee"
+            name="Platform Fee"
+            fill="var(--primary)"
+            radius={[4, 4, 0, 0]}
+          />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+

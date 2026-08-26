@@ -1,87 +1,190 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-import { SUPPORTED_CURRENCIES } from '@/lib/utils/constants';
-import { apiClient } from '@/lib/api/axios';
-import { useNotify } from '@/lib/hooks/useNotify';
+import { useState, useEffect, useCallback, memo } from "react";
+import { cn } from "@/lib/utils";
+import { Check, TrendingUp, TrendingDown, Loader2 } from "lucide-react";
+import { MULTI_CURRENCY_ASSETS, MOCK_RATES } from "@/lib/utils/constants";
 
-interface CurrencySelectorProps {
-  value?: string;
-  onValueChange?: (value: string) => void;
+export interface CurrencySelectorProps {
+  selectedCurrencies: string[];
+  onSelectionChange: (currencies: string[]) => void;
+  mode?: "single" | "multi";
+  disabled?: boolean;
+  className?: string;
+  showRates?: boolean;
 }
 
-function getAssetCodes(payload: unknown): string[] {
-  const response = payload as { data?: unknown; assets?: unknown } | null;
-  const assets = Array.isArray(payload)
-    ? payload
-    : Array.isArray(response?.data)
-      ? response.data
-      : Array.isArray(response?.assets)
-        ? response.assets
-        : [];
-
-  return assets
-    .map((asset) => {
-      if (typeof asset === 'string') return asset;
-      if (asset && typeof asset === 'object') {
-        const item = asset as { code?: unknown; asset?: unknown; symbol?: unknown; name?: unknown };
-        return [item.code, item.asset, item.symbol, item.name].find(
-          (candidate): candidate is string => typeof candidate === 'string'
-        );
-      }
-      return undefined;
-    })
-    .filter((code): code is string => Boolean(code))
-    .map((code) => code.trim())
-    .filter((code, index, codes) => codes.indexOf(code) === index);
+interface CurrencyCardProps {
+  code: string;
+  selected: boolean;
+  rate: number | null;
+  rateLoading: boolean;
+  onClick: () => void;
+  disabled: boolean;
+  showRate: boolean;
 }
 
-export function CurrencySelector({ value = '', onValueChange }: CurrencySelectorProps) {
-  const [assets, setAssets] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const { error } = useNotify();
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadAssets = async () => {
-      try {
-        const response = await apiClient.get('/api/assets');
-        if (isMounted) setAssets(getAssetCodes(response.data));
-      } catch {
-        if (isMounted) error('Unable to refresh supported currencies');
-      } finally {
-        if (isMounted) setIsLoading(false);
-      }
-    };
-
-    loadAssets();
-    const refreshTimer = window.setInterval(loadAssets, 60_000);
-    return () => {
-      isMounted = false;
-      window.clearInterval(refreshTimer);
-    };
-  }, []);
-
-  const options = isLoading ? [...SUPPORTED_CURRENCIES] : assets;
-  const isUnsupported = Boolean(value) && !options.includes(value);
+const CurrencyCard = memo(function CurrencyCard({
+  code,
+  selected,
+  rate,
+  rateLoading,
+  onClick,
+  disabled,
+  showRate,
+}: CurrencyCardProps) {
+  const asset = MULTI_CURRENCY_ASSETS[code];
+  if (!asset) return null;
 
   return (
-    <div className="space-y-2">
-      <label htmlFor="currency" className="text-sm font-medium">Currency</label>
-      <select
-        id="currency"
-        value={value}
-        onChange={(event) => onValueChange?.(event.target.value)}
-        aria-invalid={isUnsupported}
-        className="w-full rounded-md border border-border/50 bg-background/50 px-3 py-2 text-sm"
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "relative flex items-center gap-3 w-full p-3 rounded-xl border-2 transition-all text-left",
+        "hover:border-primary/50 hover:bg-primary/5",
+        selected
+          ? "border-primary bg-primary/10 shadow-sm"
+          : "border-border/50 bg-background/50",
+        disabled && "opacity-50 cursor-not-allowed",
+      )}
+    >
+      <div
+        className={cn(
+          "flex items-center justify-center w-10 h-10 rounded-lg text-lg font-bold shrink-0",
+          selected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
+        )}
       >
-        <option value="">Select currency</option>
-        {isUnsupported && <option value={value}>{value} (unsupported)</option>}
-        {options.map((asset) => <option key={asset} value={asset}>{asset}</option>)}
-      </select>
-      {isUnsupported && (
-        <p className="text-sm text-destructive">{value} is no longer supported. Select an available currency.</p>
+        {asset.icon}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-sm">{asset.code}</span>
+          <span className="text-xs text-muted-foreground truncate">{asset.name}</span>
+        </div>
+        {showRate && (
+          <div className="mt-0.5">
+            {rateLoading ? (
+              <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+            ) : rate !== null ? (
+              <span className="text-xs text-muted-foreground">
+                1 {asset.code} ≈ ${rate.toFixed(4)} USD
+              </span>
+            ) : (
+              <span className="text-xs text-destructive">Rate unavailable</span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {selected && (
+        <div className="absolute top-2 right-2">
+          <Check className="w-4 h-4 text-primary" />
+        </div>
+      )}
+    </button>
+  );
+});
+
+export function CurrencySelector({
+  selectedCurrencies,
+  onSelectionChange,
+  mode = "multi",
+  disabled = false,
+  className,
+  showRates = true,
+}: CurrencySelectorProps) {
+  const [rates, setRates] = useState<Record<string, number>>({});
+  const [ratesLoading, setRatesLoading] = useState(true);
+  const [trends, setTrends] = useState<Record<string, "up" | "down">>({});
+
+  const fetchRates = useCallback(async () => {
+    setRatesLoading(true);
+    try {
+      // Simulate real-time rate fetching
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const fetchedRates: Record<string, number> = {};
+      const fetchedTrends: Record<string, "up" | "down"> = {};
+      for (const [code] of Object.entries(MULTI_CURRENCY_ASSETS)) {
+        const base = MOCK_RATES[code] ?? 1.0;
+        const jitter = 1 + (Math.random() - 0.5) * 0.02;
+        fetchedRates[code] = base * jitter;
+        fetchedTrends[code] = Math.random() > 0.5 ? "up" : "down";
+      }
+      setRates(fetchedRates);
+      setTrends(fetchedTrends);
+    } catch {
+      // Use fallback mock rates
+      setRates({ ...MOCK_RATES });
+    } finally {
+      setRatesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchRates();
+    const interval = setInterval(fetchRates, 30_000);
+    return () => clearInterval(interval);
+  }, [fetchRates]);
+
+  const handleToggle = (code: string) => {
+    if (disabled) return;
+
+    if (mode === "single") {
+      onSelectionChange([code]);
+      return;
+    }
+
+    if (selectedCurrencies.includes(code)) {
+      if (selectedCurrencies.length <= 1) return;
+      onSelectionChange(selectedCurrencies.filter((c) => c !== code));
+    } else {
+      onSelectionChange([...selectedCurrencies, code]);
+    }
+  };
+
+  return (
+    <div className={cn("space-y-3", className)}>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        {Object.keys(MULTI_CURRENCY_ASSETS).map((code) => (
+          <CurrencyCard
+            key={code}
+            code={code}
+            selected={selectedCurrencies.includes(code)}
+            rate={rates[code] ?? null}
+            rateLoading={ratesLoading}
+            onClick={() => handleToggle(code)}
+            disabled={disabled}
+            showRate={showRates}
+          />
+        ))}
+      </div>
+
+      {mode === "multi" && selectedCurrencies.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs text-muted-foreground">Selected:</span>
+          {selectedCurrencies.map((code) => {
+            const asset = MULTI_CURRENCY_ASSETS[code];
+            const trend = trends[code];
+            return (
+              <span
+                key={code}
+                className="inline-flex items-center gap-1 text-xs font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full"
+              >
+                {asset?.icon} {code}
+                {showRates && rates[code] && trend && (
+                  trend === "up" ? (
+                    <TrendingUp className="w-3 h-3 text-emerald-500" />
+                  ) : (
+                    <TrendingDown className="w-3 h-3 text-red-500" />
+                  )
+                )}
+              </span>
+            );
+          })}
+        </div>
       )}
     </div>
   );
