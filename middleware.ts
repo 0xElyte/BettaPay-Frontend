@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { ensureCsrfCookieInMiddleware } from '@/lib/utils/csrf';
+import { getSessionFromCookies, isSessionValid } from '@/lib/auth/session';
 
 export function middleware(request: NextRequest) {
-  const token = request.cookies.get('auth_token')?.value;
-  const role = request.cookies.get('user_role')?.value;
+  const session = getSessionFromCookies(request.cookies);
+  const token = session.token;
+  const role = session.role;
 
   // Helper to seed CSRF cookie on every response (allowed in middleware via NextResponse)
   const withCsrf = (response: NextResponse): NextResponse => {
@@ -43,7 +45,7 @@ export function middleware(request: NextRequest) {
   // If trying to access auth pages while logged in, redirect to dashboard
   // Exception: 2FA page is always accessible after partial login
   if (isAuthPage) {
-    if (token) {
+    if (isSessionValid(session)) {
       if (role === 'admin') {
         return withCsrf(NextResponse.redirect(new URL('/overview', request.url)));
       }
@@ -53,7 +55,7 @@ export function middleware(request: NextRequest) {
   }
 
   // Require auth for everything else
-  if (!token) {
+  if (!isSessionValid(session)) {
     return withCsrf(NextResponse.redirect(new URL('/auth/login', request.url)));
   }
 

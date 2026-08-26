@@ -19,11 +19,13 @@ import { expect, type BrowserContext, type Page } from '@playwright/test';
 
 export type Role = 'merchant' | 'admin';
 
-const AUTH_STORAGE_KEY = 'auth-storage';
+const AUTH_STORAGE_KEY = 'bp-session';
 
 export async function mockLogin(context: BrowserContext, role: Role = 'merchant'): Promise<void> {
-  // 1. Persist the minimal auth state zustand keeps on disk (only `role`). This
-  //    is what triggers useSessionCheck to rehydrate the full user via the API.
+  // 1. Persist the minimal auth state zustand keeps on disk (only isLoggedIn per lib/store/authStore.ts:35).
+  //    This aligns with lib/auth/session.ts BP_SESSION_KEY and triggers
+  //    useSessionCheck to rehydrate the full user via GET /api/auth/session
+  //    which reads auth_token + user_role cookies (same contract as middleware).
   await context.addInitScript(
     ([key, value]) => {
       try {
@@ -32,7 +34,7 @@ export async function mockLogin(context: BrowserContext, role: Role = 'merchant'
         /* storage unavailable — ignore */
       }
     },
-    [AUTH_STORAGE_KEY, JSON.stringify({ state: { role }, version: 0 })] as const,
+    [AUTH_STORAGE_KEY, JSON.stringify({ state: { isLoggedIn: true }, version: 0 })] as const,
   );
 
   // 2. Set the auth cookies via the real session route. The context's request
