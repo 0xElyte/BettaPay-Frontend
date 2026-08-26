@@ -9,6 +9,8 @@ export interface User {
   role: Role;
   businessName?: string;
   kybStatus?: 'pending' | 'approved' | 'rejected' | 'none';
+  address?: string;
+  registrationNumber?: string;
 }
 
 export type AuthSessionStatus = 'active' | 'revoked' | 'expired';

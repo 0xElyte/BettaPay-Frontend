@@ -151,9 +151,19 @@ export function useLogin() {
       if (!challengeRes.ok) throw new Error('Failed to fetch challenge');
       const { challenge } = await challengeRes.json();
 
+      // Add timeout for signing (30 seconds) so the UI doesn't hang if the
+      // user ignores the wallet prompt; provide a clear "try again" message.
+      const timeoutMs = 30_000;
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Signing timed out. Please try again.')), timeoutMs),
+      );
+
       // Route signing through the store so it works for both Freighter and
       // WalletConnect — the store dispatches to the correct connector.
-      const signature = await useWalletStore.getState().signMessage(challenge);
+      const signature = await Promise.race([
+        useWalletStore.getState().signMessage(challenge),
+        timeoutPromise,
+      ]);
       if (!signature) throw new Error('User rejected or failed to sign challenge');
 
       const verifyRes = await fetch(`${apiBase}/api/auth/wallet/verify`, {
@@ -170,10 +180,19 @@ export function useLogin() {
       await handleAuthSuccess(token);
     } catch (err) {
       console.error(err);
-      error(err instanceof Error ? err.message : 'Failed to complete wallet login flow');
+      error(
+        err.message?.includes('timed out')
+          ? 'Signing timed out. Please try again or cancel the request.'
+          : err instanceof Error
+              ? err.message
+              : 'Failed to complete wallet login flow',
+      );
+      // Close modal on non-timeout errors; on timeout keep modal open so user can retry/cancel
+      if (!err.message?.includes('timed out')) {
+        setWalletModalOpen(false);
+      }
     } finally {
       setIsWalletLoading(false);
-      setWalletModalOpen(false);
     }
   }, [apiBase, handleAuthSuccess, error]);
 

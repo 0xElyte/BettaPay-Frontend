@@ -63,6 +63,7 @@ export const Topbar = ({ onMenuClick, isMenuOpen, title, unreadNotificationCount
     : "MC";
 
   const walletNetwork = useWalletStore((s) => s.network);
+  const isConnected = useWalletStore((s) => s.isConnected);
   const setNetwork = useWalletStore((s) => s.setNetwork);
   const isTestnet = walletNetwork === 'testnet';
   const isDev = process.env.NODE_ENV === 'development';
@@ -105,7 +106,7 @@ export const Topbar = ({ onMenuClick, isMenuOpen, title, unreadNotificationCount
             aria-hidden="true"
           />
           <span className="text-foreground">
-            {isTestnet ? 'Testnet' : 'Mainnet'}
+            {isConnected ? (isTestnet ? 'Testnet' : 'Mainnet') : 'No wallet connected'}
           </span>
           {isDev && (
             <button
