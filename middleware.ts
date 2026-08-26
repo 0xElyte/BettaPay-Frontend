@@ -6,7 +6,7 @@ import { isJwtExpiredOrInvalid } from '@/lib/utils/jwt';
 function rejectSession(request: NextRequest) {
   const response = NextResponse.redirect(new URL('/auth/login', request.url));
   for (const name of ['auth_token', 'user_role', 'merchant_onboarded']) {
-    response.cookies.set(name, '', { path: '/', maxAge: 0 });
+    response.cookies?.set(name, '', { path: '/', maxAge: 0 });
   }
   return response;
 }

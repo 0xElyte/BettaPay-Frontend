@@ -41,17 +41,11 @@ export interface FxTooltipProps {
 export const FxTooltip = ({ active, payload, label }: FxTooltipProps) => {
   if (active && payload && payload.length) {
     return (
-      <div
-        className="border rounded-xl p-3 shadow-lg text-sm"
-        style={{
-          backgroundColor: "var(--card)",
-          borderColor: "var(--border)",
-        }}
+      <div 
+        className="border rounded-xl p-3 shadow-lg text-sm bg-card border-border text-foreground"
       >
-        <p className="font-semibold mb-1" style={{ color: "var(--foreground)" }}>
-          {label}
-        </p>
-        <p className="font-bold" style={{ color: "var(--primary)" }}>
+        <p className="font-semibold mb-1 text-foreground">{label}</p>
+        <p className="font-bold text-primary">
           {formatNgn(payload[0]?.value ?? 0)}
         </p>
       </div>
@@ -160,3 +154,4 @@ export default function FxRateChart({
     </div>
   );
 }
+

@@ -61,6 +61,7 @@ export function useLogin() {
       );
       return;
     }
+    const userRole = decoded.ok ? (decoded.payload.role as string) ?? 'merchant' : 'merchant';
 
     // Hand the token to the server and let IT establish the session. The
     // response — not the token payload — decides what this session is worth.

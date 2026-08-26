@@ -130,13 +130,11 @@ export default function LoginPage() {
     }
   }, [apiBase, handleAuthSuccess, error]);
   const { t } = useAppTranslation();
-
   const {
     isWalletLoading,
     setWalletModalOpen,
     onGoogleSuccess,
     onWalletConnected,
-    error
   } = useLogin();
 
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;

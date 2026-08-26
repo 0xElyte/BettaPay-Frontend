@@ -176,6 +176,7 @@ export default function OnboardingPage() {
   const skip = () => {
     clearSavedProgress();
     localStorage.setItem("onboardingCompleted", "false");
+    localStorage.removeItem("onboardingDraft");
     notify.success("Onboarding saved for later. You can finish it from Settings.");
     router.push(getDefaultRoute(user?.role));
   };
