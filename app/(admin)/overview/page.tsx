@@ -7,6 +7,8 @@ import { Users, AlertTriangle, ArrowUpRight, Activity, DollarSign } from 'lucide
 import { useAdminStats } from '@/lib/api/hooks';
 import PlatformVolumeChart from '@/components/charts/PlatformVolumeChart';
 
+
+
 // Memoised so future additions of state to the parent won't re-render the chart.
 const AdminChartSection = memo(function AdminChartSection() {
   return (

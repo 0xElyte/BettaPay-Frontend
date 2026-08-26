@@ -13,7 +13,6 @@ import { getStellarExplorerTxUrl } from '@/lib/utils/explorer';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { TransactionDrawer } from '@/components/transactions/TransactionDrawer';
 import { useOfflineStore } from '@/lib/store/offlineStore';
-import { useNotify } from '@/lib/hooks/useNotify';
 
 type Transaction = ApiPayment;
 

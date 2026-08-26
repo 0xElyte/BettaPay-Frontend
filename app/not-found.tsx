@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { useAuthStore } from "@/lib/store/authStore";
 import { getDefaultRoute } from "@/lib/utils";
-import { MerchantSidebar, AdminSidebar, Topbar, Header } from "@/components/layout";
+import { MerchantSidebar } from "@/components/layout/MerchantSidebar";
+import { AdminSidebar } from "@/components/layout/AdminSidebar";
+import { Topbar } from "@/components/layout/Topbar";
+import Header from "@/components/layout/Header";
+import { Button } from "@/components/ui/button";
 import { Button } from "@/components/ui";
 import { Home, ArrowLeft, LifeBuoy, Frown } from "lucide-react";
 import Image from "next/image";

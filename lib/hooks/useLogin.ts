@@ -52,7 +52,7 @@ export function useLogin() {
     // Structural + expiry check only. This proves nothing about authenticity —
     // it just stops an obviously dead or forged token (expired, unsigned,
     // `alg: none`) from being exchanged for a session at all.
-    const decoded = decodeJwtPayload(token, { allowMissingExpiry: true });
+    const decoded = decodeJwtPayload(token);
     if (!decoded.ok) {
       error(
         decoded.error === 'expired'
@@ -71,7 +71,7 @@ export function useLogin() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, role: userRole }),
+        body: JSON.stringify({ token }),
       });
 
       if (!sessionResponse.ok) {
@@ -92,16 +92,12 @@ export function useLogin() {
       );
     }
 
-    // Read the profile back from the server. If unavailable (e.g. mock test env),
-    // derive from token claims.
-    let profile = await fetchConfirmedProfile();
+    // Read the profile back from the server. Claims in the token that the
+    // backend does not confirm here — merchantId, ownerId, role — are ignored.
+    const profile = await fetchConfirmedProfile();
     if (!profile) {
-      profile = {
-        id: (decoded.payload.merchantId as string) ?? (decoded.payload.sub as string) ?? 'merchant_01',
-        email: (decoded.payload.ownerId as string) ?? (decoded.payload.email as string) ?? 'merchant@bettapay.io',
-        name: 'Merchant',
-        role: userRole,
-      } as User;
+      error('Could not confirm your account. Please sign in again.');
+      return;
     }
 
     login(token, profile);

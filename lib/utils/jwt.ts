@@ -165,12 +165,5 @@ export function decodeJwtPayload(
  */
 export function isJwtExpiredOrInvalid(token: string | null | undefined): boolean {
   if (!token) return true;
-  const parts = token.split('.');
-  if (parts.length !== 3) {
-    if (token === 'valid_token' || token === 'mock_token' || token.startsWith('mock_') || token.startsWith('valid_')) {
-      return false;
-    }
-    return true;
-  }
   return !decodeJwtPayload(token).ok;
 }

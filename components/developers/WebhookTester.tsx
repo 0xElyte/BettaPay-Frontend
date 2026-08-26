@@ -128,17 +128,50 @@ async function computeHmacSignature(secret: string, payloadStr: string): Promise
   }
 }
 
+async function computeHmacSignature(secret: string, payloadStr: string): Promise<string> {
+  if (typeof window !== "undefined" && window.crypto?.subtle) {
+    try {
+      const encoder = new TextEncoder();
+      const key = await window.crypto.subtle.importKey(
+        "raw",
+        encoder.encode(secret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
+      );
+      const signatureBytes = await window.crypto.subtle.sign(
+        "HMAC",
+        key,
+        encoder.encode(payloadStr)
+      );
+      const hex = Array.from(new Uint8Array(signatureBytes))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+      return `sha256=${hex}`;
+    } catch {
+      // Fallback below
+    }
+  }
+
+  try {
+    const cryptoModule = await import("crypto");
+    const hex = cryptoModule.createHmac("sha256", secret).update(payloadStr).digest("hex");
+    return `sha256=${hex}`;
+  } catch {
+    return "";
+  }
+}
+
 interface WebhookTesterProps {
   initialEndpointUrl?: string;
   initialWebhookSecret?: string;
 }
 
 export function WebhookTester({
-  initialEndpointUrl,
+  initialEndpointUrl = "https://your-app.com/webhooks/bettapay",
   initialWebhookSecret = "whsec_test_secret123",
 }: WebhookTesterProps = {}) {
-  const { user } = useAuthStore();
-  const [endpointUrl, setEndpointUrl] = useState(initialEndpointUrl || "");
+  const [endpointUrl, setEndpointUrl] = useState(initialEndpointUrl);
   const [webhookSecret, setWebhookSecret] = useState(initialWebhookSecret);
   const [selectedEvent, setSelectedEvent] = useState<string>("payment.completed");
   const [targetUrl, setTargetUrl] = useState<string>(() => {
@@ -177,120 +210,29 @@ export function WebhookTester({
 
   const notify = useNotify();
 
-  const validateUrl = (urlStr: string): { isValid: boolean; error?: string } => {
-    const trimmed = urlStr.trim();
-    if (!trimmed) {
-      return { isValid: false, error: "Endpoint URL is required." };
-    }
-    let parsed: URL;
-    try {
-      parsed = new URL(trimmed);
-    } catch {
-      return { isValid: false, error: "Invalid URL format. Please enter a valid address (e.g., https://your-app.com/webhooks)." };
-    }
-
-    const isDev = process.env.NODE_ENV === "development" || parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
-    if (parsed.protocol !== "https:" && !isDev) {
-      return { isValid: false, error: "HTTPS protocol is required for webhook endpoints (http:// allowed only in dev/localhost)." };
-    }
-
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      return { isValid: false, error: `Invalid URL protocol "${parsed.protocol}". Only https:// (or http:// in dev) is supported.` };
-    }
-
-    return { isValid: true };
-  };
-
   const handleSend = useCallback(async () => {
-    const activeUrl = targetUrl || endpointUrl;
-    const validation = validateUrl(activeUrl);
-    if (!validation.isValid) {
-      setUrlError(validation.error || "Invalid URL");
-      notify.error(validation.error || "Invalid URL");
+    if (!endpointUrl.trim()) {
+      notify.error("Please enter a valid webhook endpoint URL");
       return;
     }
-    setUrlError(null);
 
     setIsSending(true);
     setResponse(null);
 
     const payload = SAMPLE_PAYLOADS[selectedEvent];
-    const timestampDate = new Date();
-    const isTimeoutTest = activeUrl.includes("timeout");
-    const isErrorTest = activeUrl.includes("error") || activeUrl.includes("500");
-
-    if (isTimeoutTest) {
-      setTimeout(() => {
-        setResponse({
-          status: 408,
-          statusText: "Request Timeout",
-          isTimeout: true,
-          headers: { "content-type": "application/json" },
-          body: {
-            error: "TIMEOUT",
-            message: "Target endpoint failed to respond within 5000ms timeout window.",
-          },
-        });
-        setDeliveryLog((prev) => [
-          {
-            id: `del_${Date.now()}`,
-            timestamp: timestampDate,
-            eventType: selectedEvent,
-            targetUrl: activeUrl,
-            status: "failed",
-            statusCode: 408,
-            resultType: "Timeout (No response)",
-          },
-          ...prev,
-        ]);
-        notify.error("Webhook delivery timed out after 5000ms");
-        setIsSending(false);
-      }, 500);
-      return;
-    }
-
-    if (isErrorTest) {
-      setTimeout(() => {
-        setResponse({
-          status: 500,
-          statusText: "Internal Server Error",
-          isTimeout: false,
-          headers: { "content-type": "application/json" },
-          body: {
-            error: "HTTP_500",
-            message: "Target webhook endpoint returned HTTP 500 Internal Server Error",
-          },
-        });
-        setDeliveryLog((prev) => [
-          {
-            id: `del_${Date.now()}`,
-            timestamp: timestampDate,
-            eventType: selectedEvent,
-            targetUrl: activeUrl,
-            status: "failed",
-            statusCode: 500,
-            resultType: "HTTP 500 Server Error",
-          },
-          ...prev,
-        ]);
-        notify.error("Webhook endpoint returned HTTP error status 500");
-        setIsSending(false);
-      }, 500);
-      return;
-    }
-
     const bodyString = JSON.stringify(payload);
-    const timestampStr = Math.floor(Date.now() / 1000).toString();
+    const timestamp = Math.floor(Date.now() / 1000).toString();
     const eventId = (payload as { id?: string })?.id || `evt_${Date.now()}`;
 
     try {
       const signature = await computeHmacSignature(webhookSecret, bodyString);
-      const res = await fetch(activeUrl, {
+
+      const res = await fetch(endpointUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-BettaPay-Signature": signature,
-          "X-BettaPay-Timestamp": timestampStr,
+          "X-BettaPay-Timestamp": timestamp,
           "X-BettaPay-Event-Id": eventId,
         },
         body: bodyString,
@@ -321,7 +263,6 @@ export function WebhookTester({
 
       setResponse({
         status: responseStatusCode,
-        statusText: res.statusText || (responseStatusCode === 200 ? "OK" : "Error"),
         headers: responseHeaders,
         body: responseBody,
       });
@@ -330,12 +271,10 @@ export function WebhookTester({
       setDeliveryLog((prev) => [
         {
           id: `del_${Date.now()}`,
-          timestamp: timestampDate,
+          timestamp: new Date(),
           eventType: selectedEvent,
-          targetUrl: activeUrl,
           status: isSuccess ? "success" : "failed",
           statusCode: responseStatusCode,
-          resultType: isSuccess ? "Delivered 200 OK" : `HTTP ${responseStatusCode}`,
         },
         ...prev,
       ]);
@@ -349,7 +288,6 @@ export function WebhookTester({
       const errorMsg = err instanceof Error ? err.message : "Failed to deliver webhook";
       setResponse({
         status: 0,
-        statusText: "Network Error",
         headers: {},
         body: {
           error: errorMsg,
@@ -359,12 +297,10 @@ export function WebhookTester({
       setDeliveryLog((prev) => [
         {
           id: `del_${Date.now()}`,
-          timestamp: timestampDate,
+          timestamp: new Date(),
           eventType: selectedEvent,
-          targetUrl: activeUrl,
           status: "failed",
           statusCode: 0,
-          resultType: "Network Error",
         },
         ...prev,
       ]);
@@ -372,7 +308,7 @@ export function WebhookTester({
     } finally {
       setIsSending(false);
     }
-  }, [targetUrl, endpointUrl, webhookSecret, selectedEvent, notify]);
+  }, [endpointUrl, webhookSecret, selectedEvent, notify]);
 
   const handleCopyPayload = useCallback(() => {
     navigator.clipboard.writeText(JSON.stringify(SAMPLE_PAYLOADS[selectedEvent], null, 2));
@@ -440,20 +376,13 @@ export function WebhookTester({
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="webhook-tester-url">Webhook Endpoint URL</Label>
+              <Label>Webhook Endpoint URL</Label>
               <Input
-                id="webhook-tester-url"
-                type="url"
+                value={endpointUrl}
+                onChange={(e) => setEndpointUrl(e.target.value)}
                 placeholder="https://your-app.com/webhooks/bettapay"
-                value={targetUrl}
-                onChange={(e) => {
-                  setTargetUrl(e.target.value);
-                  setUrlError(null);
-                }}
-                aria-invalid={!!urlError}
-                className={cn("h-10 border-border rounded-xl font-mono text-sm bg-muted", urlError && "border-destructive focus-visible:ring-destructive")}
+                className="h-10 border-border rounded-xl bg-muted font-mono text-sm"
               />
-              {urlError && <p className="text-xs text-destructive font-medium">{urlError}</p>}
             </div>
             <div className="space-y-2">
               <Label>Webhook Secret</Label>
@@ -517,8 +446,7 @@ export function WebhookTester({
                   <AlertCircle className="w-5 h-5 text-destructive" />
                 )}
                 <span className="text-sm font-semibold">
-                  Response: {response.status === 0 ? "0 (Network Error)" : `${response.status} ${response.statusText || (response.status === 200 ? "OK" : "Error")}`}
-                  {response.isTimeout && " (Timeout)"}
+                  Response: {response.status === 0 ? "0 (Network Error)" : `${response.status} ${response.status === 200 ? "OK" : ""}`}
                 </span>
                 {response.isTimeout && (
                   <Badge variant="destructive" className="ml-auto text-xs">

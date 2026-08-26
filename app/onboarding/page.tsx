@@ -3,8 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getDefaultRoute } from "@/lib/utils";
+import { Button } from "@/components/ui";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui";
 import { useNotify } from "@/lib/hooks/useNotify";
 import { useAuthStore } from "@/lib/store/authStore";
 import { apiClient } from "@/lib/api/axios";
@@ -192,7 +195,6 @@ export default function OnboardingPage() {
       });
       clearSavedProgress();
       localStorage.setItem("onboardingCompleted", "true");
-      localStorage.removeItem("onboardingDraft");
       const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
       document.cookie = `merchant_onboarded=true; Path=/; SameSite=Lax; Max-Age=86400${secureFlag}`;
       notify.success("Your merchant profile is ready!");

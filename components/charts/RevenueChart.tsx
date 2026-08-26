@@ -97,9 +97,13 @@ const ChartTooltip = ({ active, payload, label }: ChartTooltipProps) => {
 
     return (
       <div
-        className="border rounded-xl p-3 shadow-lg text-sm bg-card border-border text-foreground"
+        className="border rounded-xl p-3 shadow-lg text-sm"
+        style={{
+          backgroundColor: "var(--card)",
+          borderColor: "var(--border)",
+        }}
       >
-        <p className="font-semibold mb-1 text-foreground">
+        <p className="font-semibold mb-1" style={{ color: "var(--foreground)" }}>
           {label}
         </p>
         <p className="font-bold" style={{ color: "var(--primary)" }}>

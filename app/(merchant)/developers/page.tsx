@@ -49,22 +49,13 @@ export default function DevelopersPage() {
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
   const [createdFullKey, setCreatedFullKey] = useState<string | null>(null);
 
-  const handleCopyText = useCallback((text: string) => {
+  const handleCopy = useCallback((text: string) => {
     if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(text);
     }
     notify.success('Copied to clipboard');
   }, [notify]);
   const handleCopy = handleCopyText;
-
-  const handleCopyKey = useCallback((key: (typeof initialKeys)[number]) => {
-    const fullSecret = `${key.prefix}${key.type === 'live' ? '9876543210fedcbaa4f9' : '1234567890abcdefc2d8'}`;
-    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(fullSecret);
-    }
-    setShowKey(null);
-    notify.success('Copied API key to clipboard');
-  }, [notify]);
 
   const handleCreateKey = async () => {
     if (!newKeyName.trim()) {

@@ -25,8 +25,8 @@ const REDACTIONS: ReadonlyArray<{ pattern: RegExp; replacement: string }> = [
   { pattern: /\b[GMS][A-Z2-7]{55}\b/g, replacement: '[stellar-key]' },
   // Long hex blobs — tx hashes, secrets, session ids
   { pattern: /\b[a-fA-F0-9]{32,}\b/g, replacement: '[hex]' },
-  // Bearer tokens and api keys in headers (skip already-redacted placeholders like [jwt])
-  { pattern: /\b(bearer|token|apikey|api_key)\s+(?!\[(?:jwt|stellar-key|hex)\])\S+/gi, replacement: '$1 [redacted]' },
+  // Bearer tokens and api keys in headers
+  { pattern: /\b(bearer|token|apikey|api_key)\s+\S+/gi, replacement: '$1 [redacted]' },
   // Card-shaped digit runs
   { pattern: /\b\d{13,19}\b/g, replacement: '[number]' },
 ];

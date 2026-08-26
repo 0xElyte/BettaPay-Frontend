@@ -149,7 +149,7 @@ export function ensureCsrfCookieInMiddleware(
   }
   const token = generateCsrfToken();
   const isProduction = process.env.NODE_ENV === 'production';
-  response.cookies?.set(CSRF_COOKIE_NAME, token, {
+  response.cookies.set(CSRF_COOKIE_NAME, token, {
     path: '/',
     sameSite: 'strict',
     secure: isProduction,
