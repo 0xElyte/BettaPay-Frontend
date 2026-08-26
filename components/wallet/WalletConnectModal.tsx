@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Loader2, CheckCircle2, AlertTriangle, Copy, RefreshCw, X } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui';
 import { Button } from '@/components/ui';
 import {
   getWalletConnectClient,
@@ -64,9 +64,12 @@ export function WalletConnectModal({
   // Track whether this modal instance started the connection so we don't
   // attempt to start it twice on Strict Mode double-mount.
   const startedRef = useRef(false);
+  // Guard against stale session callbacks after the modal is closed.
+  const closedRef = useRef(false);
 
   const startConnection = useCallback(async () => {
     startedRef.current = true;
+    closedRef.current = false;
     setUri('');
     setErrorMsg('');
     setStatus('idle');
@@ -76,13 +79,16 @@ export function WalletConnectModal({
     const client = getWalletConnectClient();
 
     client.onStatus((s, detail) => {
+      if (closedRef.current) return;
       setStatus(s);
       if (s === 'error') setErrorMsg(detail ?? 'Unknown error');
     });
 
     client.onSession((session) => {
+      if (closedRef.current) return;
       // Brief pause so the user sees the "connected" tick before the modal closes
       setTimeout(() => {
+        if (closedRef.current) return;
         onOpenChange(false);
         onConnected(session);
       }, 800);
@@ -100,9 +106,11 @@ export function WalletConnectModal({
   // Start a connection whenever the modal opens
   useEffect(() => {
     if (!open) {
+      closedRef.current = true;
       startedRef.current = false;
       return;
     }
+    closedRef.current = false;
     if (startedRef.current) return;
     void startConnection();
   }, [open, startConnection]);
@@ -111,6 +119,7 @@ export function WalletConnectModal({
   const handleOpenChange = useCallback(
     (v: boolean) => {
       if (!v) {
+        closedRef.current = true;
         resetWalletConnectClient();
         setUri('');
         setStatus('idle');
@@ -133,9 +142,12 @@ export function WalletConnectModal({
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Connect with WalletConnect</DialogTitle>
+          <DialogDescription className="sr-only">
+            Scan the QR code with your Stellar mobile wallet to connect.
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col items-center gap-5 py-2">
+        <div className="flex flex-col items-center gap-5 py-2" aria-live="polite">
           {/* QR code */}
           {showQr && (
             <div className="flex flex-col items-center gap-3 w-full">

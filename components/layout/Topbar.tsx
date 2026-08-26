@@ -68,8 +68,10 @@ export const Topbar = ({ onMenuClick, isMenuOpen, title, unreadNotificationCount
   const isDev = process.env.NODE_ENV === 'development';
 
   const handleToggleNetwork = useCallback(() => {
-    setNetwork(isTestnet ? 'public' : 'testnet');
-  }, [isTestnet, setNetwork]);
+    const next = isTestnet ? 'public' : 'testnet';
+    setNetwork(next);
+    notify.success(`Switched to ${next === 'testnet' ? 'Testnet' : 'Mainnet'}. Balances are refreshing.`);
+  }, [isTestnet, setNetwork, notify]);
 
   return (
     <header
