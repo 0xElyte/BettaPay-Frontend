@@ -145,7 +145,7 @@ export const MobileNavDrawer = ({
         <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-            const Icon = item.icon;
+            const Icon = item.icon as any;
 
             return (
               <Link

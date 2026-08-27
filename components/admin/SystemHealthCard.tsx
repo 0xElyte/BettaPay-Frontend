@@ -82,7 +82,8 @@ interface ServiceRowProps {
 
 function ServiceRow({ service }: ServiceRowProps) {
   const config = STATUS_CONFIG[service.status];
-  const Icon = config.icon;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const Icon = config.icon as any;
   const latency = formatLatency(service.latencyMs);
   const checkedAt = formatCheckedAt(service.checkedAt);
 

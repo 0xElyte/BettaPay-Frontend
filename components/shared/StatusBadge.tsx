@@ -39,7 +39,8 @@ export const StatusBadge = ({ status, className }: StatusBadgeProps) => {
     tone: 'neutral' as StatusTone,
   };
 
-  const Icon = config.icon;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const Icon = config.icon as any;
 
   return (
     <Badge

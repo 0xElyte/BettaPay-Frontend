@@ -29,6 +29,7 @@ export default function LoginPage() {
   const { t } = useAppTranslation();
   const {
     isWalletLoading,
+    walletModalOpen,
     setWalletModalOpen,
     onGoogleSuccess,
     onWalletConnected,
@@ -56,7 +57,10 @@ export default function LoginPage() {
   return (
     <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
       <Suspense fallback={<WalletModalFallback />}>
-        <WalletModal onConnected={onWalletConnected} />
+        <WalletModal 
+          isOpen={walletModalOpen} 
+          onClose={() => setWalletModalOpen(false)} 
+        />
       </Suspense>
 
       {/* Heading */}
