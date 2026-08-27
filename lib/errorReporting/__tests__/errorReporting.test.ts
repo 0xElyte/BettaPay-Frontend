@@ -9,8 +9,8 @@ describe('scrubText', () => {
 
   it('redacts JWTs', () => {
     const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abc123def';
-    expect(scrubText(`Bad token ${jwt}`)).toContain('[jwt]');
-    expect(scrubText(`Bad token ${jwt}`)).not.toContain('eyJhbGciOiJIUzI1NiJ9');
+    expect(scrubText(`Invalid jwt ${jwt}`)).toContain('[jwt]');
+    expect(scrubText(`Invalid jwt ${jwt}`)).not.toContain('eyJhbGciOiJIUzI1NiJ9');
   });
 
   it('redacts Stellar public keys', () => {

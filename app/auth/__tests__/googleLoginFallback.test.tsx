@@ -94,6 +94,9 @@ beforeEach(() => {
     }),
   }));
   jest.doMock('next/dynamic', () => () => () => null);
+  jest.doMock('@/components/auth/EmailLoginForm', () => ({
+    EmailLoginForm: () => null,
+  }));
 });
 
 afterAll(() => {

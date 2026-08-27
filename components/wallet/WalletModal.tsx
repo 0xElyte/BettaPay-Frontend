@@ -9,6 +9,7 @@ interface WalletModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConnectWallet?: () => void;
+  onConnected?: (address: string) => void | Promise<void>;
 }
 
 function WalletConnectOptions() {
@@ -66,15 +67,22 @@ function WalletConnectOptions() {
   );
 }
 
-export function WalletModal({ isOpen, onClose }: WalletModalProps) {
+export function WalletModal({ isOpen, onClose, onConnected }: WalletModalProps) {
   const walletModalOpen = useWalletStore((s) => s.walletModalOpen);
   const setWalletModalOpen = useWalletStore((s) => s.setWalletModalOpen);
+  const address = useWalletStore((s) => s.address);
 
   useEffect(() => {
     if (isOpen !== walletModalOpen) {
       setWalletModalOpen(isOpen);
     }
   }, [isOpen, walletModalOpen, setWalletModalOpen]);
+
+  useEffect(() => {
+    if (address && isOpen && onConnected) {
+      onConnected(address);
+    }
+  }, [address, isOpen, onConnected]);
 
   const handleClose = () => {
     setWalletModalOpen(false);
