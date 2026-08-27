@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui';
 import { ErrorDisplay } from '@/components/shared';
 import { TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatNumber } from '@/lib/utils/format';
 import { ErrorBoundary } from '@/components/shared';
 import { usePayments } from '@/lib/api/hooks';
 import { aggregatePaymentsByDay, mockChartData, type RevenueChartPoint, type RevenuePayment } from '@/components/charts/RevenueChart';
@@ -98,7 +99,7 @@ export const RevenueChartSection = memo(function RevenueChartSection({
   }, [total, chartData.length]);
 
   // WoW change vs mock fallback is not available from backend; keep static placeholder but derived display when possible
-  const formattedTotal = total.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  const formattedTotal = formatNumber(total, undefined, { maximumFractionDigits: 0 });
 
   return (
     <Card className="lg:col-span-4 border border-border bg-card shadow-sm">
@@ -152,11 +153,11 @@ export const RevenueChartSection = memo(function RevenueChartSection({
         <div className="flex items-center gap-6 pt-4 border-t border-border mt-2">
           <div>
             <p className="text-xs text-muted-foreground">Peak day</p>
-            <p className="text-sm font-semibold text-foreground">{peak ? `${peak.name} · $${peak.total.toLocaleString()}` : '—'}</p>
+            <p className="text-sm font-semibold text-foreground">{peak ? `${peak.name} · $${formatNumber(peak.total, undefined, { maximumFractionDigits: 0 })}` : '—'}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Weekly avg</p>
-            <p className="text-sm font-semibold text-foreground">${weeklyAvg.toLocaleString()}</p>
+            <p className="text-sm font-semibold text-foreground">${formatNumber(weeklyAvg, undefined, { maximumFractionDigits: 0 })}</p>
           </div>
           <div className="ml-auto flex items-center gap-1 text-emerald-600 text-xs font-semibold bg-emerald-50 px-3 py-1.5 rounded-full">
             <TrendingUp className="w-3 h-3" aria-hidden="true" />

@@ -6,6 +6,7 @@ import axios from 'axios';
 import { useTheme } from 'next-themes';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { Skeleton } from '@/components/ui';
+import { formatNumber } from '@/lib/utils/format';
 
 interface ChartDataItem {
   name: string;
@@ -53,8 +54,8 @@ export default function PlatformVolumeChart({ height = 300 }: { height?: number 
           {data.map((row, index) => (
             <tr key={index}>
               <td>{row.name}</td>
-              <td>${row.volume.toLocaleString()}</td>
-              <td>${row.fee.toLocaleString()}</td>
+              <td>${formatNumber(row.volume, undefined, { maximumFractionDigits: 0 })}</td>
+              <td>${formatNumber(row.fee, undefined, { maximumFractionDigits: 0 })}</td>
             </tr>
           ))}
         </tbody>

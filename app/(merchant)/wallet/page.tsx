@@ -24,6 +24,7 @@ import { ErrorDisplay } from "@/components/shared";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useWalletStore } from "@/lib/store/walletStore";
 import { getStellarExplorerAccountUrl } from "@/lib/utils/explorer";
+import { formatNumber } from "@/lib/utils/format";
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui";
@@ -209,7 +210,10 @@ export default function WalletPage() {
                 {primaryBalance.assetCode} Balance
               </p>
               <p className="text-4xl font-bold">
-                {parseFloat(primaryBalance.balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 7 })}{" "}
+                {formatNumber(parseFloat(primaryBalance.balance), undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 7,
+                })}{" "}
                 <span className="text-lg font-normal text-background/60">{primaryBalance.assetCode}</span>
               </p>
             </div>
@@ -341,7 +345,10 @@ export default function WalletPage() {
                   )}
                 </div>
                 <p className="text-2xl font-bold text-foreground">
-                  {parseFloat(asset.balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 7 })}
+                  {formatNumber(parseFloat(asset.balance), undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 7,
+                  })}
                 </p>
               </CardContent>
             </Card>

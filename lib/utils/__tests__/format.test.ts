@@ -47,6 +47,24 @@ describe('utils/format', () => {
     it('handles large numbers', () => {
       expect(formatCurrency(1234567890.12, 'USDC')).toBe('USDC 1,234,567,890.12');
     });
+
+    it('supports showDecimals:false for whole USDC amounts', () => {
+      expect(formatCurrency(1250, 'USDC', { showDecimals: false })).toBe('USDC 1,250');
+      expect(formatCurrency(1250.5, 'USDC', { showDecimals: false })).toBe('USDC 1,250.50');
+    });
+
+    it('abbreviates extreme magnitudes with a locale-aware number body', () => {
+      expect(formatCurrency(1.5e12, 'USDC')).toBe('USDC 1.50T');
+      expect(formatCurrency(2e15, 'NGN')).toBe('₦2.00Q');
+    });
+
+    it('accepts an options object with an explicit locale', () => {
+      const value = new Intl.NumberFormat('fr-FR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(1234.56);
+      expect(formatCurrency(1234.56, 'USDC', { locale: 'fr' })).toBe(`USDC ${value}`);
+    });
   });
 
   describe('truncateAddress()', () => {

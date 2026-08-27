@@ -13,6 +13,7 @@ import {
   Legend,
   CartesianGrid,
 } from "recharts";
+import { formatNumber } from "@/lib/utils/format";
 
 /** Minimal shape this chart needs from a payment — matches `ApiPayment`. */
 export interface RevenuePayment {
@@ -83,7 +84,7 @@ export const aggregatePaymentsByDay = (
 };
 
 const formatUsd = (value: number) =>
-  `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  `$${formatNumber(value, undefined, { maximumFractionDigits: 0 })}`;
 
 interface ChartTooltipProps {
   active?: boolean;
@@ -176,8 +177,8 @@ export default function RevenueChart({ height = 260, data }: RevenueChartProps) 
           {chartData.map((row, index) => (
             <tr key={index}>
               <td>{row.name}</td>
-              <td>${row.total.toLocaleString()}</td>
-              <td>${row.volume.toLocaleString()}</td>
+              <td>${formatNumber(row.total, undefined, { maximumFractionDigits: 0 })}</td>
+              <td>${formatNumber(row.volume, undefined, { maximumFractionDigits: 0 })}</td>
             </tr>
           ))}
         </tbody>
