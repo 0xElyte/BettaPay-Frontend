@@ -10,12 +10,13 @@ const buttonBase =
 
 interface ErrorBoundaryProps {
   children: ReactNode;
-  /** Optional custom fallback; when omitted the default error card is shown. */
+  pathname?: string;
   fallback?: ReactNode;
 }
 
 interface ErrorBoundaryState {
   hasError: boolean;
+  pathname?: string;
 }
 
 /**
@@ -26,19 +27,33 @@ export class ErrorBoundary extends Component<
   ErrorBoundaryProps,
   ErrorBoundaryState
 > {
-  state: ErrorBoundaryState = { hasError: false };
+  state: ErrorBoundaryState = {
+    hasError: false,
+    pathname: this.props.pathname,
+  };
 
   static getDerivedStateFromError(): ErrorBoundaryState {
     return { hasError: true };
   }
 
-  componentDidCatch(error: unknown, info: unknown) {
-    // Log so the failure is still visible in the console during development.
-    console.error("Unhandled render error caught by ErrorBoundary", error, info);
+  static getDerivedStateFromProps(
+    props: ErrorBoundaryProps,
+    state: ErrorBoundaryState,
+  ): ErrorBoundaryState | null {
+    if (props.pathname !== state.pathname) {
+      return { hasError: false, pathname: props.pathname };
+    }
+    return null;
+  }
 
-    // Ship it to the reporting backend with route/store context so production
-    // render crashes are visible to the team, not just to the user.
-    const componentStack = (info as { componentStack?: string } | null)?.componentStack;
+  componentDidCatch(error: unknown, info: unknown) {
+    console.error(
+      "Unhandled render error caught by ErrorBoundary",
+      error,
+      info,
+    );
+    const componentStack = (info as { componentStack?: string } | null)
+      ?.componentStack;
     captureException(error, { source: "boundary", componentStack });
   }
 
@@ -90,4 +105,20 @@ export class ErrorBoundary extends Component<
       </div>
     );
   }
+}
+
+export function ErrorBoundaryWithRouter({
+  children,
+  fallback,
+}: {
+  children: ReactNode;
+  fallback?: ReactNode;
+}) {
+  const pathname =
+    typeof window !== "undefined" ? window.location.pathname : undefined;
+  return (
+    <ErrorBoundary pathname={pathname} fallback={fallback}>
+      {children}
+    </ErrorBoundary>
+  );
 }
