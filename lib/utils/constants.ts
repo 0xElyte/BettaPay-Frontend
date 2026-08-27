@@ -1,5 +1,11 @@
 export const SUPPORTED_CURRENCIES = ['USDC', 'XLM', 'USDT'] as const;
 
+export const SUPPORTED_SETTLEMENT_CURRENCIES = ['NGN', 'USD', 'USDC', 'GHS', 'KES', 'ZAR'] as const;
+export type SettlementCurrency = typeof SUPPORTED_SETTLEMENT_CURRENCIES[number];
+
+export const ONBOARDING_COMPLETED_KEY = 'bp_onboarded' as const;
+
+
 export const STELLAR_NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK || 'testnet';
 export const HORIZON_URL = process.env.NEXT_PUBLIC_STELLAR_HORIZON_URL || 'https://horizon-testnet.stellar.org';
 
