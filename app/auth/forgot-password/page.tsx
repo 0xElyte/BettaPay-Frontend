@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useId } from 'react';
+import { useState, useId, useRef } from 'react';
 import Link from 'next/link';
 import { Loader2, MailCheck, ArrowLeft } from 'lucide-react';
 
@@ -29,6 +29,7 @@ export default function ForgotPasswordPage() {
   const [submitError, setSubmitError] = useState<SubmitError>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const emailInputRef = useRef<HTMLInputElement>(null);
   const emailId = useId();
   const errorId = useId();
 
@@ -43,6 +44,7 @@ export default function ForgotPasswordPage() {
 
     if (!isEmailValid(email)) {
       setSubmitError('invalidEmail');
+      emailInputRef.current?.focus();
       return;
     }
 
@@ -132,7 +134,9 @@ export default function ForgotPasswordPage() {
               {t('forgotPassword.emailLabel')}
             </Label>
             <Input
+              ref={emailInputRef}
               id={emailId}
+              name="email"
               type="email"
               autoComplete="email"
               inputMode="email"

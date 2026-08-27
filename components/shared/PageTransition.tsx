@@ -1,15 +1,16 @@
-// Explicit ambient type declaration to ensure zero compilation conflicts
-declare var React: any;
+"use client";
+
+import React, { useEffect, useRef } from 'react';
 
 interface PageTransitionProps {
-  children: any;
-  routingKey: string; // The active route path (e.g., location.pathname or router.asPath)
+  children: React.ReactNode;
+  routingKey?: string; // The active route path (e.g., location.pathname or router.asPath)
 }
 
 // Global dictionary cache to store viewport depths across client-side navigation
 const scrollCoordinateCache: Record<string, number> = {};
 
-export function PageTransition({ children, routingKey }: PageTransitionProps) {
+export function PageTransition({ children, routingKey = '' }: PageTransitionProps) {
   const containerRef = React.useRef(null);
 
   // Capture scroll coordinates immediately prior to unmounting the current active route

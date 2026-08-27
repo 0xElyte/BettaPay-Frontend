@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from 'react';
+import React, { useState, useRef, Suspense } from 'react';
 import { Loader2, Shield, Zap, Globe, ArrowRight } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
@@ -11,6 +11,7 @@ import { NetworkTooltip } from '@/components/ui/network-tooltip';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAppTranslation } from '@/lib/i18n/useAppTranslation';
 import { useLogin } from '@/lib/hooks/useLogin';
+import { EmailLoginForm } from '@/components/auth/EmailLoginForm';
 
 // Module-level sentinel: fires the dev-mode missing-config warning at most
 // once across the lifetime of the JS bundle. Avoids the Strict Mode effect
@@ -60,6 +61,7 @@ export default function LoginPage() {
         <WalletModal 
           isOpen={walletModalOpen} 
           onClose={() => setWalletModalOpen(false)} 
+          onConnected={onWalletConnected}
         />
       </Suspense>
 
@@ -71,8 +73,18 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {/* Auth buttons */}
+      {/* Auth buttons & Email Form */}
       <div className="space-y-3">
+        {/* Email / Password Sign In Form */}
+        <EmailLoginForm />
+
+        <div className="relative flex items-center py-1">
+          <div className="flex-1 h-px bg-border" />
+          <span className="px-3 text-xs text-muted-foreground font-medium">{t('login.or')}</span>
+          <div className="flex-1 h-px bg-border" />
+        </div>
+
+        {/* Alternate Login Options: Wallet & Google */}
         {googleConfigured ? (
           <div className="flex justify-center [&>div]:w-full rounded-xl overflow-hidden border border-border">
             <GoogleLogin
@@ -103,12 +115,6 @@ export default function LoginPage() {
           </NetworkTooltip>
         )}
 
-        <div className="relative flex items-center py-1">
-          <div className="flex-1 h-px bg-border" />
-          <span className="px-3 text-xs text-muted-foreground font-medium">{t('login.or')}</span>
-          <div className="flex-1 h-px bg-border" />
-        </div>
-
         <Button
           type="button"
           onClick={() => setWalletModalOpen(true)}
@@ -119,13 +125,14 @@ export default function LoginPage() {
           {t('login.connectWallet')}
         </Button>
 
-        {/* Forgot password */}
-        <div className="text-center pt-1">
+        {/* Register link */}
+        <div className="text-center pt-2">
+          <span className="text-xs text-muted-foreground">Don&apos;t have an account? </span>
           <Link
-            href="/auth/forgot-password"
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            href="/auth/register"
+            className="text-xs font-semibold text-primary hover:underline"
           >
-            {t('login.forgotPassword')}
+            Create an account
           </Link>
         </div>
       </div>

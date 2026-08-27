@@ -19,6 +19,8 @@ export async function GET(req: NextRequest) {
       role: role || 'merchant',
     },
     token,
+    expiresAt: Date.now() + 1800 * 1000,
+    expiresIn: 1800,
   });
 }
 
