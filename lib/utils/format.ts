@@ -22,6 +22,9 @@ export const toIntlLocale = (locale?: string): string =>
   intlLocales[locale ? resolveLocale(locale) : getActiveLocale()];
 
 export const formatCurrency = (amount: number, currency: string = 'USDC', locale?: string) => {
+  // Normalize floating-point residuals that would otherwise render as -0.00.
+  if (Math.abs(amount) < 0.005) amount = 0;
+
   const base = locale ? resolveLocale(locale) : getActiveLocale();
 
   if (currency === 'NGN') {

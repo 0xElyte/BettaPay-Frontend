@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useTheme } from "next-themes";
 import {
   ResponsiveContainer,
@@ -10,6 +10,7 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
+  Legend,
 } from "recharts";
 // Imported directly (not via the barrel) to keep this lazy-loaded chunk lean.
 import { ErrorDisplay } from "@/components/shared/ErrorDisplay";
@@ -17,6 +18,8 @@ import { ErrorDisplay } from "@/components/shared/ErrorDisplay";
 export interface FxRatePoint {
   date: string;
   rate: number;
+  /** Optional secondary asset rate (e.g., XLM/NGN). When absent, the secondary series is not rendered. */
+  secondaryRate?: number | null;
 }
 
 /** 7 days of USDC/NGN rates — used when the caller does not supply live data. */
@@ -34,20 +37,25 @@ const formatNgn = (value: number) => `₦${value.toLocaleString()}`;
 
 export interface FxTooltipProps {
   active?: boolean;
-  payload?: { value: number }[];
+  payload?: { value: number; name?: string; dataKey?: string }[];
   label?: string;
 }
 
 export const FxTooltip = ({ active, payload, label }: FxTooltipProps) => {
   if (active && payload && payload.length) {
+    // Filter out empty / null secondary entries so tooltip doesn't show ghost values.
+    const populated = payload.filter((p) => typeof p.value === 'number' && !Number.isNaN(p.value));
+    if (populated.length === 0) return null;
     return (
       <div 
         className="border rounded-xl p-3 shadow-lg text-sm bg-card border-border text-foreground"
       >
         <p className="font-semibold mb-1 text-foreground">{label}</p>
-        <p className="font-bold text-primary">
-          {formatNgn(payload[0]?.value ?? 0)}
-        </p>
+        {populated.map((entry, idx) => (
+          <p key={idx} className="font-bold" style={{ color: entry.dataKey === 'secondaryRate' ? 'var(--chart-2, var(--secondary, var(--primary)))' : 'var(--primary)' }}>
+            {entry.name ?? (entry.dataKey === 'secondaryRate' ? 'XLM/NGN' : 'USDC/NGN')}: {formatNgn(entry.value)}
+          </p>
+        ))}
       </div>
     );
   }
@@ -56,7 +64,7 @@ export const FxTooltip = ({ active, payload, label }: FxTooltipProps) => {
 
 interface FxRateChartProps {
   height?: number;
-  /** Live rate history. Falls back to 7 days of mock data when omitted. */
+  /** Live rate history. Falls back to 7 days of mock USDC/NGN data when omitted. Aligns with useRates primary semantics (USDC/NGN). */
   data?: FxRatePoint[];
   /** Set when the caller's rate fetch failed — renders an in-chart error state. */
   error?: string | Error | null;
@@ -81,8 +89,24 @@ export default function FxRateChart({
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  const chartData = data && data.length > 0 ? data : fxHistory;
+  // Align with useRates: primary is USDC/NGN (rate). Fallback to mock history when data is undefined,
+  // mirroring the hook's fallback to null primaryRate — the chart shows mock USDC/NGN history as a demo,
+  // but live data, when supplied, is expected to be USDC/NGN for primary consistency.
+  const chartData = useMemo(() => (data && data.length > 0 ? data : fxHistory), [data]);
   const hasError = Boolean(error) || (data !== undefined && data.length === 0);
+
+  // Guard each series: only render a series if it has at least one populated point.
+  // This prevents ghost series / legend duplication when secondary asset is absent.
+  const hasPrimary = useMemo(
+    () => chartData.some((d) => typeof d.rate === 'number' && !Number.isNaN(d.rate)),
+    [chartData]
+  );
+  const hasSecondary = useMemo(
+    () => chartData.some((d) => d.secondaryRate != null && typeof d.secondaryRate === 'number' && !Number.isNaN(d.secondaryRate)),
+    [chartData]
+  );
+
+  const hasAnySeries = hasPrimary || hasSecondary;
 
   if (hasError) {
     return (
@@ -95,6 +119,22 @@ export default function FxRateChart({
           }
           onRetry={onRetry}
         />
+      </div>
+    );
+  }
+
+  // Centered empty state per series: if no series has data, show a single centered empty state.
+  // If only one series is missing, we don't render that series at all (no ghost) and let the
+  // populated series fill the chart; the legend will only show the populated series.
+  if (!hasAnySeries) {
+    return (
+      <div
+        role="region"
+        aria-label="USDC to NGN exchange rate chart"
+        className="w-full flex items-center justify-center border border-dashed border-border rounded-xl bg-muted/20"
+        style={{ height }}
+      >
+        <p className="text-sm text-muted-foreground">No rate data available</p>
       </div>
     );
   }
@@ -112,6 +152,7 @@ export default function FxRateChart({
           <tr>
             <th scope="col">Date</th>
             <th scope="col">Exchange Rate (NGN)</th>
+            {hasSecondary && <th scope="col">Secondary Rate (NGN)</th>}
           </tr>
         </thead>
         <tbody>
@@ -119,6 +160,7 @@ export default function FxRateChart({
             <tr key={index}>
               <td>{row.date}</td>
               <td>{formatNgn(row.rate)}</td>
+              {hasSecondary && <td>{row.secondaryRate != null ? formatNgn(row.secondaryRate) : '—'}</td>}
             </tr>
           ))}
         </tbody>
@@ -134,6 +176,10 @@ export default function FxRateChart({
             <linearGradient id="colorFxRate" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="var(--primary)" stopOpacity={isDark ? 0.4 : 0.25} />
               <stop offset="95%" stopColor="var(--primary)" stopOpacity={isDark ? 0.05 : 0} />
+            </linearGradient>
+            <linearGradient id="colorFxSecondary" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="var(--chart-2, var(--secondary))" stopOpacity={isDark ? 0.35 : 0.2} />
+              <stop offset="95%" stopColor="var(--chart-2, var(--secondary))" stopOpacity={isDark ? 0.05 : 0} />
             </linearGradient>
           </defs>
           <CartesianGrid
@@ -160,25 +206,56 @@ export default function FxRateChart({
             aria-label="Exchange Rate (NGN)"
           />
           <Tooltip content={<FxTooltip />} />
-          <Area
-            type="monotone"
-            dataKey="rate"
-            name="Exchange Rate (NGN)"
-            stroke="var(--primary)"
-            strokeWidth={2.5}
-            fillOpacity={1}
-            fill="url(#colorFxRate)"
-            dot={false}
-            activeDot={{
-              r: 5,
-              fill: "var(--primary)",
-              stroke: "var(--card)",
-              strokeWidth: 2,
-            }}
-          />
+          {/* Only render legend entries for populated series — missing secondary doesn't produce a ghost entry */}
+          {(hasPrimary || hasSecondary) && (
+            <Legend
+              wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+              iconType="plainline"
+            />
+          )}
+          {hasPrimary && (
+            <Area
+              type="monotone"
+              dataKey="rate"
+              name="USDC/NGN"
+              stroke="var(--primary)"
+              strokeWidth={2.5}
+              fillOpacity={1}
+              fill="url(#colorFxRate)"
+              dot={false}
+              activeDot={{
+                r: 5,
+                fill: "var(--primary)",
+                stroke: "var(--card)",
+                strokeWidth: 2,
+              }}
+            />
+          )}
+          {hasSecondary && (
+            <Area
+              type="monotone"
+              dataKey="secondaryRate"
+              name="XLM/NGN"
+              stroke="var(--chart-2, var(--secondary))"
+              strokeWidth={2}
+              fillOpacity={1}
+              fill="url(#colorFxSecondary)"
+              dot={false}
+              activeDot={{
+                r: 4,
+                fill: "var(--chart-2, var(--secondary))",
+                stroke: "var(--card)",
+                strokeWidth: 2,
+              }}
+              connectNulls={false}
+            />
+          )}
         </AreaChart>
       </ResponsiveContainer>
+
+      {/* Per-series centered empty state: when a series is expected but has no data, the chart
+          area for that series is simply not rendered. If both series are missing, the top-level
+          empty state above is shown. This avoids ghost series while keeping the populated series visible. */}
     </div>
   );
 }
-

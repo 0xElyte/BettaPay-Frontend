@@ -423,7 +423,7 @@ export const SettlementConfirmation = ({
                   {feeSnapshot.capApplied && (
                     <div className="flex justify-between items-center text-primary">
                       <span>Fee Cap Applied</span>
-                      <span>Max <CurrencyDisplay amount={feeSnapshot.capAmountUsdc ?? 0} /></span>
+                      <span>Max <CurrencyDisplay amount={feeSnapshot.capAmountUsdc} /></span>
                     </div>
                   )}
 

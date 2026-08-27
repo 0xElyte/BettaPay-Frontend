@@ -82,7 +82,7 @@ const TransactionCard = memo(function TransactionCard({ tx, onClick }: Transacti
         </div>
         <div className="flex items-center justify-between">
           <span className="text-xs text-muted-foreground">Amount (NGN)</span>
-          <CurrencyDisplay amount={tx.amountNgn ?? 0} currency="NGN" showDecimals={false} />
+          <CurrencyDisplay amount={tx.amountNgn} currency="NGN" showDecimals={false} />
         </div>
       </div>
     </div>
@@ -124,7 +124,7 @@ const TransactionRow = memo(function TransactionRow({ tx, translateY, onClick }:
         <CurrencyDisplay amount={tx.amountUsdc} currency="USDC" />
       </td>
       <td className="text-right text-muted-foreground px-4 py-2 text-sm">
-        <CurrencyDisplay amount={tx.amountNgn ?? 0} currency="NGN" showDecimals={false} />
+        <CurrencyDisplay amount={tx.amountNgn} currency="NGN" showDecimals={false} />
       </td>
       <td className="text-center px-4 py-2 text-sm">
         <StatusBadge status={tx.status} />
