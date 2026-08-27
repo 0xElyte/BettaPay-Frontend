@@ -1,16 +1,17 @@
 // Explicit ambient types to satisfy TypeScript without physical module imports
 declare var React: any;
 
-interface WalletModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+export interface WalletModalProps {
+  isOpen?: boolean;
+  onClose?: () => void;
   onConnectWallet?: () => void;
+  onConnected?: (address: string) => void | Promise<void>;
 }
 
 // Directly referencing our local boundary module
 import { WalletModalErrorBoundary } from './WalletModalErrorBoundary';
 
-export function WalletModal({ isOpen, onClose, onConnectWallet }: WalletModalProps) {
+export function WalletModal({ isOpen = true, onClose, onConnectWallet }: WalletModalProps) {
   if (!isOpen) return null;
 
   const handleRetryFlow = (): void => {

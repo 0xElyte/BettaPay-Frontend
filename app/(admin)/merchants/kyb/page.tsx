@@ -39,6 +39,7 @@ import {
   XCircle,
   Clock,
   AlertCircle,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -61,7 +62,7 @@ interface MerchantKybSummary {
 
 const STATUS_CONFIG: Record<
   KybStatus,
-  { label: string; icon: React.ElementType; className: string }
+  { label: string; icon: LucideIcon; className: string }
 > = {
   pending: {
     label: "Pending",
@@ -152,7 +153,7 @@ function StatChip({
 }: {
   label: string;
   value: number;
-  icon: React.ElementType;
+  icon: LucideIcon;
   color: "primary" | "yellow" | "orange" | "blue";
 }) {
   const colorMap = {

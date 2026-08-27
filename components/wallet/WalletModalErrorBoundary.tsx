@@ -12,6 +12,8 @@ declare global {
 interface WalletModalErrorBoundaryProps {
   children: any;
   onRetry?: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function WalletModalErrorBoundary({ children, onRetry }: WalletModalErrorBoundaryProps) {
