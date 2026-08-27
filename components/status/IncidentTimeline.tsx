@@ -95,7 +95,7 @@ export function IncidentTimeline({ incidents }: IncidentTimelineProps) {
       <div className="space-y-6">
         {filtered.map((incident) => {
           const badgeConfig = statusBadge[incident.status];
-          const BadgeIcon = badgeConfig.icon;
+          const BadgeIcon = badgeConfig.icon as any;
           const closedAt = incident.resolvedAt ?? incident.updates.at(-1)?.timestamp ?? null;
 
           return (
@@ -146,7 +146,7 @@ export function IncidentTimeline({ incidents }: IncidentTimelineProps) {
                   <div className="space-y-3">
                     {incident.updates.map((update, idx) => {
                       const updateCfg = statusBadge[update.status];
-                      const UpdateIcon = updateCfg.icon;
+                      const UpdateIcon = updateCfg.icon as any;
                       return (
                         <div key={idx} className="flex items-start gap-3 pl-1">
                           <UpdateIcon

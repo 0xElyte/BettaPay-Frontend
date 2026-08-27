@@ -109,7 +109,7 @@ export const MerchantSidebar = () => {
         {merchantNavItems.map((item) => {
           const isActive =
             pathname === item.href || pathname.startsWith(item.href + "/");
-          const Icon = item.icon;
+          const Icon = item.icon as any;
 
           return (
             <Link

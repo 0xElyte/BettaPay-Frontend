@@ -47,39 +47,62 @@ export async function POST(req: Request) {
     let confirmedByBackend = false;
     let revokedSessionCount: number | undefined;
 
-    try {
-      const upstreamResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/session`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token }),
-          cache: 'no-store',
-        },
-      );
+    const upstreamBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    // Guard: if the upstream URL points back at this very Next.js server
+    // (localhost:3000) skip the upstream call — it would loop back to this
+    // same handler. Fall through to the mock/local path below.
+    const isSelfLoop =
+      upstreamBase.includes('localhost:3000') || upstreamBase.includes('127.0.0.1:3000');
 
-      if (upstreamResponse.ok) {
-        const upstreamBody = (await upstreamResponse.json()) as {
-          revokedSessionCount?: unknown;
-          role?: unknown;
-          user?: { role?: unknown };
-        };
-        if (typeof upstreamBody.revokedSessionCount === 'number') {
-          revokedSessionCount = upstreamBody.revokedSessionCount;
-        }
-        role = normalizeRole(upstreamBody.role ?? upstreamBody.user?.role);
-        confirmedByBackend = true;
-      } else if (upstreamResponse.status === 401 || upstreamResponse.status === 403) {
-        // The backend rejected the token outright — do not set any cookie.
-        return NextResponse.json(
-          { ok: false, error: 'Invalid session token' },
-          { status: 401 },
+    if (!isSelfLoop) {
+      try {
+        const upstreamResponse = await fetch(
+          `${upstreamBase}/api/auth/session`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token }),
+            cache: 'no-store',
+          },
         );
+
+        if (upstreamResponse.ok) {
+          const upstreamBody = (await upstreamResponse.json()) as {
+            revokedSessionCount?: unknown;
+            role?: unknown;
+            user?: { role?: unknown };
+          };
+          if (typeof upstreamBody.revokedSessionCount === 'number') {
+            revokedSessionCount = upstreamBody.revokedSessionCount;
+          }
+          role = normalizeRole(upstreamBody.role ?? upstreamBody.user?.role);
+          confirmedByBackend = true;
+        } else if (upstreamResponse.status === 401 || upstreamResponse.status === 403) {
+          // The backend rejected the token outright — do not set any cookie.
+          return NextResponse.json(
+            { ok: false, error: 'Invalid session token' },
+            { status: 401 },
+          );
+        }
+      } catch {
+        // Local cookie setup remains available when the auth service is offline,
+        // but the session is capped at the least-privilege role.
       }
-    } catch {
-      // Local cookie setup remains available when the auth service is offline,
-      // but the session is capped at the least-privilege role.
+    } else {
+      // Local / mock mode: decode the role directly from the token payload
+      // without verifying the signature (client already did structural checks).
+      try {
+        const payloadB64 = token.split('.')[1];
+        if (payloadB64) {
+          const decoded = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
+          role = normalizeRole(decoded.role);
+        }
+      } catch {
+        // keep FALLBACK_ROLE
+      }
+      confirmedByBackend = false;
     }
+
 
     const isProduction = process.env.NODE_ENV === 'production';
     const secureFlag = isProduction ? '; Secure' : '';

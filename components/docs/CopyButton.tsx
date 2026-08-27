@@ -12,17 +12,42 @@ interface CopyButtonProps {
   className?: string;
 }
 
+/**
+ * Copy text to the clipboard, falling back to `document.execCommand('copy')`
+ * for insecure (http) development contexts where `navigator.clipboard` is
+ * unavailable.
+ */
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // Clipboard API unavailable (e.g. http dev server) — fall back to execCommand.
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+}
+
 /** Small copy-to-clipboard button shared by every code surface in the docs. */
 export function CopyButton({ value, label = 'Copy', className }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(value);
+    const ok = await copyToClipboard(value);
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard unavailable (e.g. insecure context) — fail silently.
     }
   };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState, useCallback, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import { Button } from "@/components/ui";
 import { Skeleton } from "@/components/ui";
@@ -60,12 +60,6 @@ const EVENT_CONFIG: Record<
 
 // ─── Connection status indicator ─────────────────────────────────────────────
 
-/**
- * Small dot indicator rendered in the card header.
- * - connected → animated green ping (live stream)
- * - polling   → static amber dot (fallback polling)
- * - disconnected / connecting → nothing (or spinner handled by isLoading)
- */
 function ConnectionDot({
   status,
   hasEvents,
@@ -103,7 +97,6 @@ function ConnectionDot({
   return null;
 }
 
-/** Compact banner shown when the feed is in a degraded state. */
 function PollingBanner({ status }: { status: ActivityConnectionStatus }) {
   if (status !== "polling") return null;
   return (
@@ -127,6 +120,39 @@ function formatTimestamp(ts: string): string {
   return `${days}d ago`;
 }
 
+function groupEventsByDay(events: ActivityEvent[]) {
+  const groups: Record<string, ActivityEvent[]> = {};
+  events.forEach((event) => {
+    const date = new Date(event.timestamp);
+    const dateStr = date.toDateString();
+    if (!groups[dateStr]) {
+      groups[dateStr] = [];
+    }
+    groups[dateStr].push(event);
+  });
+  return groups;
+}
+
+function getDayLabel(dateStr: string): string {
+  const date = new Date(dateStr);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  if (date.toDateString() === today.toDateString()) {
+    return "Today";
+  }
+  if (date.toDateString() === yesterday.toDateString()) {
+    return "Yesterday";
+  }
+  return date.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 // ─── Activity item ────────────────────────────────────────────────────────────
 
 const ActivityItem = memo(function ActivityItem({
@@ -139,12 +165,12 @@ const ActivityItem = memo(function ActivityItem({
     color: "text-muted-foreground",
     bgColor: "bg-muted",
   };
-  const Icon = config.icon;
+  const Icon = config.icon as any;
 
   return (
     <Link
       href={event.detailHref}
-      className="flex items-center gap-3 py-2.5 px-2 rounded-xl hover:bg-muted transition-colors group"
+      className="flex items-center gap-3 py-2 px-2.5 rounded-xl hover:bg-muted transition-colors group"
     >
       <div
         className={cn(
@@ -174,15 +200,22 @@ const ActivityItem = memo(function ActivityItem({
 
 function FeedSkeleton() {
   return (
-    <div className="space-y-1">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 py-2.5 px-2">
-          <Skeleton className="w-9 h-9 rounded-xl shrink-0" />
-          <div className="flex-1 space-y-1.5">
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-3 w-1/2" />
+    <div className="space-y-4">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="space-y-2">
+          <Skeleton className="h-4 w-24 rounded-lg" />
+          <div className="space-y-1">
+            {Array.from({ length: 2 }).map((_, j) => (
+              <div key={j} className="flex items-center gap-3 py-2 px-2">
+                <Skeleton className="w-9 h-9 rounded-xl shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
+                <Skeleton className="h-3 w-12 shrink-0" />
+              </div>
+            ))}
           </div>
-          <Skeleton className="h-3 w-12 shrink-0" />
         </div>
       ))}
     </div>
@@ -195,15 +228,65 @@ export interface ActivityFeedProps {
   className?: string;
 }
 
+const FILTER_TABS = [
+  { value: "all", label: "All" },
+  { value: "payments", label: "Payments" },
+  { value: "settlements", label: "Settlements" },
+  { value: "webhooks", label: "Webhooks" },
+];
+
 export function ActivityFeed({ className }: ActivityFeedProps) {
-  const { events, isLoading, error, refetch, connectionStatus } =
-    useActivityFeed(20);
+  const [filter, setFilter] = useState("all");
+  const {
+    events,
+    isLoading,
+    error,
+    refetch,
+    connectionStatus,
+    loadMore,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useActivityFeed(10, filter);
+
+  // Group events by day
+  const grouped = groupEventsByDay(events);
+  const sortedDays = Object.keys(grouped).sort(
+    (a, b) => new Date(b).getTime() - new Date(a).getTime()
+  );
+
+  // Infinite Scroll Observer
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const sentinelRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (isLoading || isFetchingNextPage) return;
+      if (observerRef.current) observerRef.current.disconnect();
+      if (!node) return;
+
+      if (typeof IntersectionObserver !== "undefined") {
+        observerRef.current = new IntersectionObserver((entries) => {
+          if (entries[0].isIntersecting && hasNextPage) {
+            void loadMore();
+          }
+        });
+        observerRef.current.observe(node);
+      }
+    },
+    [isLoading, isFetchingNextPage, hasNextPage, loadMore]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, []);
 
   return (
     <Card
-      className={cn("border border-border bg-card shadow-sm", className)}
+      className={cn("border border-border bg-card shadow-sm flex flex-col max-h-[600px]", className)}
     >
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-3 shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CardTitle className="text-base font-semibold text-foreground">
@@ -225,27 +308,65 @@ export function ActivityFeed({ className }: ActivityFeedProps) {
         </div>
       </CardHeader>
 
-      <CardContent className="pt-0">
+      <CardContent className="pt-0 flex-1 overflow-y-auto flex flex-col min-h-0">
         <PollingBanner status={connectionStatus} />
 
+        {/* Filter Toggle */}
+        <div className="flex gap-1 p-1 bg-muted rounded-xl mb-4 text-xs font-semibold shrink-0">
+          {FILTER_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => setFilter(tab.value)}
+              className={cn(
+                "flex-1 min-h-[32px] px-2.5 rounded-lg transition-all whitespace-nowrap",
+                filter === tab.value
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         {error ? (
-          <div className="py-8">
+          <div className="py-8 my-auto">
             <ErrorDisplay message={error} onRetry={refetch} />
           </div>
         ) : isLoading ? (
           <FeedSkeleton />
         ) : events.length === 0 ? (
-          <EmptyState
-            icon={Clock}
-            title="No activity yet"
-            description="Events will appear here as payments, settlements, and webhook deliveries occur."
-            compact
-          />
+          <div className="my-auto py-8">
+            <EmptyState
+              icon={Clock}
+              title="No activity yet"
+              description="Events will appear here as payments, settlements, and webhook deliveries occur."
+              compact
+            />
+          </div>
         ) : (
-          <div className="space-y-1">
-            {events.map((event) => (
-              <ActivityItem key={event.id} event={event} />
+          <div className="flex-1 space-y-4 pr-1">
+            {sortedDays.map((day) => (
+              <div key={day} className="space-y-1">
+                <h4 className="text-xs font-semibold text-muted-foreground px-2 py-1 sticky top-0 bg-card/90 backdrop-blur-sm z-10">
+                  {getDayLabel(day)}
+                </h4>
+                <div className="space-y-0.5">
+                  {grouped[day].map((event) => (
+                    <ActivityItem key={event.id} event={event} />
+                  ))}
+                </div>
+              </div>
             ))}
+
+            {/* Sentinel for Infinite Scroll */}
+            {hasNextPage && (
+              <div ref={sentinelRef} className="h-4 flex justify-center items-center py-4">
+                {isFetchingNextPage && (
+                  <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                )}
+              </div>
+            )}
           </div>
         )}
       </CardContent>

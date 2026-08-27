@@ -305,7 +305,7 @@ function reportApiFailure(error: AxiosError, kind: string) {
 
 apiClient.interceptors.response.use(
   (response) => response,
-  async (error: AxiosError) => {
+  async (error: AxiosError): Promise<never> => {
     // Requests refused by the shared rate-limit window never reached the
     // network. They still travel through this handler (a rejected request
     // interceptor shares the promise chain), so return early rather than

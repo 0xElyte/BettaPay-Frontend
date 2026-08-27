@@ -130,7 +130,8 @@ export const OnboardingWizard = () => {
 
   const isLastStep = currentStep === STEPS.length - 1;
   const progressPercent = ((currentStep + 1) / STEPS.length) * 100;
-  const StepIcon = STEPS[currentStep].icon;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const StepIcon = STEPS[currentStep].icon as any;
 
   return (
     <div className="relative overflow-hidden rounded-xl border border-primary/30 bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/20 dark:to-card shadow-sm transition-all">

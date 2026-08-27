@@ -158,7 +158,8 @@ export const AdminSidebar = () => {
       >
         {navItems.map((item) => {
           const active = isNavItemActive(pathname, item.href);
-          const Icon = item.icon;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const Icon = item.icon as any;
 
           return (
             <Link
