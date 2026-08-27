@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useScrollSpy } from '@/lib/hooks/useScrollSpy';
 
@@ -15,6 +15,16 @@ interface DocsTOCProps {
   activeSection: string;
 }
 
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/[\s_]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
 /**
  * Right-hand mini table of contents (desktop ≥ xl only). Shows the H2/H3
  * headings inside the currently-active section and highlights the heading the
@@ -22,9 +32,38 @@ interface DocsTOCProps {
  */
 export function DocsTOC({ activeSection }: DocsTOCProps) {
   const [headings, setHeadings] = useState<Heading[]>([]);
+  const initialScrollDone = useRef(false);
 
-  // Re-scan the active section's sub-headings whenever it changes.
+  // Re-scan headings and assign unique IDs whenever the active section changes
   useEffect(() => {
+    // 1. Generate unique, stable IDs for all headings on the page first
+    const allHeadings = Array.from(
+      document.querySelectorAll<HTMLElement>('#main-content h2[id], #main-content h3[id]'),
+    );
+    allHeadings.forEach((node, index) => {
+      const text = node.textContent?.trim() ?? '';
+      const slug = slugify(text);
+      node.id = `${slug}-${index}`;
+    });
+
+    // 2. Handle deep link navigation on initial load after IDs are assigned
+    if (!initialScrollDone.current) {
+      const hash = window.location.hash;
+      if (hash) {
+        const targetId = hash.substring(1);
+        const targetElement = document.getElementById(targetId);
+        if (targetElement) {
+          initialScrollDone.current = true;
+          setTimeout(() => {
+            targetElement.scrollIntoView({ behavior: 'smooth' });
+          }, 100);
+        }
+      } else {
+        initialScrollDone.current = true;
+      }
+    }
+
+    // 3. Scan the active section's sub-headings using the updated unique IDs
     const section = document.getElementById(activeSection);
     if (!section) {
       setHeadings([]);

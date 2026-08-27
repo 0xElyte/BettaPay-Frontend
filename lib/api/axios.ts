@@ -1,6 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../store/authStore';
 import { useRateLimitStore, isRequestRateLimited } from '../store/rateLimitStore';
+import { useOfflineStore } from '../store/offlineStore';
 import { getCsrfTokenFromCookie, CSRF_HEADER_NAME } from '../utils/csrf';
 import { toast } from 'sonner';
 import { announce } from '@/lib/utils/announce';
@@ -197,6 +198,16 @@ function isSessionExpiredError(error: unknown): boolean {
 }
 
 apiClient.interceptors.request.use((config) => {
+  // Reject requests immediately if offline or API is unreachable
+  const { isOnline, isApiReachable } = useOfflineStore.getState();
+  if (!isOnline || !isApiReachable) {
+    throw new ApiError(
+      "You're offline. Please check your connection.",
+      'network_error',
+      0
+    );
+  }
+
   // Reject a request whose session token has already expired instead of
   // spending a round trip to be told 401. The token is only ever inspected
   // here for expiry — never for identity or role, which the server owns.
@@ -359,6 +370,12 @@ apiClient.interceptors.response.use(
       // given ample time and can retry.
       notifyError('The request timed out. Please try again.', `timeout_${originalRequest?.url || 'unknown'}`);
     } else if (!error.response) {
+      const { isOnline } = useOfflineStore.getState();
+      if (isOnline) {
+        useOfflineStore.getState().setIsApiReachable(false);
+      } else {
+        useOfflineStore.getState().setIsOnline(false);
+      }
       notifyError("You're offline. Please check your connection.", 'network_error');
       reportApiFailure(error, 'network');
     } else if (error.response?.status >= 500) {

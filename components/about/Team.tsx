@@ -96,7 +96,7 @@ const categories: Array<TeamMember["category"]> = [
 
 export function Team() {
   return (
-    <section className="py-20 md:py-28 bg-muted/30 border-b border-border/40">
+    <section aria-labelledby="team-heading" className="py-20 md:py-28 bg-muted/30 border-b border-border/40">
       <div className="container mx-auto px-6">
         {/* Header */}
         <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
@@ -104,7 +104,7 @@ export function Team() {
             <Sparkles className="w-3.5 h-3.5" />
             <span>Our Team</span>
           </div>
-          <h2 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+          <h2 id="team-heading" className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
             Meet the minds behind BettaPay
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -132,9 +132,9 @@ export function Team() {
                 </div>
 
                 {/* Grid: 4 cols desktop, 2 cols tablet, 1 col mobile */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                   {categoryMembers.map((member, idx) => (
-                    <motion.div
+                    <motion.li
                       key={member.name}
                       initial={{ opacity: 0, y: 20 }}
                       whileInView={{ opacity: 1, y: 0 }}
@@ -181,9 +181,9 @@ export function Team() {
                           {member.bio}
                         </p>
                       </div>
-                    </motion.div>
+                    </motion.li>
                   ))}
-                </div>
+                </ul>
               </div>
             );
           })}
