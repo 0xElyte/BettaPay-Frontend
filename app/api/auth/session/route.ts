@@ -120,10 +120,12 @@ export async function POST(req: Request) {
       'Set-Cookie',
       `auth_token=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=86400${secureFlag}`
     );
-    // user_role: non-HttpOnly so middleware / server-side can read it
+    // user_role: HttpOnly (issue #492) — the middleware and route handlers
+    // read it server-side via `req.cookies`; JS must not be able to forge it.
+    // Client code that needs the role reads it from `GET /api/auth/session`.
     res.headers.append(
       'Set-Cookie',
-      `user_role=${role}; Path=/; SameSite=Lax; Max-Age=86400${secureFlag}`
+      `user_role=${role}; HttpOnly; Path=/; SameSite=Lax; Max-Age=86400${secureFlag}`
     );
     // csrf_token: non-HttpOnly (JS must read it), SameSite=Strict
     res.headers.append('Set-Cookie', buildCsrfCookieHeader(csrfToken));

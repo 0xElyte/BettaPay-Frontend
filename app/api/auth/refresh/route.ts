@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       );
       res.headers.append(
         'Set-Cookie',
-        `user_role=${role}; Path=/; SameSite=Lax; Max-Age=${expiresIn}${secureFlag}`
+        `user_role=${role}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${expiresIn}${secureFlag}`
       );
       res.headers.append('Set-Cookie', buildCsrfCookieHeader(csrfToken));
     } else {

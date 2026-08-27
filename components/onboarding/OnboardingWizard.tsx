@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui";
 import { useWalletStore } from "@/lib/store/walletStore";
+import { useOnboardingStatus } from "@/lib/hooks/useOnboardingStatus";
 import {
   Wallet,
   Link2,
@@ -72,22 +73,17 @@ const STEPS: Step[] = [
 
 export const OnboardingWizard = () => {
   const [currentStep, setCurrentStep] = useState(0);
-  const [visible, setVisible] = useState(false);
   const { isConnected } = useWalletStore();
-
-  useEffect(() => {
-    const completed = localStorage.getItem("onboardingCompleted");
-    if (completed === "true") {
-      setVisible(false);
-    } else {
-      setVisible(true);
-    }
-  }, []);
+  // Issue #495: gate on the shared onboarding flag (merchant_onboarded
+  // cookie + mirror) — the same one the /onboarding page and the middleware
+  // use — so finishing either surface hides this wizard on every page.
+  const { isOnboarded, hydrated, markComplete } = useOnboardingStatus();
 
   const dismiss = useCallback(() => {
-    localStorage.setItem("onboardingCompleted", "true");
-    setVisible(false);
-  }, []);
+    markComplete();
+  }, [markComplete]);
+
+  const visible = hydrated && !isOnboarded;
 
   const handleNext = useCallback(() => {
     if (currentStep < STEPS.length - 1) {
