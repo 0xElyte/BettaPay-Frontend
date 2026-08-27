@@ -359,7 +359,7 @@ apiClient.interceptors.response.use(
       // given ample time and can retry.
       notifyError('The request timed out. Please try again.', `timeout_${originalRequest?.url || 'unknown'}`);
     } else if (!error.response) {
-      notifyError('Network error. Please check your connection.', 'network_error');
+      notifyError("You're offline. Please check your connection.", 'network_error');
       reportApiFailure(error, 'network');
     } else if (error.response?.status >= 500) {
       const endpoint = originalRequest?.url || error.config?.url || 'unknown';
