@@ -1,5 +1,12 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { generateCsrfToken, buildCsrfCookieHeader } from '@/lib/utils/csrf';
+import {
+  generateCsrfToken,
+  buildCsrfCookieHeader,
+  buildCsrfSidCookieHeader,
+  buildCsrfClearCookieHeaders,
+  deriveCsrfBinding,
+  sessionKeyFromAuthToken,
+} from '@/lib/utils/csrf';
 
 export async function GET(req: NextRequest) {
   const token = req.cookies.get('auth_token')?.value;
@@ -110,8 +117,12 @@ export async function POST(req: Request) {
     const secureFlag = isProduction ? '; Secure' : '';
 
     // Rotate the CSRF token on every login — this is the primary token rotation
-    // point. A fresh token is tied to the new authenticated session.
+    // point (issue #486). A fresh token is tied to the new authenticated
+    // session, and the HttpOnly `csrf_sid` binding cookie ties it to *this*
+    // session's auth token so a token from a previous visitor / a pre-login
+    // page on the same browser profile can't be replayed.
     const csrfToken = generateCsrfToken();
+    const csrfBinding = deriveCsrfBinding(csrfToken, sessionKeyFromAuthToken(token));
 
     const res = NextResponse.json({ ok: true, revokedSessionCount, role, confirmedByBackend });
 
@@ -127,6 +138,8 @@ export async function POST(req: Request) {
     );
     // csrf_token: non-HttpOnly (JS must read it), SameSite=Strict
     res.headers.append('Set-Cookie', buildCsrfCookieHeader(csrfToken));
+    // csrf_sid: HttpOnly session binding (issue #486)
+    res.headers.append('Set-Cookie', buildCsrfSidCookieHeader(csrfBinding));
 
     return res;
   } catch (error) {
@@ -149,10 +162,9 @@ export async function DELETE() {
     'Set-Cookie',
     `user_role=; Path=/; Max-Age=0; SameSite=Lax${secureFlag}`
   );
-  res.headers.append(
-    'Set-Cookie',
-    `csrf_token=; Path=/; Max-Age=0; SameSite=Strict${secureFlag}`
-  );
+  for (const header of buildCsrfClearCookieHeaders()) {
+    res.headers.append('Set-Cookie', header);
+  }
   res.headers.append(
     'Set-Cookie',
     `merchant_onboarded=; Path=/; Max-Age=0; SameSite=Lax${secureFlag}`

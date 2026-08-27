@@ -9,6 +9,11 @@ interface AuthState {
   role: string | null;
   isAuthenticated: boolean;
   isLoggedIn: boolean;
+  /** false until zustand-persist has rehydrated from storage (issue #485). */
+  _hasHydrated: boolean;
+  setHasHydrated: (v: boolean) => void;
+  /** Replace the token in place after a silent refresh (issue #487). */
+  setToken: (token: string) => void;
   login: (token: string, user: User) => void;
   logout: () => void;
 }
@@ -33,14 +38,25 @@ export function resetAllUserState() {
   useOfflineStore.setState({ dismissed: false });
 }
 
+/** The single source of truth for "is there a real session" — a login flag is
+ *  only meaningful with an identity attached (issue #485). */
+export function hasRealSession(s: Pick<AuthState, "isAuthenticated" | "user">): boolean {
+  return s.isAuthenticated && s.user != null;
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       token: null,
       role: null,
       isAuthenticated: false,
       isLoggedIn: false,
+      _hasHydrated: false,
+      setHasHydrated: (v) => set({ _hasHydrated: v }),
+      setToken: (token) => {
+        if (get().isAuthenticated) set({ token });
+      },
       login: (token, user) =>
         set({
           user,
@@ -57,6 +73,13 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
           isLoggedIn: false,
         });
+        // Drop the persisted snapshot immediately so a late partialize write
+        // (or another tab reading storage) can't resurrect `isLoggedIn: true`.
+        try {
+          useAuthStore.persist.clearStorage();
+        } catch {
+          /* storage unavailable */
+        }
         resetAllUserState();
         if (typeof window !== "undefined") {
           fetch("/api/auth/session", {
@@ -68,7 +91,35 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: BP_SESSION_KEY,
-      partialize: (state) => ({ isLoggedIn: state.isLoggedIn }),
+      // Persist a *consistent* envelope: identity + flags together, so the
+      // store can never hydrate as "logged in" with a null user (issue #485).
+      // `isLoggedIn` is derived from the identity, never written independently.
+      partialize: (state) => ({
+        user: state.user,
+        token: state.token,
+        role: state.role,
+        isAuthenticated: state.isAuthenticated,
+        isLoggedIn: hasRealSession(state),
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          // Defensive: an old/partial snapshot with a flag but no user is not
+          // a session — treat it as logged out rather than half-authenticated.
+          if ((state.isLoggedIn || state.isAuthenticated) && state.user == null) {
+            state.user = null;
+            state.token = null;
+            state.role = null;
+            state.isAuthenticated = false;
+            state.isLoggedIn = false;
+          }
+          state.setHasHydrated(true);
+        }
+      },
     },
   ),
 );
+
+/** Selector hook for gating protected UI on rehydration (issue #485). */
+export function useAuthHydrated(): boolean {
+  return useAuthStore((s) => s._hasHydrated);
+}
