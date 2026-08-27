@@ -2,14 +2,16 @@ import { create } from 'zustand';
 
 interface OfflineState {
   isOnline: boolean;
-  /** Whether the user has manually dismissed the offline banner. */
+  isApiReachable: boolean;
   dismissed: boolean;
   setIsOnline: (isOnline: boolean) => void;
+  setIsApiReachable: (isApiReachable: boolean) => void;
   dismiss: () => void;
 }
 
 export const useOfflineStore = create<OfflineState>()((set) => ({
   isOnline: true,
+  isApiReachable: true,
   dismissed: false,
   setIsOnline: (isOnline) =>
     set((state) => {
@@ -20,6 +22,14 @@ export const useOfflineStore = create<OfflineState>()((set) => ({
         return { isOnline, dismissed: false };
       }
       return { isOnline };
+    }),
+  setIsApiReachable: (isApiReachable) =>
+    set((state) => {
+      // Reset dismissal if API goes from reachable to unreachable
+      if (!isApiReachable && state.isApiReachable) {
+        return { isApiReachable, dismissed: false };
+      }
+      return { isApiReachable };
     }),
   dismiss: () => set({ dismissed: true }),
 }));

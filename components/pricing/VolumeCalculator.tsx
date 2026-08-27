@@ -52,7 +52,63 @@ export function VolumeCalculator() {
       })),
     [volume, avgTransaction]
   );
-  const starterCost = costs.find((c) => c.tier.id === 'starter')?.cost ?? null;
+
+  const markers = useMemo(() => {
+    const bounds = new Set<number>();
+    PRICING_TIERS.forEach((tier) => {
+      if (tier.minVolumeUsd > 1000 && tier.minVolumeUsd < 10000000) {
+        bounds.add(tier.minVolumeUsd);
+      }
+      if (tier.maxVolumeUsd > 1000 && tier.maxVolumeUsd < 10000000) {
+        bounds.add(tier.maxVolumeUsd);
+      }
+    });
+    return Array.from(bounds).sort((a, b) => a - b);
+  }, []);
+
+  const discountExplanations = useMemo(() => {
+    const starterTier = PRICING_TIERS.find((t) => t.id === 'starter')!;
+    const growthTier = PRICING_TIERS.find((t) => t.id === 'growth')!;
+    const enterpriseTier = PRICING_TIERS.find((t) => t.id === 'enterprise')!;
+
+    const starterCost = estimateMonthlyCost(starterTier, volume, avgTransaction);
+    const growthCost = estimateMonthlyCost(growthTier, volume, avgTransaction);
+
+    const explanations: Record<string, string> = {
+      starter: '',
+      growth: '',
+      enterprise: '',
+    };
+
+    // Starter explanation
+    if (volume >= starterTier.maxVolumeUsd) {
+      explanations.starter = `Upgrade to Growth at ${formatUsdCompact(starterTier.maxVolumeUsd)} to save fees`;
+    } else {
+      explanations.starter = 'Base rate (no monthly minimum)';
+    }
+
+    // Growth explanation
+    if (volume < growthTier.minVolumeUsd) {
+      explanations.growth = `Requires ${formatUsdCompact(growthTier.minVolumeUsd)}/mo minimum volume`;
+    } else if (volume > growthTier.maxVolumeUsd) {
+      explanations.growth = `Upgrade to Enterprise at ${formatUsdCompact(growthTier.maxVolumeUsd)} for custom rates`;
+    } else {
+      if (starterCost != null && growthCost != null && starterCost > growthCost) {
+        explanations.growth = `Save ${formatUsd(starterCost - growthCost)} vs Starter`;
+      } else {
+        explanations.growth = 'Volume discount active';
+      }
+    }
+
+    // Enterprise explanation
+    if (volume < enterpriseTier.minVolumeUsd) {
+      explanations.enterprise = `Requires ${formatUsdCompact(enterpriseTier.minVolumeUsd)}/mo volume for custom pricing`;
+    } else {
+      explanations.enterprise = 'Custom volume discounts apply';
+    }
+
+    return explanations;
+  }, [volume, avgTransaction]);
 
   return (
     <div className="rounded-2xl border border-border bg-card p-8 lg:p-10">
@@ -67,20 +123,45 @@ export function VolumeCalculator() {
             <span className="text-base font-medium text-muted-foreground"> / month</span>
           </p>
 
-          <input
-            type="range"
-            min={0}
-            max={100}
-            step={0.5}
-            value={volumeToSlider(volume)}
-            onChange={(e) => setVolume(sliderToVolume(Number(e.target.value)))}
-            aria-label="Monthly transaction volume in US dollars"
-            aria-valuetext={`${formatUsdCompact(volume)} per month`}
-            className="mt-6 w-full h-2 rounded-full bg-muted appearance-none cursor-pointer accent-primary"
-          />
-          <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-            <span>$1k</span>
-            <span>$10M</span>
+          <div className="relative mt-6">
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={0.5}
+              value={volumeToSlider(volume)}
+              onChange={(e) => setVolume(sliderToVolume(Number(e.target.value)))}
+              aria-label="Monthly transaction volume in US dollars"
+              aria-valuetext={`${formatUsdCompact(volume)} per month`}
+              className="w-full h-2 rounded-full bg-muted appearance-none cursor-pointer accent-primary"
+            />
+            {/* Tick markers overlaying the slider track */}
+            {markers.map((bound) => {
+              const pos = volumeToSlider(bound);
+              return (
+                <div
+                  key={bound}
+                  className="absolute top-1/2 w-1.5 h-4 -translate-x-1/2 -translate-y-1/2 bg-primary/45 rounded-full pointer-events-none"
+                  style={{ left: `${pos}%` }}
+                />
+              );
+            })}
+          </div>
+          <div className="mt-2 flex justify-between text-xs text-muted-foreground relative h-6">
+            <span className="absolute left-0 font-medium">$1k</span>
+            {markers.map((bound) => {
+              const pos = volumeToSlider(bound);
+              return (
+                <span
+                  key={bound}
+                  className="absolute -translate-x-1/2 font-semibold text-foreground/75"
+                  style={{ left: `${pos}%` }}
+                >
+                  {formatUsdCompact(bound)}
+                </span>
+              );
+            })}
+            <span className="absolute right-0 font-medium">$10M</span>
           </div>
 
           <div className="mt-8">
@@ -115,8 +196,7 @@ export function VolumeCalculator() {
         <div className="space-y-3">
           {costs.map(({ tier, cost }) => {
             const isRecommended = tier.id === recommended;
-            const savings =
-              starterCost != null && cost != null && tier.id !== 'starter' ? starterCost - cost : null;
+            const explanation = discountExplanations[tier.id];
             return (
               <div
                 key={tier.id}
@@ -138,17 +218,22 @@ export function VolumeCalculator() {
                 </div>
                 <div className="text-right">
                   {cost != null ? (
-                    <>
-                      <p className="text-lg font-bold text-foreground">{formatUsd(cost)}</p>
-                      {savings != null && savings > 0 && (
-                        <p className="text-xs text-emerald-600 flex items-center justify-end gap-1">
-                          <TrendingDown className="w-3 h-3" />
-                          Save {formatUsd(savings)} vs Starter
-                        </p>
-                      )}
-                    </>
+                    <p className="text-lg font-bold text-foreground">{formatUsd(cost)}</p>
                   ) : (
                     <p className="text-sm font-semibold text-muted-foreground">Contact sales</p>
+                  )}
+                  {explanation && (
+                    <p className={cn(
+                      "text-xs mt-0.5 flex items-center justify-end gap-1",
+                      explanation.startsWith('Save') || explanation.includes('active') || explanation.includes('apply')
+                        ? 'text-emerald-600 dark:text-emerald-400 font-medium'
+                        : 'text-muted-foreground'
+                    )}>
+                      {(explanation.startsWith('Save') || explanation.includes('active') || explanation.includes('apply')) && (
+                        <TrendingDown className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                      )}
+                      {explanation}
+                    </p>
                   )}
                 </div>
               </div>
