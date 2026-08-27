@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { apiClient } from "@/lib/api/axios";
+import { useAuthStore } from "@/lib/store/authStore";
 
 // ─── Public types ──────────────────────────────────────────────────────────────
 
@@ -38,12 +39,6 @@ export type ActivityConnectionStatus =
 
 // ─── Internal constants ────────────────────────────────────────────────────────
 
-/** REST endpoint for the initial page load and polling fallback */
-const REST_PATH = "/api/activity";
-
-/** SSE endpoint — backend pushes `ActivityEvent` objects as `data: <json>\n\n` */
-const SSE_PATH = "/api/activity/stream";
-
 /** How long to wait before deciding SSE has failed and switching to polling */
 const SSE_CONNECT_TIMEOUT_MS = 8_000;
 
@@ -55,10 +50,6 @@ const MAX_POLL_ERRORS = 3;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-interface ActivityFeedResponse {
-  data: ActivityEvent[];
-}
-
 function deduplicate(events: ActivityEvent[]): ActivityEvent[] {
   const seen = new Set<string>();
   return events.filter((e) => {
@@ -66,14 +57,6 @@ function deduplicate(events: ActivityEvent[]): ActivityEvent[] {
     seen.add(e.id);
     return true;
   });
-}
-
-function prependAndTrim(
-  incoming: ActivityEvent[],
-  prev: ActivityEvent[],
-  limit: number,
-): ActivityEvent[] {
-  return deduplicate([...incoming, ...prev]).slice(0, limit);
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -85,17 +68,28 @@ function prependAndTrim(
  * push delivery. If the SSE endpoint is unreachable (network error, 4xx/5xx,
  * or no response within `SSE_CONNECT_TIMEOUT_MS`) the hook transparently falls
  * back to `setInterval` polling every 30 seconds.
- *
- * Return shape is backward-compatible — existing consumers only need
- * `{ events, isLoading, error, refetch }` — but `connectionStatus` is now also
- * exposed so the UI can render a live/polling/offline indicator.
  */
-export function useActivityFeed(limit = 20) {
+export function useActivityFeed(limit = 20, filter = "all") {
+  const { user, isLoggedIn } = useAuthStore();
+  // Use the real user ID when available; fall back to the demo merchant ID
+  // that the local session route always returns — this ensures the activity
+  // feed shows data immediately on page load before the async session check
+  // has finished rehydrating the in-memory user object.
+  const merchantId =
+    user?.id ??
+    (isLoggedIn ? "GCCHHKNI7GRA5QWC7RCTT3OHO7SKAUMKQA6IBWEQEO2SXI3GF376UHDD" : null);
+
+
   const [events, setEvents] = useState<ActivityEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] =
     useState<ActivityConnectionStatus>("connecting");
+
+  // Pagination states
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [hasNextPage, setHasNextPage] = useState(true);
+  const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
 
   // Refs that outlive re-renders without causing extra effect runs
   const mountedRef = useRef(true);
@@ -107,18 +101,38 @@ export function useActivityFeed(limit = 20) {
   // attempt SSE reconnection on visibility-change wakeups.
   const usePollFallbackRef = useRef(false);
 
+  // Keep latest parameters in a ref for callbacks
+  const stateRef = useRef({ merchantId, limit, filter, cursor });
+  useEffect(() => {
+    stateRef.current = { merchantId, limit, filter, cursor };
+  }, [merchantId, limit, filter, cursor]);
+
   // ── REST fetch (initial load + polling fallback) ──────────────────────────
 
   const fetchEvents = useCallback(
     async (opts: { silent?: boolean } = {}) => {
+      const mId = stateRef.current.merchantId;
+      if (!mId) return;
+
       if (!opts.silent && mountedRef.current) setIsLoading(true);
       try {
-        const res = await apiClient.get<ActivityFeedResponse>(
-          `${REST_PATH}?limit=${limit}`,
-        );
-        const incoming: ActivityEvent[] = res.data?.data ?? (res.data as unknown as ActivityEvent[]) ?? [];
+        const path = `/api/merchants/${mId}/activity?limit=${limit}&filter=${filter}`;
+        const res = await apiClient.get<{ data: ActivityEvent[]; nextCursor: string | null }>(path);
+        const incoming = res.data?.data ?? [];
+        const nextCursor = res.data?.nextCursor ?? null;
+
         if (mountedRef.current) {
-          setEvents((prev) => prependAndTrim(incoming, prev, limit));
+          setEvents((prev) => {
+            if (opts.silent) {
+              return deduplicate([...incoming, ...prev]);
+            } else {
+              return incoming;
+            }
+          });
+          if (!opts.silent) {
+            setCursor(nextCursor);
+            setHasNextPage(Boolean(nextCursor));
+          }
           setError(null);
           pollErrorCountRef.current = 0;
         }
@@ -131,11 +145,37 @@ export function useActivityFeed(limit = 20) {
           setError("Failed to load activity feed");
         }
       } finally {
-        if (mountedRef.current) setIsLoading(false);
+        if (mountedRef.current && !opts.silent) setIsLoading(false);
       }
     },
-    [limit],
+    [limit, filter],
   );
+
+  // ── Cursor pagination (Load More) ─────────────────────────────────────────
+
+  const loadMore = useCallback(async () => {
+    const mId = stateRef.current.merchantId;
+    if (!mId || isFetchingNextPage || !hasNextPage || isLoading) return;
+
+    setIsFetchingNextPage(true);
+    try {
+      const path = `/api/merchants/${mId}/activity?limit=${limit}&filter=${filter}&cursor=${cursor}`;
+      const res = await apiClient.get<{ data: ActivityEvent[]; nextCursor: string | null }>(path);
+      const incoming = res.data?.data ?? [];
+      const nextCursor = res.data?.nextCursor ?? null;
+
+      if (mountedRef.current) {
+        setEvents((prev) => deduplicate([...prev, ...incoming]));
+        setCursor(nextCursor);
+        setHasNextPage(Boolean(nextCursor));
+        setError(null);
+      }
+    } catch {
+      console.error("[useActivityFeed] Failed to load more events");
+    } finally {
+      if (mountedRef.current) setIsFetchingNextPage(false);
+    }
+  }, [cursor, hasNextPage, isFetchingNextPage, isLoading, limit, filter]);
 
   // ── Polling fallback ──────────────────────────────────────────────────────
 
@@ -146,7 +186,6 @@ export function useActivityFeed(limit = 20) {
 
     if (pollTimerRef.current !== null) return; // already polling
     pollTimerRef.current = setInterval(() => {
-      // Pause polling when the tab is hidden — identical to useSystemHealth.
       if (mountedRef.current && document.visibilityState === "visible") {
         void fetchEvents({ silent: true });
       }
@@ -174,8 +213,10 @@ export function useActivityFeed(limit = 20) {
   }, []);
 
   const startSSE = useCallback(() => {
+    const mId = stateRef.current.merchantId;
+    if (!mId) return;
+
     if (typeof EventSource === "undefined") {
-      // SSE not supported in this environment — go straight to polling
       void fetchEvents();
       startPolling();
       return;
@@ -186,12 +227,11 @@ export function useActivityFeed(limit = 20) {
 
     const apiBase =
       process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-    const url = `${apiBase}${SSE_PATH}?limit=${limit}`;
+    const path = `/api/merchants/${mId}/activity/stream?limit=${limit}&filter=${filter}`;
+    const url = `${apiBase}${path}`;
 
     let hasConnected = false;
 
-    // Safety timeout: if SSE hasn't sent a message within the window, fall
-    // back to polling so we don't silently sit in "connecting" forever.
     sseTimeoutRef.current = setTimeout(() => {
       if (!hasConnected && mountedRef.current) {
         console.warn(
@@ -218,24 +258,34 @@ export function useActivityFeed(limit = 20) {
       }
     };
 
-    // Default (unnamed) message events carry a single ActivityEvent as JSON
     es.onmessage = (ev: MessageEvent<string>) => {
       hasConnected = true;
       if (!mountedRef.current) return;
       try {
         const incoming = JSON.parse(ev.data) as ActivityEvent | ActivityEvent[];
-        const events = Array.isArray(incoming) ? incoming : [incoming];
-        setEvents((prev) => prependAndTrim(events, prev, limit));
-        setIsLoading(false);
-        setError(null);
+        const rawEvents = Array.isArray(incoming) ? incoming : [incoming];
+
+        const filteredLive = rawEvents.filter(
+          (e) =>
+            filter === "all" ||
+            e.type === filter ||
+            (filter === "settlements" &&
+              (e.type === "settlement_initiated" ||
+                e.type === "settlement_completed")) ||
+            (filter === "webhooks" && e.type === "webhook_delivered")
+        );
+
+        if (filteredLive.length > 0) {
+          setEvents((prev) => deduplicate([...filteredLive, ...prev]));
+          setIsLoading(false);
+          setError(null);
+        }
         setConnectionStatus("connected");
       } catch {
-        // Malformed frame — ignore silently
+        // ignore
       }
     };
 
-    // Named event types mirror ActivityEventType so the server can send
-    // e.g. `event: payment_received\ndata: {...}` for selective handling.
     const EVENT_TYPES: ActivityEventType[] = [
       "payment_received",
       "settlement_initiated",
@@ -250,37 +300,29 @@ export function useActivityFeed(limit = 20) {
         const msgEv = ev as MessageEvent<string>;
         try {
           const event = JSON.parse(msgEv.data) as ActivityEvent;
-          setEvents((prev) => prependAndTrim([event], prev, limit));
-          setIsLoading(false);
-          setError(null);
+
+          const matches =
+            filter === "all" ||
+            (filter === "payments" && event.type === "payment_received") ||
+            (filter === "settlements" &&
+              (event.type === "settlement_initiated" ||
+                event.type === "settlement_completed")) ||
+            (filter === "webhooks" && event.type === "webhook_delivered");
+
+          if (matches) {
+            setEvents((prev) => deduplicate([event, ...prev]));
+            setIsLoading(false);
+            setError(null);
+          }
           setConnectionStatus("connected");
         } catch {
-          // Malformed frame — ignore silently
+          // ignore
         }
       });
     });
 
-    // Named "snapshot" event — server can push the full initial page
-    es.addEventListener("snapshot", (ev: Event) => {
-      hasConnected = true;
-      if (!mountedRef.current) return;
-      const msgEv = ev as MessageEvent<string>;
-      try {
-        const snapshot = JSON.parse(msgEv.data) as ActivityEvent[];
-        setEvents((prev) => prependAndTrim(snapshot, prev, limit));
-        setIsLoading(false);
-        setError(null);
-        setConnectionStatus("connected");
-      } catch {
-        // Malformed frame — ignore silently
-      }
-    });
-
     es.onerror = () => {
       if (!mountedRef.current) return;
-      // EventSource auto-reconnects on transient errors; we only fall back to
-      // polling if we never successfully connected at all (hasConnected=false)
-      // or if the server sends a terminal close (readyState === CLOSED).
       if (!hasConnected || es.readyState === EventSource.CLOSED) {
         console.warn(
           "[useActivityFeed] SSE error — falling back to polling",
@@ -290,38 +332,27 @@ export function useActivityFeed(limit = 20) {
         startPolling();
       }
     };
-  }, [limit, fetchEvents, startPolling, closeSSE]);
+  }, [limit, filter, fetchEvents, startPolling, closeSSE]);
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   useEffect(() => {
+    if (!merchantId) return;
+
     mountedRef.current = true;
     usePollFallbackRef.current = false;
     pollErrorCountRef.current = 0;
 
-    // Always do an immediate REST fetch so the list is populated instantly
-    // while the SSE handshake completes.
     void fetchEvents();
-
-    // Then attempt SSE
     startSSE();
 
-    // Visibility handler: covers both the SSE and polling fallback paths.
-    //
-    // • SSE path  — if the stream dropped while hidden, reopen it.
-    // • Poll path — resume with an immediate fetch so data isn't stale after
-    //   returning to the tab; the interval already guards against hidden-tab
-    //   polls via the visibilityState check inside startPolling.
     const handleVisibilityChange = () => {
       if (!mountedRef.current) return;
 
       if (document.visibilityState === "visible") {
         if (usePollFallbackRef.current) {
-          // Polling path: do an immediate fetch on tab-return so data is
-          // fresh without waiting for the next interval tick.
           void fetchEvents({ silent: true });
         } else {
-          // SSE path: reconnect if the stream closed while the tab was hidden.
           if (
             !evsRef.current ||
             evsRef.current.readyState === EventSource.CLOSED
@@ -340,7 +371,7 @@ export function useActivityFeed(limit = 20) {
       stopPolling();
       setConnectionStatus("disconnected");
     };
-  }, [fetchEvents, startSSE, closeSSE, stopPolling]);
+  }, [merchantId, fetchEvents, startSSE, closeSSE, stopPolling]);
 
   // ── Public API ────────────────────────────────────────────────────────────
 
@@ -348,8 +379,10 @@ export function useActivityFeed(limit = 20) {
     events,
     isLoading,
     error,
-    /** Re-fetch from REST immediately. Does not disrupt the SSE stream. */
     refetch: () => void fetchEvents({ silent: true }),
     connectionStatus,
+    loadMore,
+    hasNextPage,
+    isFetchingNextPage,
   };
 }

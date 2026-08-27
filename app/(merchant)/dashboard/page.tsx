@@ -3,10 +3,16 @@
 import { useState, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { Button } from '@/components/ui';
-import { DashboardSkeleton } from '@/components/skeletons/DashboardSkeleton';
 import { CurrencyDisplay, StatCard, ErrorDisplay } from '@/components/shared';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { OnboardingChecklist } from '@/components/dashboard/OnboardingChecklist';
+import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
+import { usePayments } from '@/lib/api/hooks';
+import { useAuthStore } from '@/lib/store/authStore';
+import Link from 'next/link';
+import { useNotify } from '@/lib/hooks/useNotify';
+import { cn } from '@/lib/utils';
+import dynamic from 'next/dynamic';
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -21,32 +27,21 @@ import {
   ExternalLink,
   ArrowRight,
 } from 'lucide-react';
-import dynamic from 'next/dynamic';
 
 const RevenueChart = dynamic(() => import('@/components/charts/RevenueChart'), {
   ssr: false,
-  loading: () => <div className="h-[260px] bg-slate-50 animate-pulse rounded-xl w-full" />
+  loading: () => <div className="h-[260px] bg-muted animate-pulse rounded-xl w-full" />,
 });
-import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
-import { usePayments, useSettlements } from '@/lib/api/hooks';
-import { useAuthStore } from '@/lib/store/authStore';
-import Link from 'next/link';
-import { useNotify } from '@/lib/hooks/useNotify';
-import { cn } from '@/lib/utils';
 import { aggregatePaymentsByDay, mockChartData } from '@/components/charts/RevenueChart';
 
 const PERIOD_OPTIONS = ['7D', '30D', '90D'] as const;
 type Period = typeof PERIOD_OPTIONS[number];
 
-
-
 export default function DashboardPage() {
   const { user } = useAuthStore();
   const notify = useNotify();
-  const { data: payments, isLoading: paymentsLoading } = usePayments();
-  const { isLoading: settlementsLoading } = useSettlements();
+  const { data: payments } = usePayments();
 
-  const isLoading = paymentsLoading || settlementsLoading;
 
   const [activePeriod, setActivePeriod] = useState<Period>('7D');
 
@@ -110,10 +105,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 pb-8">
-      {isLoading ? (
-        <DashboardSkeleton />
-      ) : (
-        <>
       {/* ── Welcome Header ── */}
       <PageHeader
         preTitle="Merchant Dashboard"
@@ -365,8 +356,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
-        </>
-      )}
     </div>
   );
 }

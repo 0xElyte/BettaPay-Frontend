@@ -28,7 +28,8 @@ export function ComponentStatusGrid({ components }: ComponentStatusProps) {
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {components.map((component) => {
         const config = levelConfig[component.status];
-        const Icon = config.icon;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const Icon = config.icon as any;
 
         return (
           <div

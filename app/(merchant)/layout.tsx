@@ -3,7 +3,7 @@
 import { useCallback, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
-import { MerchantSidebar, MobileNavDrawer, Topbar, Footer, MobileBottomNav } from "@/components/layout";
+import { MerchantSidebar, MobileNavDrawer, Topbar, MobileBottomNav } from "@/components/layout";
 import { merchantNavItems } from "@/lib/navigation/merchantNav";
 import { PageTransition, ErrorBoundary } from "@/components/shared";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
@@ -111,8 +111,6 @@ export default function MerchantLayout({
             </PageTransition>
           </div>
         </main>
-
-        <Footer />
       </div>
 
       {isAuthenticated && (

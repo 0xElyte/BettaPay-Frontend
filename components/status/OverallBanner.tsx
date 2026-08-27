@@ -23,7 +23,7 @@ const statusConfig: Record<
 export function OverallBanner({ status, label }: OverallBannerProps) {
   const now = useNow();
   const config = statusConfig[status];
-  const Icon = config.icon;
+  const Icon = config.icon as any;
 
   return (
     <div

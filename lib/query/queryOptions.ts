@@ -6,7 +6,8 @@ import { QueryOptions } from '@tanstack/react-query';
  */
 
 /** FX rates — freshness-critical, refetch on window focus. */
-export const fxRateQueryOptions: Partial<QueryOptions> = {
+export const fxRateQueryOptions = {
+
   staleTime: 10_000,
   gcTime: 30_000,
   refetchOnWindowFocus: true,
@@ -14,7 +15,7 @@ export const fxRateQueryOptions: Partial<QueryOptions> = {
 };
 
 /** Settlement / payment history — tolerant of staleness, no focus refetch. */
-export const historyQueryOptions: Partial<QueryOptions> = {
+export const historyQueryOptions = {
   staleTime: 60_000,
   gcTime: 5 * 60_000,
   refetchOnWindowFocus: false,
@@ -22,7 +23,7 @@ export const historyQueryOptions: Partial<QueryOptions> = {
 };
 
 /** Payments list — moderate freshness. */
-export const paymentsQueryOptions: Partial<QueryOptions> = {
+export const paymentsQueryOptions = {
   staleTime: 30_000,
   gcTime: 2 * 60_000,
   refetchOnWindowFocus: false,
@@ -30,7 +31,7 @@ export const paymentsQueryOptions: Partial<QueryOptions> = {
 };
 
 /** Dashboard / summary — refetch on focus for digest pages. */
-export const dashboardQueryOptions: Partial<QueryOptions> = {
+export const dashboardQueryOptions = {
   staleTime: 20_000,
   gcTime: 2 * 60_000,
   refetchOnWindowFocus: true,
