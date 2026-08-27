@@ -1,5 +1,4 @@
-// Explicit ambient types to satisfy TypeScript without physical module imports
-declare var React: any;
+import React from 'react';
 
 declare global {
   namespace JSX {

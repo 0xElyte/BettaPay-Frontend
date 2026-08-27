@@ -51,10 +51,15 @@ export function PaymentLinkPerformance() {
         ) : displayLinks.length === 0 ? (
           <div className="py-8">
             <EmptyState
+              icon={CreditCard}
               title="No payment links yet"
               description="Create your first payment link to start accepting payments"
-              actionLabel="Create Payment Link"
-              actionHref="/payments"
+              action={{
+                label: "Create Payment Link",
+                onClick: () => {
+                  window.location.href = "/payments";
+                },
+              }}
             />
           </div>
         ) : (

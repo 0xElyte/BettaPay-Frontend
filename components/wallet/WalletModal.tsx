@@ -67,12 +67,12 @@ function WalletConnectOptions() {
   );
 }
 
-export function WalletModal({ isOpen, onClose }: WalletModalProps) {
+export function WalletModal({ isOpen = true, onClose, onConnectWallet }: WalletModalProps) {
   const walletModalOpen = useWalletStore((s) => s.walletModalOpen);
   const setWalletModalOpen = useWalletStore((s) => s.setWalletModalOpen);
 
   useEffect(() => {
-    if (isOpen !== walletModalOpen) {
+    if (isOpen !== undefined && isOpen !== walletModalOpen) {
       setWalletModalOpen(isOpen);
     }
   }, [isOpen, walletModalOpen, setWalletModalOpen]);

@@ -154,7 +154,6 @@ function StatChip({
   label: string;
   value: number;
   icon: LucideIcon;
->>>>>>> upstream/main
   color: "primary" | "yellow" | "orange" | "blue";
 }) {
   const colorMap = {
