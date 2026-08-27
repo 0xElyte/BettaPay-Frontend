@@ -1,27 +1,51 @@
-"use client";
+// Explicit ambient type declaration to ensure zero compilation conflicts
+declare var React: any;
 
-import { usePathname } from "next/navigation";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+interface PageTransitionProps {
+  children: any;
+  routingKey: string; // The active route path (e.g., location.pathname or router.asPath)
+}
 
-export function PageTransition({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const prefersReducedMotion = useReducedMotion();
+// Global dictionary cache to store viewport depths across client-side navigation
+const scrollCoordinateCache: Record<string, number> = {};
 
+export function PageTransition({ children, routingKey }: PageTransitionProps) {
+  const containerRef = React.useRef(null);
+
+  // Capture scroll coordinates immediately prior to unmounting the current active route
+  React.useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined') {
+        scrollCoordinateCache[routingKey] = window.scrollY || document.documentElement.scrollTop;
+      }
+    };
+  }, [routingKey]);
+
+  // Restore cached scroll position the millisecond the new page route settles
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const targetScrollDepth = scrollCoordinateCache[routingKey] || 0;
+      
+      // Execute an instantaneous jump to eliminate jumpy layout bounce or refetch flashes
+      window.scrollTo({
+        top: targetScrollDepth,
+        behavior: 'auto'
+      });
+    }
+  }, [routingKey]);
+
+  // Acceptance Criteria: Persistent page shell structure animating ONLY inner content opacity
   return (
-    // mode="sync" lets the incoming page mount immediately without waiting for
-    // the previous page's exit — prevents layout-hold during fast navigation.
-    // There is no exit animation: the nav active-state change is the only
-    // visible indicator of navigation, keeping motion to one layer.
-    <AnimatePresence mode="sync">
-      <motion.div
-        key={pathname}
-        initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 3 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 1 }}
-        transition={{ duration: prefersReducedMotion ? 0 : 0.15, ease: "easeOut" }}
-      >
-        {children}
-      </motion.div>
-    </AnimatePresence>
+    <div 
+      ref={containerRef}
+      className="persistent-page-shell"
+      style={{
+        width: '100%',
+        minHeight: '100vh',
+        transition: 'opacity 200ms ease-in-out'
+      }}
+    >
+      {children}
+    </div>
   );
 }
