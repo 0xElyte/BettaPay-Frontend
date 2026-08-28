@@ -12,6 +12,7 @@ import { useAuthStore } from "@/lib/store/authStore";
 import { useSessionTimeout } from "@/lib/hooks/useSessionTimeout";
 import { useRateLimitCountdown } from "@/lib/hooks/useRateLimitCountdown";
 import { SessionTimeoutModal } from "@/components/SessionTimeoutModal";
+import { CommandPalette } from "@/components/command/CommandPalette";
 
 export default function MerchantLayout({
   children,
@@ -110,6 +111,8 @@ export default function MerchantLayout({
           </div>
         </main>
       </div>
+
+      <CommandPalette role="merchant" />
 
       {isAuthenticated && (
         <SessionTimeoutModal

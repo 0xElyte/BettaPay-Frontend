@@ -12,6 +12,7 @@ import { GoogleLogin } from '@react-oauth/google';
 import { useAppTranslation } from '@/lib/i18n/useAppTranslation';
 import { useLogin } from '@/lib/hooks/useLogin';
 import { EmailLoginForm } from '@/components/auth/EmailLoginForm';
+import { MagicLinkForm } from '@/components/auth/MagicLinkForm';
 
 // Module-level sentinel: fires the dev-mode missing-config warning at most
 // once across the lifetime of the JS bundle. Avoids the Strict Mode effect
@@ -77,6 +78,9 @@ export default function LoginPage() {
       <div className="space-y-3">
         {/* Email / Password Sign In Form */}
         <EmailLoginForm />
+
+        {/* Passwordless: email magic link (issue #466) */}
+        <MagicLinkForm />
 
         <div className="relative flex items-center py-1">
           <div className="flex-1 h-px bg-border" />
