@@ -29,6 +29,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui";
+import { AccountPicker } from "@/components/wallet/AccountPicker";
 
 const WalletActivityHistory = dynamic(() => import('@/components/wallet/WalletActivityHistory').then(m => ({ default: m.WalletActivityHistory })), {
   loading: () => <Skeleton className="h-64 rounded-xl" />,
@@ -276,6 +277,9 @@ export default function WalletPage() {
           </div>
         </div>
       </div>
+
+      {/* Account Picker for multi-account sessions */}
+      <AccountPicker />
 
       {/* Reconnecting Banner */}
       {isReconnecting && (
