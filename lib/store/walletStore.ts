@@ -29,6 +29,7 @@ interface ConnectError {
 
 export interface WalletState {
   address: string | null;
+  stellarAccounts: string[];
   isConnected: boolean;
   connector: Connector;
   network: 'testnet' | 'public';
@@ -52,6 +53,7 @@ export interface WalletState {
   connect: (connector?: Connector) => Promise<void>;
   /** Called by WalletConnectModal once a session is fully established. */
   resolveWalletConnect: (session: WalletConnectSession) => void;
+  selectAccount: (address: string) => void;
   disconnect: () => void;
   clearConnectError: () => void;
   setNetwork: (network: 'testnet' | 'public') => void;
@@ -64,6 +66,7 @@ export interface WalletState {
 
 export const useWalletStore = create<WalletState>((set, get) => ({
   address: null,
+  stellarAccounts: [],
   isConnected: false,
   connector: null,
   network: getNetwork(),
@@ -83,7 +86,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
       if (connector === 'freighter') {
         const address = await connectFreighter();
         if (address) {
-          set({ address, isConnected: true, connector: 'freighter', connectError: null });
+          set({ address, stellarAccounts: [address], isConnected: true, connector: 'freighter', connectError: null });
           get().refreshBalances();
         } else {
           throw new Error('Freighter connection failed');
@@ -132,14 +135,35 @@ export const useWalletStore = create<WalletState>((set, get) => ({
   },
 
   resolveWalletConnect: (session: WalletConnectSession) => {
+    const stellarAccounts = session.stellarAccounts && session.stellarAccounts.length > 0
+      ? session.stellarAccounts
+      : session.address ? [session.address] : [];
+    const selectedAddress = session.address && stellarAccounts.includes(session.address)
+      ? session.address
+      : stellarAccounts[0] || null;
+
     set({
-      address: session.address,
+      address: selectedAddress,
+      stellarAccounts,
       isConnected: true,
       connector: 'walletconnect',
       connectError: null,
       walletConnectPending: false,
-      walletConnectSession: session,
+      walletConnectSession: {
+        ...session,
+        address: selectedAddress || session.address,
+        stellarAccounts,
+      },
     });
+    get().refreshBalances();
+  },
+
+  selectAccount: (address: string) => {
+    const { stellarAccounts, address: currentAddress } = get();
+    if (!address || address === currentAddress) return;
+    if (stellarAccounts.length > 0 && !stellarAccounts.includes(address)) return;
+
+    set({ address, balances: [], loading: true, error: null });
     get().refreshBalances();
   },
 
@@ -150,6 +174,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
     }
     set({
       address: null,
+      stellarAccounts: [],
       isConnected: false,
       connector: null,
       balances: [],
