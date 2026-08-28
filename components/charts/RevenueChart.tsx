@@ -10,8 +10,10 @@ import {
   XAxis,
   YAxis,
   Tooltip,
+  Legend,
   CartesianGrid,
 } from "recharts";
+import { formatNumber } from "@/lib/utils/format";
 
 /** Minimal shape this chart needs from a payment — matches `ApiPayment`. */
 export interface RevenuePayment {
@@ -29,8 +31,8 @@ export interface RevenueChartPoint {
   volume: number;
 }
 
-/** Preview data — used only when the parent supplies no payments. */
-const mockChartData: RevenueChartPoint[] = [
+/** Preview data — used only when the parent supplies no payments. Exported for testing and for RevenueChartSection to derive totals from the same source. */
+export const mockChartData: RevenueChartPoint[] = [
   { name: "Mon", total: 1200, volume: 1200 },
   { name: "Tue", total: 2100, volume: 3300 },
   { name: "Wed", total: 1800, volume: 5100 },
@@ -82,7 +84,7 @@ export const aggregatePaymentsByDay = (
 };
 
 const formatUsd = (value: number) =>
-  `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  `$${formatNumber(value, undefined, { maximumFractionDigits: 0 })}`;
 
 interface ChartTooltipProps {
   active?: boolean;
@@ -156,11 +158,37 @@ export default function RevenueChart({ height = 260, data }: RevenueChartProps) 
   }, [data]);
 
   return (
-    <div className="w-full" style={{ height }}>
+    <div
+      role="region"
+      aria-label="Revenue and volume chart"
+      className="w-full relative"
+      style={{ height }}
+    >
+      <table className="sr-only" aria-label="Revenue and volume data table">
+        <caption>Daily revenue and cumulative volume</caption>
+        <thead>
+          <tr>
+            <th scope="col">Day</th>
+            <th scope="col">Daily Revenue (USD)</th>
+            <th scope="col">Cumulative Volume (USD)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {chartData.map((row, index) => (
+            <tr key={index}>
+              <td>{row.name}</td>
+              <td>${formatNumber(row.total, undefined, { maximumFractionDigits: 0 })}</td>
+              <td>${formatNumber(row.volume, undefined, { maximumFractionDigits: 0 })}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart
           data={chartData}
           margin={{ top: 4, right: 4, bottom: 0, left: isMobile ? 0 : -16 }}
+          accessibilityLayer
         >
           <defs>
             <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
@@ -180,6 +208,7 @@ export default function RevenueChart({ height = 260, data }: RevenueChartProps) 
             tickLine={false}
             axisLine={false}
             tick={{ fill: "var(--muted-foreground)" }}
+            aria-label="Day of week"
           />
           <YAxis
             stroke="var(--muted-foreground)"
@@ -188,8 +217,14 @@ export default function RevenueChart({ height = 260, data }: RevenueChartProps) 
             axisLine={false}
             tickFormatter={formatUsd}
             tick={{ fill: "var(--muted-foreground)" }}
+            aria-label="Amount in USD"
           />
           <Tooltip content={<ChartTooltip />} cursor={{ fill: "var(--muted)", opacity: 0.4 }} />
+          <Legend
+            verticalAlign="top"
+            align="right"
+            wrapperStyle={{ paddingBottom: '8px', fontSize: '11px' }}
+          />
           <Bar
             dataKey="total"
             name="Daily revenue"
@@ -216,3 +251,4 @@ export default function RevenueChart({ height = 260, data }: RevenueChartProps) 
     </div>
   );
 }
+

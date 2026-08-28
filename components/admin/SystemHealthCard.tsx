@@ -6,42 +6,31 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useSystemHealth } from "@/lib/hooks/useSystemHealth";
 import type { ServiceHealth, ServiceStatus } from "@/lib/types/health";
+import {
+  STATUS_TONE_DOT,
+  STATUS_TONE_TEXT,
+  type StatusTone,
+} from "@/lib/status/palette";
 
 // ---------------------------------------------------------------------------
 // Status helpers
 // ---------------------------------------------------------------------------
 
+// These labels sit directly on the card with no tinted pill behind them, so
+// the foreground alone has to clear AA against `--card`. The raw
+// `text-green-600` / `text-yellow-600` pairings used previously did not
+// (3.0:1 and 3.2:1 on white); the audited status tones do.
 const STATUS_CONFIG: Record<
   ServiceStatus,
   {
-    dot: string;
     icon: React.ElementType;
-    iconClass: string;
     label: string;
-    labelClass: string;
+    tone: StatusTone;
   }
 > = {
-  healthy: {
-    dot: "bg-green-500",
-    icon: CheckCircle2,
-    iconClass: "text-green-500",
-    label: "Healthy",
-    labelClass: "text-green-600",
-  },
-  degraded: {
-    dot: "bg-yellow-500",
-    icon: AlertTriangle,
-    iconClass: "text-yellow-500",
-    label: "Degraded",
-    labelClass: "text-yellow-600",
-  },
-  unhealthy: {
-    dot: "bg-red-500",
-    icon: XCircle,
-    iconClass: "text-red-500",
-    label: "Unhealthy",
-    labelClass: "text-red-600",
-  },
+  healthy: { icon: CheckCircle2, label: "Healthy", tone: "ok" },
+  degraded: { icon: AlertTriangle, label: "Degraded", tone: "warn" },
+  unhealthy: { icon: XCircle, label: "Unhealthy", tone: "down" },
 };
 
 function formatLatency(ms?: number): string {
@@ -93,7 +82,8 @@ interface ServiceRowProps {
 
 function ServiceRow({ service }: ServiceRowProps) {
   const config = STATUS_CONFIG[service.status];
-  const Icon = config.icon;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const Icon = config.icon as any;
   const latency = formatLatency(service.latencyMs);
   const checkedAt = formatCheckedAt(service.checkedAt);
 
@@ -108,7 +98,7 @@ function ServiceRow({ service }: ServiceRowProps) {
       <div className="flex items-start gap-3">
         {/* Color dot (decorative — status label is the accessible text) */}
         <div
-          className={cn("w-2 h-2 rounded-full mt-1.5 flex-shrink-0", config.dot)}
+          className={cn("w-2 h-2 rounded-full mt-1.5 flex-shrink-0", STATUS_TONE_DOT[config.tone])}
           aria-hidden="true"
         />
         <div className="flex flex-col">
@@ -117,9 +107,9 @@ function ServiceRow({ service }: ServiceRowProps) {
           </p>
 
           {/* Status + icon together (not color-only) */}
-          <span className={cn("text-xs flex items-center gap-1", config.labelClass)}>
+          <span className={cn("text-xs font-medium flex items-center gap-1", STATUS_TONE_TEXT[config.tone])}>
             <Icon
-              className={cn("w-3 h-3", config.iconClass)}
+              className="w-3 h-3"
               aria-hidden="true"
             />
             {config.label}
@@ -127,14 +117,14 @@ function ServiceRow({ service }: ServiceRowProps) {
 
           {/* Error message when unhealthy */}
           {service.status === "unhealthy" && service.errorMessage && (
-            <p className="text-xs text-red-500/80 mt-0.5 max-w-[180px] leading-tight">
+            <p className="text-xs text-status-down mt-0.5 max-w-[180px] leading-tight">
               {service.errorMessage}
             </p>
           )}
 
           {/* Degraded: show error or hint */}
           {service.status === "degraded" && service.errorMessage && (
-            <p className="text-xs text-yellow-600/80 mt-0.5 max-w-[180px] leading-tight">
+            <p className="text-xs text-status-warn mt-0.5 max-w-[180px] leading-tight">
               {service.errorMessage}
             </p>
           )}
@@ -148,9 +138,9 @@ function ServiceRow({ service }: ServiceRowProps) {
             className={cn(
               "text-xs font-mono",
               service.status === "degraded"
-                ? "text-yellow-500"
+                ? "text-status-warn"
                 : service.status === "unhealthy"
-                ? "text-red-400"
+                ? "text-status-down"
                 : "text-muted-foreground"
             )}
           >

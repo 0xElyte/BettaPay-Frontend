@@ -1,12 +1,18 @@
 "use client";
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { Button } from '@/components/ui';
-import { DashboardSkeleton } from '@/components/skeletons/DashboardSkeleton';
 import { CurrencyDisplay, StatCard, ErrorDisplay } from '@/components/shared';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { OnboardingChecklist } from '@/components/dashboard/OnboardingChecklist';
+import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
+import { usePayments } from '@/lib/api/hooks';
+import { useAuthStore } from '@/lib/store/authStore';
+import Link from 'next/link';
+import { useNotify } from '@/lib/hooks/useNotify';
+import { cn } from '@/lib/utils';
+import dynamic from 'next/dynamic';
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -21,32 +27,21 @@ import {
   ExternalLink,
   ArrowRight,
 } from 'lucide-react';
-import dynamic from 'next/dynamic';
 
 const RevenueChart = dynamic(() => import('@/components/charts/RevenueChart'), {
   ssr: false,
-  loading: () => <div className="h-[260px] bg-slate-50 animate-pulse rounded-xl w-full" />
+  loading: () => <div className="h-[260px] bg-muted animate-pulse rounded-xl w-full" />,
 });
-import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
-import { usePayments, useSettlements } from '@/lib/api/hooks';
-import { useAuthStore } from '@/lib/store/authStore';
-import Link from 'next/link';
-import { useNotify } from '@/lib/hooks/useNotify';
-import { cn } from '@/lib/utils';
-import { API_URL } from '@/lib/config';
+import { aggregatePaymentsByDay, mockChartData } from '@/components/charts/RevenueChart';
 
 const PERIOD_OPTIONS = ['7D', '30D', '90D'] as const;
 type Period = typeof PERIOD_OPTIONS[number];
 
-
-
 export default function DashboardPage() {
   const { user } = useAuthStore();
   const notify = useNotify();
-  const { data: payments, isLoading: paymentsLoading } = usePayments();
-  const { isLoading: settlementsLoading } = useSettlements();
+  const { data: payments } = usePayments();
 
-  const isLoading = paymentsLoading || settlementsLoading;
 
   const [activePeriod, setActivePeriod] = useState<Period>('7D');
 
@@ -78,12 +73,38 @@ export default function DashboardPage() {
     setLinksError(nextState);
   };
 
+  // --- Derived chart data: single source of truth for both header total and bars ---
+  const chartData = useMemo(() => {
+    if (!payments || payments.length === 0) {
+      return mockChartData;
+    }
+    // Filter by activePeriod window
+    const now = new Date();
+    const days = activePeriod === '7D' ? 7 : activePeriod === '30D' ? 30 : 90;
+    const cutoff = new Date(now);
+    cutoff.setDate(now.getDate() - days);
+    const filtered = (payments as unknown as { createdAt: string; amountUsdc: number; status?: string }[]).filter((p) => {
+      const d = new Date(p.createdAt);
+      return !Number.isNaN(d.getTime()) && d >= cutoff;
+    });
+    // If filter yields nothing, aggregate empty -> fallback to mock for preview (consistent with RevenueChart)
+    const source = filtered.length > 0 ? filtered : payments;
+    const aggregated = aggregatePaymentsByDay(source as unknown as { amountUsdc: number; createdAt: string; status?: string }[]);
+    return aggregated.length > 0 ? aggregated : mockChartData;
+  }, [payments, activePeriod]);
+
+  const totalRevenue = useMemo(() => chartData.reduce((sum, p) => sum + p.total, 0), [chartData]);
+  const peakDay = useMemo(() => {
+    if (chartData.length === 0) return null;
+    return chartData.reduce((max, p) => (p.total > max.total ? p : max), chartData[0]);
+  }, [chartData]);
+  const weeklyAvg = useMemo(() => {
+    if (chartData.length === 0) return 0;
+    return Math.round(totalRevenue / chartData.length);
+  }, [totalRevenue, chartData.length]);
+
   return (
     <div className="space-y-8 pb-8">
-      {isLoading ? (
-        <DashboardSkeleton />
-      ) : (
-        <>
       {/* ── Welcome Header ── */}
       <PageHeader
         preTitle="Merchant Dashboard"
@@ -163,19 +184,23 @@ export default function DashboardPage() {
       {/* ── Charts + Recent Transactions ── */}
       <div className="grid gap-6 lg:grid-cols-7">
 
-        {/* Revenue Chart */}
+        {/* Revenue Chart - header total derived from same chartData passed to chart */}
         <Card className="lg:col-span-4 border border-border bg-card shadow-sm">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-base font-semibold text-foreground">Revenue Over Time</CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">USDC received to your merchant wallet</p>
+                <p className="text-sm font-bold text-foreground mt-1.5" aria-label={`Total revenue $${totalRevenue.toLocaleString()}`}>
+                  Total · ${totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </p>
               </div>
-              <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+              <div className="flex items-center gap-1 bg-muted rounded-lg p-1" role="group" aria-label="Select period">
                 {PERIOD_OPTIONS.map((p) => (
                   <button
                     key={p}
                     onClick={() => handlePeriodChange(p)}
+                    aria-pressed={activePeriod === p}
                     className={cn(
                       'min-h-[44px] min-w-[44px] px-3 py-1 rounded-md text-xs font-semibold transition-all',
                       activePeriod === p
@@ -198,23 +223,24 @@ export default function DashboardPage() {
                 />
               </div>
             ) : (
-              <RevenueChart height={260} data={payments} />
+              <RevenueChart height={260} data={chartData} />
             )}
-            {/* Summary row */}
+            {/* Summary row - all values derived from chartData (peak, avg) */}
             <div className="flex items-center gap-6 pt-4 border-t border-border mt-2">
               <div>
                 <p className="text-xs text-muted-foreground">Peak day</p>
-                <p className="text-sm font-semibold text-foreground">Saturday · $4,100</p>
+                <p className="text-sm font-semibold text-foreground" data-testid="revenue-peak">{peakDay ? `${peakDay.name} · $${peakDay.total.toLocaleString()}` : '—'}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Weekly avg</p>
-                <p className="text-sm font-semibold text-foreground">$2,714</p>
+                <p className="text-sm font-semibold text-foreground" data-testid="revenue-avg">${weeklyAvg.toLocaleString()}</p>
               </div>
               <div className="ml-auto flex items-center gap-1 text-success text-xs font-semibold bg-success/10 px-3 py-1.5 rounded-full">
-                <TrendingUp className="w-3 h-3" />
+                <TrendingUp className="w-3 h-3" aria-hidden="true" />
                 +18.4% WoW
               </div>
             </div>
+            <span className="sr-only" data-testid="revenue-total" data-total={totalRevenue}>Total revenue {totalRevenue}</span>
           </CardContent>
         </Card>
 
@@ -281,8 +307,8 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {payments.slice(0, 3).map((link) => {
-                  const baseUrl = API_URL;
+                {payments.slice(0, 5).map((link) => {
+                  const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
                   const linkUrl = `${baseUrl}/pay/${link.id}`;
                   const clicks = link.clicks ?? 0;
                   const converted = link.converted ?? 0;
@@ -311,7 +337,7 @@ export default function DashboardPage() {
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                        <span className="text-sm font-bold text-foreground">{link.amountNgn ? `₦${link.amountNgn.toLocaleString()}` : <CurrencyDisplay amount={link.amountUsdc} />}</span>
+                        <span className="text-sm font-bold text-foreground"><CurrencyDisplay amount={link.amountUsdc} currency="USDC" /></span>
                         <span className="text-xs text-muted-foreground">{link.clicks ?? 0} clicks</span>
                       </div>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -330,9 +356,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
-        </>
-      )}
     </div>
   );
 }
-

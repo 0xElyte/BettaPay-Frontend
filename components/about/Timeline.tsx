@@ -51,7 +51,7 @@ const milestones: Milestone[] = [
 
 export function Timeline() {
   return (
-    <section className="py-20 md:py-28 bg-muted/30 border-b border-border/40 relative overflow-hidden">
+    <section aria-labelledby="timeline-heading" className="py-20 md:py-28 bg-muted/30 border-b border-border/40 relative overflow-hidden">
       <div className="container mx-auto px-6">
         {/* Header */}
         <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
@@ -59,7 +59,7 @@ export function Timeline() {
             <CheckCircle2 className="w-3.5 h-3.5" />
             <span>Our Journey</span>
           </div>
-          <h2 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+          <h2 id="timeline-heading" className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
             Key Company Milestones
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -73,13 +73,13 @@ export function Timeline() {
           <div className="absolute top-1/2 left-0 right-0 h-1 bg-border/80 -translate-y-1/2 z-0" />
           <div className="absolute top-1/2 left-0 w-3/4 h-1 bg-gradient-to-r from-primary via-amber-400 to-amber-500 -translate-y-1/2 z-0" />
 
-          <div className="grid grid-cols-5 gap-4 relative z-10">
+          <ul className="grid grid-cols-5 gap-4 relative z-10">
             {milestones.map((item, idx) => {
-              const IconComp = item.icon;
+              const IconComp = item.icon as any;
               const isEven = idx % 2 === 0;
 
               return (
-                <motion.div
+                <motion.li
                   key={item.date}
                   initial={{ opacity: 0, y: isEven ? -20 : 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
@@ -127,18 +127,18 @@ export function Timeline() {
                       </p>
                     </div>
                   )}
-                </motion.div>
+                </motion.li>
               );
             })}
-          </div>
+          </ul>
         </div>
 
         {/* Mobile / Tablet Vertical Timeline (Hidden on Large Desktop) */}
-        <div className="lg:hidden relative pl-6 space-y-8 my-8 border-l-2 border-primary/40">
+        <ul className="lg:hidden relative pl-6 space-y-8 my-8 border-l-2 border-primary/40">
           {milestones.map((item, idx) => {
-            const IconComp = item.icon;
+            const IconComp = item.icon as any;
             return (
-              <motion.div
+              <motion.li
                 key={item.date}
                 initial={{ opacity: 0, x: -20 }}
                 whileInView={{ opacity: 1, x: 0 }}
@@ -169,10 +169,10 @@ export function Timeline() {
                     {item.description}
                   </p>
                 </div>
-              </motion.div>
+              </motion.li>
             );
           })}
-        </div>
+        </ul>
       </div>
     </section>
   );

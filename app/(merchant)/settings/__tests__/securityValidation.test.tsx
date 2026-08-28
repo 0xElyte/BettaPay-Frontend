@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SettingsPage from '../page';
 
 const mockNotifySuccess = jest.fn();
@@ -25,6 +25,14 @@ jest.mock('@/lib/api/hooks', () => ({
     isLoading: false,
     refetch: jest.fn(),
   }),
+}));
+
+jest.mock('@/lib/api/axios', () => ({
+  apiClient: {
+    post: jest.fn().mockResolvedValue({ data: {} }),
+    get: jest.fn().mockResolvedValue({ data: {} }),
+    patch: jest.fn().mockResolvedValue({ data: {} }),
+  },
 }));
 
 jest.mock('next/navigation', () => ({
@@ -95,7 +103,7 @@ describe('SettingsPage - Password Security Validation (#320)', () => {
     expect(screen.getByText('Passwords do not match')).toBeInTheDocument();
   });
 
-  it('enables submit button and allows updating when all validations pass', () => {
+  it('enables submit button and allows updating when all validations pass', async () => {
     openSecurityTab();
 
     const inputs = screen.getAllByPlaceholderText('••••••••');
@@ -112,6 +120,6 @@ describe('SettingsPage - Password Security Validation (#320)', () => {
 
     fireEvent.click(submitBtn);
 
-    expect(mockNotifySuccess).toHaveBeenCalledWith('Password updated');
+    await waitFor(() => expect(mockNotifySuccess).toHaveBeenCalledWith('Password updated'));
   });
 });

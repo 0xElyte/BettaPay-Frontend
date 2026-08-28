@@ -48,7 +48,8 @@ export function setDismissed(dismissed: boolean): void {
 export function useOnboardingChecklist(): OnboardingChecklistState {
   const { user } = useAuthStore();
   const { data: payments, isLoading: paymentsLoading } = usePayments();
-  const { data: settlements, isLoading: settlementsLoading } = useSettlements();
+  // settlement data is fetched only for its loading state today
+  const { isLoading: settlementsLoading } = useSettlements();
   // profile data is fetched to drive future checklist items (e.g. business info complete)
   const { isLoading: profileLoading } = useMerchantProfile(user?.id);
   const { data: bankAccount, isLoading: bankLoading } = useMerchantBankAccount(user?.id);

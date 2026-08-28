@@ -195,7 +195,7 @@ export default function PaymentLinkPage() {
               <WalletModalFallback />
             }
           >
-            <WalletModal />
+            <WalletModal isOpen={walletModalOpen} onClose={() => setWalletModalOpen(false)} />
           </Suspense>
         </WalletModalErrorBoundary>
 

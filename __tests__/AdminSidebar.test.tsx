@@ -60,6 +60,10 @@ jest.mock("lucide-react", () => {
     ShieldAlert: icon("ShieldAlert"),
     Settings: icon("Settings"),
     ShieldCheck: icon("ShieldCheck"),
+    ChevronLeft: icon("ChevronLeft"),
+    ChevronRight: icon("ChevronRight"),
+    Menu: icon("Menu"),
+    X: icon("X"),
     // MerchantSidebar icons
     LayoutDashboard: icon("LayoutDashboard"),
     Link: icon("Link"),

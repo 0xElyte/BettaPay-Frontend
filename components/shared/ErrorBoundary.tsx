@@ -3,18 +3,20 @@
 import { Component, type ReactNode } from "react";
 import Link from "next/link";
 import { AlertTriangle, RotateCcw } from "lucide-react";
+import { captureException } from "@/lib/errorReporting";
 
 const buttonBase =
   "inline-flex items-center justify-center rounded-lg px-4 h-11 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
-  /** Optional custom fallback; when omitted the default error card is shown. */
+  pathname?: string;
   fallback?: ReactNode;
 }
 
 interface ErrorBoundaryState {
   hasError: boolean;
+  pathname?: string;
 }
 
 /**
@@ -25,15 +27,34 @@ export class ErrorBoundary extends Component<
   ErrorBoundaryProps,
   ErrorBoundaryState
 > {
-  state: ErrorBoundaryState = { hasError: false };
+  state: ErrorBoundaryState = {
+    hasError: false,
+    pathname: this.props.pathname,
+  };
 
   static getDerivedStateFromError(): ErrorBoundaryState {
     return { hasError: true };
   }
 
+  static getDerivedStateFromProps(
+    props: ErrorBoundaryProps,
+    state: ErrorBoundaryState,
+  ): ErrorBoundaryState | null {
+    if (props.pathname !== state.pathname) {
+      return { hasError: false, pathname: props.pathname };
+    }
+    return null;
+  }
+
   componentDidCatch(error: unknown, info: unknown) {
-    // Log so the failure is still visible in the console / error reporting.
-    console.error("Unhandled render error caught by ErrorBoundary", error, info);
+    console.error(
+      "Unhandled render error caught by ErrorBoundary",
+      error,
+      info,
+    );
+    const componentStack = (info as { componentStack?: string } | null)
+      ?.componentStack;
+    captureException(error, { source: "boundary", componentStack });
   }
 
   handleReset = () => {
@@ -84,4 +105,20 @@ export class ErrorBoundary extends Component<
       </div>
     );
   }
+}
+
+export function ErrorBoundaryWithRouter({
+  children,
+  fallback,
+}: {
+  children: ReactNode;
+  fallback?: ReactNode;
+}) {
+  const pathname =
+    typeof window !== "undefined" ? window.location.pathname : undefined;
+  return (
+    <ErrorBoundary pathname={pathname} fallback={fallback}>
+      {children}
+    </ErrorBoundary>
+  );
 }

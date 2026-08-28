@@ -1,18 +1,28 @@
 "use client";
 
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDebounceValue } from 'usehooks-ts';
+import {
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  useReactTable,
+  type ColumnDef,
+  type SortingState,
+} from '@tanstack/react-table';
 import { Card, CardContent, Input, Button, Skeleton, NetworkTooltip, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui';
 import { StatusBadge, CopyAddress, CurrencyDisplay, ErrorDisplay, EmptyState, ExportMenu } from '@/components/shared';
 import { TableSkeleton } from '@/components/skeletons/TableSkeleton';
 import { usePayments, type ApiPayment } from '@/lib/api/hooks';
 import { formatDate } from '@/lib/utils/format';
 import { sanitizeSearchQuery } from '@/lib/utils/sanitize';
-import { Search, SearchX, ExternalLink } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Search, SearchX, ExternalLink } from 'lucide-react';
 import { getStellarExplorerTxUrl } from '@/lib/utils/explorer';
+import { useWalletStore } from '@/lib/store/walletStore';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { TransactionDrawer } from '@/components/transactions/TransactionDrawer';
 import { useOfflineStore } from '@/lib/store/offlineStore';
+import { cn } from '@/lib/utils';
 
 type Transaction = ApiPayment;
 
@@ -33,13 +43,19 @@ function isTransaction(value: unknown): value is Transaction {
 
 interface TransactionCardProps {
   tx: Transaction;
+  selected: boolean;
   onClick: (tx: Transaction) => void;
 }
 
-const TransactionCard = memo(function TransactionCard({ tx, onClick }: TransactionCardProps) {
+const TransactionCard = memo(function TransactionCard({ tx, selected, onClick }: TransactionCardProps) {
+  const network = useWalletStore((s) => s.network);
   return (
     <div
-      className="border border-border/50 rounded-lg p-4 space-y-3 cursor-pointer hover:bg-muted/30 transition-colors"
+      data-row-id={tx.id}
+      className={cn(
+        'border border-border/50 rounded-lg p-4 space-y-3 cursor-pointer hover:bg-muted/30 transition-colors',
+        selected && 'ring-2 ring-primary/40 bg-muted/20',
+      )}
       onClick={() => onClick(tx)}
     >
       <div className="flex items-center justify-between">
@@ -57,7 +73,7 @@ const TransactionCard = memo(function TransactionCard({ tx, onClick }: Transacti
             <CopyAddress address={tx.txHash ?? ''} />
             {tx.txHash && (
               <a
-                href={getStellarExplorerTxUrl(tx.txHash)}
+                href={getStellarExplorerTxUrl(tx.txHash, network)}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="View on Stellar Explorer"
@@ -80,7 +96,7 @@ const TransactionCard = memo(function TransactionCard({ tx, onClick }: Transacti
         </div>
         <div className="flex items-center justify-between">
           <span className="text-xs text-muted-foreground">Amount (NGN)</span>
-          <CurrencyDisplay amount={tx.amountNgn ?? 0} currency="NGN" showDecimals={false} />
+          <CurrencyDisplay amount={tx.amountNgn} currency="NGN" showDecimals={false} />
         </div>
       </div>
     </div>
@@ -90,22 +106,36 @@ const TransactionCard = memo(function TransactionCard({ tx, onClick }: Transacti
 interface TransactionRowProps {
   tx: Transaction;
   translateY: number;
+  selected: boolean;
   onClick: (tx: Transaction) => void;
 }
 
-// Rendered inline inside virtualItems.map(...) previously — every row got a
-// brand-new inline JSX subtree on each parent render (e.g. every keystroke
-// in the search input), so React re-rendered the entire visible table body
-// even though debouncedSearch hadn't changed yet. Extracting a memoized row
-// component gives React a props-based bailout, mirroring TransactionCard.
-const TransactionRow = memo(function TransactionRow({ tx, translateY, onClick }: TransactionRowProps) {
+const TransactionRow = memo(function TransactionRow({
+  tx,
+  translateY,
+  selected,
+  onClick,
+}: TransactionRowProps) {
+  const network = useWalletStore((s) => s.network);
   return (
     <tr
-      className="border-border/50 hover:bg-muted/30 cursor-pointer border-b"
+      data-row-id={tx.id}
+      tabIndex={0}
+      aria-selected={selected}
+      className={cn(
+        'border-border/50 hover:bg-muted/30 cursor-pointer border-b absolute left-0 w-full table table-fixed',
+        selected && 'bg-muted/40',
+      )}
       onClick={() => onClick(tx)}
-      style={{ transform: `translateY(${translateY}px)` }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick(tx);
+        }
+      }}
+      style={{ transform: `translateY(${translateY}px)`, height: 48 }}
     >
-      <td className="text-muted-foreground whitespace-nowrap px-4 py-2 text-sm">
+      <td className="text-muted-foreground whitespace-nowrap px-4 py-2 text-sm w-[180px]">
         {formatDate(tx.createdAt)}
       </td>
       <td className="px-4 py-2 text-sm">
@@ -121,7 +151,7 @@ const TransactionRow = memo(function TransactionRow({ tx, translateY, onClick }:
         <CurrencyDisplay amount={tx.amountUsdc} currency="USDC" />
       </td>
       <td className="text-right text-muted-foreground px-4 py-2 text-sm">
-        <CurrencyDisplay amount={tx.amountNgn ?? 0} currency="NGN" showDecimals={false} />
+        <CurrencyDisplay amount={tx.amountNgn} currency="NGN" showDecimals={false} />
       </td>
       <td className="text-center px-4 py-2 text-sm">
         <StatusBadge status={tx.status} />
@@ -129,7 +159,7 @@ const TransactionRow = memo(function TransactionRow({ tx, translateY, onClick }:
       <td className="w-[80px] text-center px-4 py-2 text-sm">
         {tx.txHash && (
           <a
-            href={getStellarExplorerTxUrl(tx.txHash)}
+            href={getStellarExplorerTxUrl(tx.txHash, network)}
             target="_blank"
             rel="noopener noreferrer"
             aria-label="View on Stellar Explorer"
@@ -145,8 +175,14 @@ const TransactionRow = memo(function TransactionRow({ tx, translateY, onClick }:
   );
 });
 
+function SortIcon({ direction }: { direction: false | 'asc' | 'desc' }) {
+  if (direction === 'asc') return <ArrowUp className="ml-1 inline h-3.5 w-3.5" aria-hidden="true" />;
+  if (direction === 'desc') return <ArrowDown className="ml-1 inline h-3.5 w-3.5" aria-hidden="true" />;
+  return <ArrowUpDown className="ml-1 inline h-3.5 w-3.5 opacity-40" aria-hidden="true" />;
+}
+
 export default function TransactionsPage() {
-  const { data: payments, isLoading, error: fetchError, refetch } = usePayments();
+  const { data: payments = [], isLoading, error: fetchError, refetch, isFetching } = usePayments();
 
   const [searchTerm, setSearchTerm] = useState('');
   const sanitizedOnChange = useCallback(
@@ -159,14 +195,19 @@ export default function TransactionsPage() {
   const [assetFilter, setAssetFilter] = useState('all');
   const [dateRangeFilter, setDateRangeFilter] = useState('all');
 
-  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
+  // Selection is stored by stable id so background refetches cannot drop it.
+  const [selectedTxId, setSelectedTxId] = useState<string | null>(null);
   const [txError, setTxError] = useState(false);
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: 'createdAt', desc: true },
+  ]);
   const isOnline = useOfflineStore((s) => s.isOnline);
   const tableContainerRef = useRef<HTMLDivElement>(null);
+  const focusedRowIdRef = useRef<string | null>(null);
 
   const filteredTransactions = useMemo(() => {
     const now = new Date();
-    return payments.filter(tx => {
+    return payments.filter((tx) => {
       const matchesSearch =
         (tx.txHash ?? '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
         (tx.payerAddress ?? '').toLowerCase().includes(debouncedSearch.toLowerCase()) ||
@@ -193,6 +234,67 @@ export default function TransactionsPage() {
     });
   }, [payments, debouncedSearch, statusFilter, assetFilter, dateRangeFilter]);
 
+  const columns = useMemo<ColumnDef<Transaction>[]>(
+    () => [
+      {
+        id: 'createdAt',
+        accessorKey: 'createdAt',
+        header: 'Date',
+        sortingFn: 'datetime',
+      },
+      {
+        id: 'payerAddress',
+        accessorFn: (row) => row.payerAddress ?? '',
+        header: 'Payer',
+      },
+      {
+        id: 'txHash',
+        accessorFn: (row) => row.txHash ?? '',
+        header: 'Tx Hash',
+      },
+      {
+        id: 'source',
+        accessorFn: (row) => row.source ?? '',
+        header: 'Source',
+      },
+      {
+        id: 'amountUsdc',
+        accessorKey: 'amountUsdc',
+        header: 'Amount (USDC)',
+      },
+      {
+        id: 'amountNgn',
+        accessorFn: (row) => row.amountNgn ?? 0,
+        header: 'Amount (NGN)',
+      },
+      {
+        id: 'status',
+        accessorKey: 'status',
+        header: 'Status',
+      },
+      {
+        id: 'explorer',
+        enableSorting: false,
+        header: 'Explorer',
+      },
+    ],
+    [],
+  );
+
+  const table = useReactTable({
+    data: filteredTransactions,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    // Stable ids keep row identity across background refetches.
+    getRowId: (row) => row.id,
+    autoResetPageIndex: false,
+  });
+
+  const sortedRows = table.getRowModel().rows;
+
   const activeFilterCount = (statusFilter !== 'all' ? 1 : 0) + (assetFilter !== 'all' ? 1 : 0) + (dateRangeFilter !== 'all' ? 1 : 0);
 
   const handleClearFilters = () => {
@@ -201,31 +303,67 @@ export default function TransactionsPage() {
     setDateRangeFilter('all');
   };
 
-  // Export the FULL filtered dataset — never the virtualized visible slice —
-  // so the downloaded CSV matches exactly what the filters/search show.
+  const handleSelectTx = useCallback((tx: Transaction) => {
+    setSelectedTxId(tx.id);
+  }, []);
+
+  // Resolve selection from the latest payments array so drawer content stays fresh
+  // after refetch without losing which row was open.
+  const selectedTx = useMemo(() => {
+    if (!selectedTxId) return null;
+    return payments.find((tx) => tx.id === selectedTxId) ?? null;
+  }, [payments, selectedTxId]);
+
+  // Export the FULL filtered+sorted dataset — never the virtualized visible slice.
   const exportRows = useMemo(
     () =>
-      filteredTransactions.map((tx) => [
-        tx.createdAt,
-        tx.payerAddress,
-        tx.txHash,
-        tx.source,
-        tx.amountUsdc,
-        tx.amountNgn ?? 0,
-        tx.status,
-      ]),
-    [filteredTransactions],
+      sortedRows.map((row) => {
+        const tx = row.original;
+        return [
+          tx.createdAt,
+          tx.payerAddress,
+          tx.txHash,
+          tx.source,
+          tx.amountUsdc,
+          tx.amountNgn ?? 0,
+          tx.status,
+        ];
+      }),
+    [sortedRows],
   );
 
   const virtualizer = useVirtualizer({
-    count: filteredTransactions.length,
+    count: sortedRows.length,
     getScrollElement: () => tableContainerRef.current,
     estimateSize: () => 48,
     overscan: 10,
+    getItemKey: (index) => sortedRows[index]?.id ?? index,
   });
 
   const virtualItems = virtualizer.getVirtualItems();
   const totalSize = virtualizer.getTotalSize();
+
+  // Preserve keyboard focus on the same logical row after a background refetch.
+  useEffect(() => {
+    if (!isFetching && focusedRowIdRef.current) {
+      const el = tableContainerRef.current?.querySelector(
+        `[data-row-id="${focusedRowIdRef.current.replace(/"/g, '\\"')}"]`,
+      ) as HTMLElement | null;
+      el?.focus({ preventScroll: true });
+    }
+  }, [isFetching, sortedRows]);
+
+  useEffect(() => {
+    const root = tableContainerRef.current;
+    if (!root) return;
+    const onFocusIn = (event: FocusEvent) => {
+      const target = event.target as HTMLElement | null;
+      const row = target?.closest?.('[data-row-id]') as HTMLElement | null;
+      focusedRowIdRef.current = row?.dataset.rowId ?? null;
+    };
+    root.addEventListener('focusin', onFocusIn);
+    return () => root.removeEventListener('focusin', onFocusIn);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -353,7 +491,7 @@ export default function TransactionsPage() {
                 </div>
               ) : (
                 <>
-                  {filteredTransactions.length === 0 ? (
+                  {sortedRows.length === 0 ? (
                     <EmptyState
                       icon={SearchX}
                       title={searchTerm || activeFilterCount > 0 ? 'No transactions match filters' : 'No transactions yet'}
@@ -378,35 +516,74 @@ export default function TransactionsPage() {
                     />
                   ) : (
                     <div className="rounded-md border border-border/50 overflow-hidden hidden md:block">
-                      <table className="w-full border-collapse">
+                      <table className="w-full border-collapse table-fixed">
                         <thead className="bg-muted/50 sticky top-0 z-10">
-                          <tr className="border-border/50">
-                            <th className="w-[180px] px-4 py-2 text-left text-sm font-medium">Date</th>
-                            <th className="px-4 py-2 text-left text-sm font-medium">Payer</th>
-                            <th className="px-4 py-2 text-left text-sm font-medium">Tx Hash</th>
-                            <th className="px-4 py-2 text-left text-sm font-medium">Source</th>
-                            <th className="px-4 py-2 text-right text-sm font-medium">Amount (USDC)</th>
-                            <th className="px-4 py-2 text-right text-sm font-medium">Amount (NGN)</th>
-                            <th className="px-4 py-2 text-center text-sm font-medium">Status</th>
-                            <th className="w-[80px] px-4 py-2 text-center text-sm font-medium">Explorer</th>
-                          </tr>
+                          {table.getHeaderGroups().map((headerGroup) => (
+                            <tr key={headerGroup.id} className="border-border/50">
+                              {headerGroup.headers.map((header) => {
+                                const canSort = header.column.getCanSort();
+                                const sorted = header.column.getIsSorted();
+                                const alignRight = header.id === 'amountUsdc' || header.id === 'amountNgn';
+                                const alignCenter = header.id === 'status' || header.id === 'explorer';
+                                return (
+                                  <th
+                                    key={header.id}
+                                    aria-sort={
+                                      sorted === 'asc'
+                                        ? 'ascending'
+                                        : sorted === 'desc'
+                                          ? 'descending'
+                                          : 'none'
+                                    }
+                                    data-sorted={sorted || 'none'}
+                                    className={cn(
+                                      'px-4 py-2 text-sm font-medium',
+                                      header.id === 'createdAt' && 'w-[180px]',
+                                      header.id === 'explorer' && 'w-[80px]',
+                                      alignRight && 'text-right',
+                                      alignCenter && 'text-center',
+                                      !alignRight && !alignCenter && 'text-left',
+                                    )}
+                                  >
+                                    {canSort ? (
+                                      <button
+                                        type="button"
+                                        className="inline-flex items-center min-h-[44px]"
+                                        onClick={header.column.getToggleSortingHandler()}
+                                        aria-label={`Sort by ${String(header.column.columnDef.header)}`}
+                                        data-testid={`sort-${header.id}`}
+                                      >
+                                        {flexRender(header.column.columnDef.header, header.getContext())}
+                                        <SortIcon direction={sorted} />
+                                      </button>
+                                    ) : (
+                                      flexRender(header.column.columnDef.header, header.getContext())
+                                    )}
+                                  </th>
+                                );
+                              })}
+                            </tr>
+                          ))}
                         </thead>
                       </table>
                       <div
                         ref={tableContainerRef}
                         className="h-[600px] overflow-y-auto border-t border-border/50"
+                        data-testid="transactions-virtual-list"
                       >
                         <div style={{ height: `${totalSize}px`, position: 'relative' }}>
-                          <table className="w-full border-collapse">
+                          <table className="w-full border-collapse table-fixed">
                             <tbody>
                               {virtualItems.map((virtualItem) => {
-                                const tx = filteredTransactions[virtualItem.index];
+                                const row = sortedRows[virtualItem.index];
+                                const tx = row.original;
                                 return (
                                   <TransactionRow
-                                    key={virtualItem.key}
+                                    key={row.id}
                                     tx={tx}
                                     translateY={virtualItem.start}
-                                    onClick={setSelectedTx}
+                                    selected={selectedTxId === tx.id}
+                                    onClick={handleSelectTx}
                                   />
                                 );
                               })}
@@ -418,11 +595,12 @@ export default function TransactionsPage() {
                   )}
 
                   <div className="md:hidden space-y-3">
-                    {filteredTransactions.map((tx) => (
+                    {sortedRows.map((row) => (
                       <TransactionCard
-                        key={tx.id}
-                        tx={tx}
-                        onClick={setSelectedTx}
+                        key={row.id}
+                        tx={row.original}
+                        selected={selectedTxId === row.id}
+                        onClick={handleSelectTx}
                       />
                     ))}
                   </div>
@@ -436,7 +614,7 @@ export default function TransactionsPage() {
       <TransactionDrawer
         transaction={selectedTx && isTransaction(selectedTx) ? selectedTx : null}
         isOpen={!!selectedTx}
-        onClose={() => setSelectedTx(null)}
+        onClose={() => setSelectedTxId(null)}
       />
     </div>
   );

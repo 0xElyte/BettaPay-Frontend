@@ -34,6 +34,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+import { useAuthStore } from "@/lib/store/authStore";
+
 const EVENT_TYPES = [
   { value: "payment.completed", label: "payment.completed" },
   { value: "settlement.completed", label: "settlement.completed" },
@@ -86,8 +88,10 @@ interface DeliveryLogEntry {
   id: string;
   timestamp: Date;
   eventType: string;
+  targetUrl: string;
   status: "success" | "failed";
   statusCode: number;
+  resultType?: string;
 }
 
 async function computeHmacSignature(secret: string, payloadStr: string): Promise<string> {
@@ -133,12 +137,31 @@ export function WebhookTester({
   initialEndpointUrl = "https://your-app.com/webhooks/bettapay",
   initialWebhookSecret = "whsec_test_secret123",
 }: WebhookTesterProps = {}) {
+  const { user } = useAuthStore();
   const [endpointUrl, setEndpointUrl] = useState(initialEndpointUrl);
   const [webhookSecret, setWebhookSecret] = useState(initialWebhookSecret);
   const [selectedEvent, setSelectedEvent] = useState<string>("payment.completed");
+  const [targetUrl, setTargetUrl] = useState<string>(() => {
+    if (initialEndpointUrl) return initialEndpointUrl;
+    if (typeof window !== "undefined") {
+      try {
+        const draft = localStorage.getItem("onboardingDraft");
+        if (draft) {
+          const parsed = JSON.parse(draft);
+          if (parsed.data?.webhookUrl) return parsed.data.webhookUrl;
+        }
+      } catch {
+        // Fallback below
+      }
+    }
+    return user?.id ? `https://api.bettapay.io/merchants/${user.id}/webhooks` : "https://api.bettapay.io/webhooks/merchant_01";
+  });
+  const [urlError, setUrlError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [response, setResponse] = useState<{
     status: number;
+    statusText: string;
+    isTimeout?: boolean;
     headers: Record<string, string>;
     body: JsonValue;
   } | null>(null);
@@ -207,6 +230,7 @@ export function WebhookTester({
 
       setResponse({
         status: responseStatusCode,
+        statusText: res.statusText || (responseStatusCode >= 200 && responseStatusCode < 300 ? 'OK' : 'Error'),
         headers: responseHeaders,
         body: responseBody,
       });
@@ -217,6 +241,7 @@ export function WebhookTester({
           id: `del_${Date.now()}`,
           timestamp: new Date(),
           eventType: selectedEvent,
+          targetUrl: endpointUrl,
           status: isSuccess ? "success" : "failed",
           statusCode: responseStatusCode,
         },
@@ -232,6 +257,7 @@ export function WebhookTester({
       const errorMsg = err instanceof Error ? err.message : "Failed to deliver webhook";
       setResponse({
         status: 0,
+        statusText: 'Network Error',
         headers: {},
         body: {
           error: errorMsg,
@@ -243,6 +269,7 @@ export function WebhookTester({
           id: `del_${Date.now()}`,
           timestamp: new Date(),
           eventType: selectedEvent,
+          targetUrl: endpointUrl,
           status: "failed",
           statusCode: 0,
         },
@@ -392,6 +419,16 @@ export function WebhookTester({
                 <span className="text-sm font-semibold">
                   Response: {response.status === 0 ? "0 (Network Error)" : `${response.status} ${response.status === 200 ? "OK" : ""}`}
                 </span>
+                {response.isTimeout && (
+                  <Badge variant="destructive" className="ml-auto text-xs">
+                    Timeout
+                  </Badge>
+                )}
+                {!response.isTimeout && response.status !== 200 && (
+                  <Badge variant="destructive" className="ml-auto text-xs">
+                    HTTP Error
+                  </Badge>
+                )}
               </div>
 
               <div className="space-y-1">
@@ -436,9 +473,10 @@ export function WebhookTester({
               <TableHeader>
                 <TableRow>
                   <TableHead>Timestamp</TableHead>
+                  <TableHead>Target Endpoint</TableHead>
                   <TableHead>Event Type</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>HTTP Status</TableHead>
+                  <TableHead>HTTP Status / Result</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -446,6 +484,9 @@ export function WebhookTester({
                   <TableRow key={entry.id}>
                     <TableCell className="font-mono text-xs">
                       {entry.timestamp.toLocaleTimeString()}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs max-w-[200px] truncate" title={entry.targetUrl}>
+                      {entry.targetUrl}
                     </TableCell>
                     <TableCell className="font-medium">{entry.eventType}</TableCell>
                     <TableCell>
@@ -456,7 +497,9 @@ export function WebhookTester({
                         {entry.status === "success" ? "Delivered" : "Failed"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{entry.statusCode}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {entry.statusCode} {entry.resultType && `(${entry.resultType})`}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

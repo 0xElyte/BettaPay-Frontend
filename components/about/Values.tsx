@@ -39,7 +39,7 @@ const values: ValueCard[] = [
 
 export function Values() {
   return (
-    <section className="py-20 md:py-28 relative overflow-hidden border-b border-border/40">
+    <section aria-labelledby="values-heading" className="py-20 md:py-28 relative overflow-hidden border-b border-border/40">
       <div className="container mx-auto px-6">
         {/* Header */}
         <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
@@ -47,7 +47,7 @@ export function Values() {
             <HeartHandshake className="w-3.5 h-3.5" />
             <span>Core Principles</span>
           </div>
-          <h2 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+          <h2 id="values-heading" className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
             Our Guiding Values
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -56,11 +56,11 @@ export function Values() {
         </div>
 
         {/* Responsive Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {values.map((val, idx) => {
-            const IconComp = val.icon;
+            const IconComp = val.icon as any;
             return (
-              <motion.div
+              <motion.li
                 key={val.title}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -79,10 +79,10 @@ export function Values() {
                     {val.description}
                   </p>
                 </div>
-              </motion.div>
+              </motion.li>
             );
           })}
-        </div>
+        </ul>
       </div>
     </section>
   );

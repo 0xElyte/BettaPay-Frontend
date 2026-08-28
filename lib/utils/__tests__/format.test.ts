@@ -4,6 +4,7 @@ import {
   truncateAddress,
   formatDate,
   formatNumber,
+  formatRelativeTime,
   getActiveLocale,
 } from '@/lib/utils/format';
 
@@ -45,6 +46,24 @@ describe('utils/format', () => {
 
     it('handles large numbers', () => {
       expect(formatCurrency(1234567890.12, 'USDC')).toBe('USDC 1,234,567,890.12');
+    });
+
+    it('supports showDecimals:false for whole USDC amounts', () => {
+      expect(formatCurrency(1250, 'USDC', { showDecimals: false })).toBe('USDC 1,250');
+      expect(formatCurrency(1250.5, 'USDC', { showDecimals: false })).toBe('USDC 1,250.50');
+    });
+
+    it('abbreviates extreme magnitudes with a locale-aware number body', () => {
+      expect(formatCurrency(1.5e12, 'USDC')).toBe('USDC 1.50T');
+      expect(formatCurrency(2e15, 'NGN')).toBe('₦2.00Q');
+    });
+
+    it('accepts an options object with an explicit locale', () => {
+      const value = new Intl.NumberFormat('fr-FR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(1234.56);
+      expect(formatCurrency(1234.56, 'USDC', { locale: 'fr' })).toBe(`USDC ${value}`);
     });
   });
 
@@ -161,6 +180,47 @@ describe('utils/format', () => {
     });
   });
 
+  describe('formatRelativeTime()', () => {
+    const fixedNow = new Date('2025-01-15T12:00:00.000Z').getTime();
+
+    it('formats past and future times in English (default)', () => {
+      const twoHoursAgo = new Date('2025-01-15T10:00:00.000Z');
+      const inThreeDays = new Date('2025-01-18T12:00:00.000Z');
+
+      expect(formatRelativeTime(twoHoursAgo, fixedNow, 'en')).toBe('2 hours ago');
+      expect(formatRelativeTime(inThreeDays, fixedNow, 'en')).toBe('in 3 days');
+    });
+
+    it('formats relative time in French', () => {
+      const twoHoursAgo = new Date('2025-01-15T10:00:00.000Z');
+      const formatted = formatRelativeTime(twoHoursAgo, fixedNow, 'fr');
+      expect(formatted).toBe('il y a 2 heures');
+    });
+
+    it('formats relative time in Portuguese', () => {
+      const twoHoursAgo = new Date('2025-01-15T10:00:00.000Z');
+      const formatted = formatRelativeTime(twoHoursAgo, fixedNow, 'pt');
+      expect(formatted).toBe('há 2 horas');
+    });
+
+    it('formats relative time in Swahili', () => {
+      const twoHoursAgo = new Date('2025-01-15T10:00:00.000Z');
+      const formatted = formatRelativeTime(twoHoursAgo, fixedNow, 'sw');
+      expect(formatted).toMatch(/masaa 2 yaliyopita|saa 2 zilizopita/i);
+    });
+
+    it('responds to document.documentElement.lang', () => {
+      document.documentElement.lang = 'fr';
+      const twoHoursAgo = new Date('2025-01-15T10:00:00.000Z');
+      expect(formatRelativeTime(twoHoursAgo, fixedNow)).toBe('il y a 2 heures');
+      document.documentElement.lang = '';
+    });
+
+    it('returns empty string for invalid date input', () => {
+      expect(formatRelativeTime('invalid-date', fixedNow)).toBe('');
+    });
+  });
+
   describe('getActiveLocale()', () => {
     afterEach(() => {
       document.documentElement.lang = '';
@@ -179,4 +239,5 @@ describe('utils/format', () => {
     });
   });
 });
+
 

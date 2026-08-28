@@ -1,9 +1,9 @@
-import { formatCurrency } from '@/lib/utils/format';
+import { formatApproxFiat, formatCurrency } from '@/lib/utils/format';
 import { cn } from '@/lib/utils';
 
 /**
  * How a zero amount should be rendered:
- * - `zero`   → `0 USDC` / `₦0`   (default — a real balance of nothing)
+ * - `zero`   → `USDC 0.00` / `₦0`   (default — a real balance of nothing)
  * - `dash`   → `—`               (nothing to show at all)
  * - `approx` → `≈ $0.00`         (a fiat conversion that rounds to nothing)
  *
@@ -21,11 +21,14 @@ interface CurrencyDisplayProps {
 
 const EM_DASH = '—';
 
-const formatFiat = (amount: number, currency: string) =>
-  currency === 'NGN'
-    ? new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(amount)
-    : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+// Tiny residuals (< half a cent) are settlement noise and must not render as -0.00.
+const EPSILON = 0.005;
 
+/**
+ * Thin display wrapper around the shared `formatCurrency` / `formatApproxFiat`
+ * pipeline so every surface (dashboard, wallet, tables, charts) renders the
+ * same amount identically for a given locale.
+ */
 export const CurrencyDisplay = ({
   amount,
   currency = 'USDC',
@@ -35,7 +38,7 @@ export const CurrencyDisplay = ({
 }: CurrencyDisplayProps) => {
   const isMissing = amount === null || amount === undefined || Number.isNaN(amount);
 
-  if (isMissing || (amount === 0 && zeroDisplay === 'dash')) {
+  if (isMissing) {
     return (
       <span
         className={cn('font-medium text-muted-foreground', className)}
@@ -46,23 +49,31 @@ export const CurrencyDisplay = ({
     );
   }
 
-  if (amount === 0) {
+  // Normalize tiny magnitudes to precise zero to avoid floating-point residuals
+  // like -0.0000001 rendering as "-USDC 0.00" / "-0.00".
+  const normalized = Math.abs(amount as number) < EPSILON ? 0 : (amount as number);
+
+  if (normalized === 0) {
+    if (zeroDisplay === 'dash') {
+      return (
+        <span
+          className={cn('font-medium text-muted-foreground', className)}
+          aria-label="No amount"
+        >
+          {EM_DASH}
+        </span>
+      );
+    }
+
     const zeroValue =
       zeroDisplay === 'approx'
-        ? `≈ ${formatFiat(0, currency)}`
-        : currency === 'NGN'
-          ? '₦0'
-          : `0 ${currency}`;
+        ? formatApproxFiat(0, currency)
+        : formatCurrency(0, currency, { showDecimals });
 
     return <span className={cn('font-medium', className)}>{zeroValue}</span>;
   }
 
-  const formatted = formatCurrency(amount, currency);
-
-  // If not showing decimals for USDC/USD, we can strip them
-  const displayValue = !showDecimals && currency !== 'NGN' && formatted.endsWith('.00')
-    ? formatted.replace('.00', '')
-    : formatted;
+  const displayValue = formatCurrency(normalized, currency, { showDecimals });
 
   return (
     <span className={cn('font-medium', className)}>

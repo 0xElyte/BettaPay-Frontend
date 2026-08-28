@@ -4,8 +4,9 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { useTheme } from 'next-themes';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { Skeleton } from '@/components/ui';
+import { formatNumber } from '@/lib/utils/format';
 
 interface ChartDataItem {
   name: string;
@@ -30,19 +31,45 @@ export default function PlatformVolumeChart({ height = 300 }: { height?: number 
   }
 
   if (isError || !data) {
-    return <p className="text-destructive">Failed to load platform volume data.</p>;
+    return <p className="text-destructive font-medium p-4 text-center">Failed to load platform volume data.</p>;
   }
 
   return (
-    <div className="w-full" style={{ height }}>
+    <div
+      role="region"
+      aria-label="Platform volume and fees chart"
+      className="w-full relative"
+      style={{ height }}
+    >
+      <table className="sr-only" aria-label="Platform volume and fees data table">
+        <caption>Platform volume and fee breakdown</caption>
+        <thead>
+          <tr>
+            <th scope="col">Period</th>
+            <th scope="col">Volume (USD)</th>
+            <th scope="col">Fee (USD)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, index) => (
+            <tr key={index}>
+              <td>{row.name}</td>
+              <td>${formatNumber(row.volume, undefined, { maximumFractionDigits: 0 })}</td>
+              <td>${formatNumber(row.fee, undefined, { maximumFractionDigits: 0 })}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data}>
+        <BarChart data={data} accessibilityLayer>
           <XAxis
             dataKey="name"
             stroke="var(--muted-foreground)"
             fontSize={12}
             tickLine={false}
             axisLine={false}
+            aria-label="Time Period"
           />
           <YAxis
             yAxisId="left"
@@ -51,6 +78,7 @@ export default function PlatformVolumeChart({ height = 300 }: { height?: number 
             tickLine={false}
             axisLine={false}
             tickFormatter={(value) => `$${value / 1000}k`}
+            aria-label="Amount in USD"
           />
           <Tooltip
             contentStyle={{
@@ -60,10 +88,28 @@ export default function PlatformVolumeChart({ height = 300 }: { height?: number 
             }}
             cursor={{ fill: 'var(--accent)' }}
           />
-          <Bar yAxisId="left" dataKey="volume" fill="var(--border)" radius={[4, 4, 0, 0]} />
-          <Bar yAxisId="left" dataKey="fee" fill="var(--primary)" radius={[4, 4, 0, 0]} />
+          <Legend
+            verticalAlign="top"
+            align="right"
+            wrapperStyle={{ paddingBottom: '10px', fontSize: '12px' }}
+          />
+          <Bar
+            yAxisId="left"
+            dataKey="volume"
+            name="Transaction Volume"
+            fill="var(--border)"
+            radius={[4, 4, 0, 0]}
+          />
+          <Bar
+            yAxisId="left"
+            dataKey="fee"
+            name="Platform Fee"
+            fill="var(--primary)"
+            radius={[4, 4, 0, 0]}
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>
   );
 }
+

@@ -4,6 +4,16 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: jest.fn(), refresh: jest.fn() }),
+  usePathname: () => '/auth/login',
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+jest.mock('next/link', () => {
+  return ({ children, href }: any) => <a href={href}>{children}</a>;
+});
+
 // Stub i18n so we don't have to spin up react-i18next's provider tree
 // just to test the fallback button.
 jest.mock('@/lib/i18n/useAppTranslation', () => ({
@@ -40,7 +50,6 @@ jest.mock('next/dynamic', () => () => () => null);
 // NB: tests that want to query icons should use getAllByTestId, since
 // every mocked icon shares the same `data-testid`.
 jest.mock('lucide-react', () => {
-  const React = require('react');
   const stub = ({ children, ...props }: any) => (
     <svg data-testid="mock-icon" {...props}>
       {children}
@@ -61,6 +70,33 @@ beforeEach(() => {
   // Force the missing-config branch by deleting the env var on this module.
   delete process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   jest.resetModules();
+  jest.doMock('next/navigation', () => ({
+    useRouter: () => ({ push: jest.fn(), refresh: jest.fn() }),
+    usePathname: () => '/auth/login',
+    useSearchParams: () => new URLSearchParams(),
+  }));
+  jest.doMock('next/link', () => ({ children, href }: any) => <a href={href}>{children}</a>);
+  jest.doMock('@/lib/i18n/useAppTranslation', () => ({
+    useAppTranslation: () => ({
+      t: (key: string) => key,
+      i18n: { isInitialized: true, language: 'en', changeLanguage: jest.fn() },
+      ready: true,
+    }),
+  }));
+  jest.doMock('@/lib/hooks/useLogin', () => ({
+    useLogin: () => ({
+      isWalletLoading: false,
+      walletModalOpen: false,
+      setWalletModalOpen: jest.fn(),
+      onGoogleSuccess: jest.fn(),
+      onWalletConnected: jest.fn(),
+      error: jest.fn(),
+    }),
+  }));
+  jest.doMock('next/dynamic', () => () => () => null);
+  jest.doMock('@/components/auth/EmailLoginForm', () => ({
+    EmailLoginForm: () => null,
+  }));
 });
 
 afterAll(() => {

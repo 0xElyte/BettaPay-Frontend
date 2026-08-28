@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui";
+import { getDefaultRoute } from "@/lib/utils";
 import { useNotify } from "@/lib/hooks/useNotify";
 import { useAuthStore } from "@/lib/store/authStore";
 import { apiClient } from "@/lib/api/axios";
@@ -101,6 +102,10 @@ export default function OnboardingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showResumePrompt, setShowResumePrompt] = useState(false);
   const [savedProgress, setSavedProgress] = useState<SavedProgress | null>(null);
+  const [isValidating, setIsValidating] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [driftedFields, setDriftedFields] = useState<string[]>([]);
+  const [revalidated, setRevalidated] = useState(false);
 
   // On mount, check for saved progress and offer to resume.
   useEffect(() => {
@@ -146,6 +151,73 @@ export default function OnboardingPage() {
     setErrors({});
   };
 
+  const revalidateData = useCallback(async () => {
+    setIsValidating(true);
+    setValidationError(null);
+    setDriftedFields([]);
+    setRevalidated(false);
+    try {
+      const [anchorsRes, ratesRes] = await Promise.all([
+        apiClient.get("/api/anchors"),
+        apiClient.get("/api/rates"),
+      ]);
+
+      const enabledAnchors = anchorsRes.data?.data || [];
+      const ratesResponse = ratesRes.data?.rates || [];
+
+      const drifted: string[] = [];
+
+      // Validate currency
+      const currency = data.settlementCurrency;
+      if (currency && currency !== "NGN") {
+        const isCurrencyValid = ratesResponse.some(
+          (r: any) => r.from === currency && r.to === "NGN"
+        );
+        if (!isCurrencyValid) {
+          drifted.push("currency");
+        }
+      }
+
+      // Validate preferred anchor
+      const anchor = data.preferredAnchor;
+      if (anchor) {
+        const isAnchorValid = enabledAnchors.some(
+          (a: any) =>
+            a.name.toLowerCase().includes(anchor.toLowerCase()) ||
+            a.code.toLowerCase().includes(anchor.toLowerCase()) ||
+            (anchor.length >= 4 && (
+              a.name.toLowerCase().includes(anchor.toLowerCase().substring(0, 4)) ||
+              a.code.toLowerCase().includes(anchor.toLowerCase().substring(0, 4))
+            ))
+        );
+        if (!isAnchorValid) {
+          drifted.push("anchor");
+        }
+      }
+
+      if (drifted.length > 0) {
+        setDriftedFields(drifted);
+        setValidationError("Some of your selected preferences are no longer supported by the backend. Please edit them.");
+      } else {
+        setRevalidated(true);
+      }
+    } catch (error) {
+      setValidationError("Failed to connect to the backend to verify configuration. Please check your connection and try again.");
+    } finally {
+      setIsValidating(false);
+    }
+  }, [data.settlementCurrency, data.preferredAnchor]);
+
+  useEffect(() => {
+    if (step === 4) {
+      void revalidateData();
+    } else {
+      setRevalidated(false);
+      setDriftedFields([]);
+      setValidationError(null);
+    }
+  }, [step, revalidateData]);
+
   const validate = (targetStep: number) => {
     const nextErrors: Record<string, string> = {};
     if (targetStep === 0) {
@@ -173,8 +245,9 @@ export default function OnboardingPage() {
   const skip = () => {
     clearSavedProgress();
     localStorage.setItem("onboardingCompleted", "false");
+    localStorage.removeItem("onboardingDraft");
     notify.success("Onboarding saved for later. You can finish it from Settings.");
-    router.push("/dashboard");
+    router.push(getDefaultRoute(user?.role));
   };
 
   const submit = async () => {
@@ -194,7 +267,7 @@ export default function OnboardingPage() {
       const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
       document.cookie = `merchant_onboarded=true; Path=/; SameSite=Lax; Max-Age=86400${secureFlag}`;
       notify.success("Your merchant profile is ready!");
-      router.push("/dashboard");
+      router.push(getDefaultRoute(user?.role));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to save your onboarding details.";
       notify.error(message);
@@ -243,7 +316,16 @@ export default function OnboardingPage() {
           {step === 1 && <StepCurrency data={data} errors={errors} onChange={updateData} />}
           {step === 2 && <StepSettlement data={data} errors={errors} onChange={updateData} />}
           {step === 3 && <StepWebhook data={data} errors={errors} onChange={updateData} />}
-          {step === 4 && <StepReview data={data} onEdit={advanceStep} />}
+          {step === 4 && (
+            <StepReview
+              data={data}
+              onEdit={advanceStep}
+              isValidating={isValidating}
+              validationError={validationError}
+              driftedFields={driftedFields}
+              onRetry={revalidateData}
+            />
+          )}
           <div className="flex flex-col-reverse gap-3 border-t pt-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex gap-2">
               {step > 0 && <Button variant="outline" onClick={() => advanceStep(step - 1)} disabled={isSubmitting}><ArrowLeft className="mr-2 h-4 w-4" />Back</Button>}
@@ -252,7 +334,7 @@ export default function OnboardingPage() {
             {step < steps.length - 1 ? (
               <Button onClick={() => validate(step) && advanceStep(step + 1)}>Continue<ArrowRight className="ml-2 h-4 w-4" /></Button>
             ) : (
-              <Button onClick={submit} disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Finish setup</Button>
+              <Button onClick={submit} disabled={isSubmitting || isValidating || !revalidated}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Finish setup</Button>
             )}
           </div>
         </CardContent>

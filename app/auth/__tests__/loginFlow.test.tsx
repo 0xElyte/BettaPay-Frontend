@@ -27,19 +27,42 @@ jest.mock('next/link', () => {
 // Mock dynamic import of WalletModal to a synchronous component
 jest.mock('next/dynamic', () => {
   return () => {
-    return (props: any) => {
-      if (!props.open) return <div data-testid="mock-wallet-modal" />;
+    return (props: Record<string, unknown>) => {
+      const onConnected = props.onConnected as ((addr: string) => void) | undefined;
       return (
         <div data-testid="mock-wallet-modal">
           <button
             data-testid="connect-wallet-button"
-            onClick={() => props.onConnected?.('GBX1234567890ABCDEF')}
+            onClick={() => onConnected?.('GBX1234567890ABCDEF')}
           >
             Simulate Connect
           </button>
         </div>
       );
     };
+  };
+});
+
+// Mock walletStore for useLogin hook
+jest.mock('@/lib/store/walletStore', () => {
+  const mockState: Record<string, unknown> = {
+    connect: jest.fn().mockResolvedValue(undefined),
+    address: 'GBX1234567890ABCDEF',
+    walletModalOpen: false,
+    setWalletModalOpen: jest.fn(),
+    signMessage: jest.fn().mockResolvedValue('mock_base64_signature'),
+    walletConnectPending: false,
+    connectError: null,
+    balances: [],
+  };
+  const fn = jest.fn((selector: (s: typeof mockState) => unknown) => selector(mockState));
+  (fn as unknown as Record<string, unknown>).getState = () => mockState;
+  (fn as unknown as Record<string, unknown>).setState = jest.fn();
+  return {
+    useWalletStore: Object.assign(fn, {
+      getState: () => mockState,
+      setState: jest.fn(),
+    }),
   };
 });
 

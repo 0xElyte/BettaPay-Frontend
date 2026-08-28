@@ -17,6 +17,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { getStellarExplorerTxUrl } from '@/lib/utils/explorer';
+import { useWalletStore } from '@/lib/store/walletStore';
 import { EmptyState, ErrorDisplay, ExportMenu } from '@/components/shared';
 import { useOfflineStore } from '@/lib/store/offlineStore';
 import { useAuthStore } from '@/lib/store/authStore';
@@ -33,6 +34,7 @@ interface SettlementItemProps {
 }
 
 const SettlementItem = memo(function SettlementItem({ settlement: s }: SettlementItemProps) {
+  const network = useWalletStore((s) => s.network);
   return (
     <div className="flex items-center gap-4 p-4 rounded-xl border border-border hover:border-border hover:bg-muted/50 transition-all">
       <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
@@ -51,7 +53,7 @@ const SettlementItem = memo(function SettlementItem({ settlement: s }: Settlemen
         {s.status.toUpperCase() === 'COMPLETED' && <InvoiceDownloadButton settlement={s} />}
         {s.txHash && (
           <a
-            href={getStellarExplorerTxUrl(s.txHash)}
+            href={getStellarExplorerTxUrl(s.txHash, network)}
             target="_blank"
             rel="noopener noreferrer"
             aria-label="View on Stellar Explorer"
@@ -189,8 +191,9 @@ export default function SettlementPage() {
             <EmptyState
               icon={Receipt}
               title="No settlements yet"
-              description="Your USDC → NGN conversion history will appear here once you initiate a settlement. Set up your bank account in Settings first."
+              description="Your USDC → NGN conversion history will appear here once you initiate a settlement. pending rules will appear here once configured. Set up your bank account in Settings to enable settlements."
               action={{ label: 'Initiate Settlement', onClick: () => setSettlementOpen(true) }}
+              secondaryAction={{ label: 'View guides', onClick: () => window.open('/settlement-guides', '_blank') }}
             />
           ) : (
             <div className="space-y-3">

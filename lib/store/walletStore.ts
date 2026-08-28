@@ -3,7 +3,8 @@ import { AssetBalance } from '../types';
 import { connectFreighter, FreighterNotInstalledError, FreighterCancelledError, FreighterNetworkMismatchError } from '@/lib/stellar/freighter';
 import { getWalletConnectClient, resetWalletConnectClient, WalletConnectSession } from '@/lib/stellar/walletconnect';
 import { retryWithBackoff } from '../utils/retry';
-import { STELLAR_NETWORK } from '@/lib/config';
+import { setWalletContextProvider } from '../errorReporting/context';
+import { captureException } from '../errorReporting';
 
 type Connector = 'freighter' | 'walletconnect' | null;
 
@@ -13,7 +14,7 @@ const NETWORK_URLS: Record<string, string> = {
 };
 
 function getNetwork(): 'testnet' | 'public' {
-  const val = STELLAR_NETWORK.toLowerCase();
+  const val = (process.env.NEXT_PUBLIC_STELLAR_NETWORK || 'testnet').toLowerCase();
   if (val === 'mainnet' || val === 'public') return 'public';
   return 'testnet';
 }
@@ -28,6 +29,7 @@ interface ConnectError {
 
 export interface WalletState {
   address: string | null;
+  stellarAccounts: string[];
   isConnected: boolean;
   connector: Connector;
   network: 'testnet' | 'public';
@@ -51,6 +53,7 @@ export interface WalletState {
   connect: (connector?: Connector) => Promise<void>;
   /** Called by WalletConnectModal once a session is fully established. */
   resolveWalletConnect: (session: WalletConnectSession) => void;
+  selectAccount: (address: string) => void;
   disconnect: () => void;
   clearConnectError: () => void;
   setNetwork: (network: 'testnet' | 'public') => void;
@@ -63,6 +66,7 @@ export interface WalletState {
 
 export const useWalletStore = create<WalletState>((set, get) => ({
   address: null,
+  stellarAccounts: [],
   isConnected: false,
   connector: null,
   network: getNetwork(),
@@ -82,7 +86,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
       if (connector === 'freighter') {
         const address = await connectFreighter();
         if (address) {
-          set({ address, isConnected: true, connector: 'freighter', connectError: null });
+          set({ address, stellarAccounts: [address], isConnected: true, connector: 'freighter', connectError: null });
           get().refreshBalances();
         } else {
           throw new Error('Freighter connection failed');
@@ -101,6 +105,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
       throw new Error('Unsupported connector');
     } catch (error) {
       console.error('Failed to connect wallet', error);
+      captureException(error, { source: 'wallet' });
 
       if (error instanceof FreighterNotInstalledError) {
         set({ connectError: { type: 'not_installed', message: error.message } });
@@ -130,14 +135,35 @@ export const useWalletStore = create<WalletState>((set, get) => ({
   },
 
   resolveWalletConnect: (session: WalletConnectSession) => {
+    const stellarAccounts = session.stellarAccounts && session.stellarAccounts.length > 0
+      ? session.stellarAccounts
+      : session.address ? [session.address] : [];
+    const selectedAddress = session.address && stellarAccounts.includes(session.address)
+      ? session.address
+      : stellarAccounts[0] || null;
+
     set({
-      address: session.address,
+      address: selectedAddress,
+      stellarAccounts,
       isConnected: true,
       connector: 'walletconnect',
       connectError: null,
       walletConnectPending: false,
-      walletConnectSession: session,
+      walletConnectSession: {
+        ...session,
+        address: selectedAddress || session.address,
+        stellarAccounts,
+      },
     });
+    get().refreshBalances();
+  },
+
+  selectAccount: (address: string) => {
+    const { stellarAccounts, address: currentAddress } = get();
+    if (!address || address === currentAddress) return;
+    if (stellarAccounts.length > 0 && !stellarAccounts.includes(address)) return;
+
+    set({ address, balances: [], loading: true, error: null });
     get().refreshBalances();
   },
 
@@ -148,6 +174,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
     }
     set({
       address: null,
+      stellarAccounts: [],
       isConnected: false,
       connector: null,
       balances: [],
@@ -173,7 +200,9 @@ export const useWalletStore = create<WalletState>((set, get) => ({
   },
 
   setNetwork: (network: 'testnet' | 'public') => {
-    set({ network });
+    const current = get().network;
+    if (current === network) return;
+    set({ network, balances: [], loading: true, error: null });
     get().refreshBalances();
   },
 
@@ -235,7 +264,12 @@ export const useWalletStore = create<WalletState>((set, get) => ({
         },
         {
           maxRetries: 3,
-          onRetry: () => { set({ isReconnecting: true }); },
+          baseDelay: 500,
+          maxDelay: 3000,
+          isRetryable: () => true,
+          onRetry: (_err, attempt) => {
+            set({ isReconnecting: true });
+          },
         },
       );
 
@@ -263,6 +297,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
       set({ balances, loading: false, error: null });
     } catch (error) {
       console.error('Failed to refresh balances', error);
+      captureException(error, { source: 'wallet' });
       set({
         loading: false,
         isReconnecting: false,
@@ -271,3 +306,11 @@ export const useWalletStore = create<WalletState>((set, get) => ({
     }
   },
 }));
+
+// Let error reports carry wallet context. Registered here rather than imported
+// by the reporting module so the Stellar SDK is only pulled into bundles that
+// actually use the wallet. The address is deliberately never exposed.
+setWalletContextProvider(() => {
+  const { isConnected, connector, network } = useWalletStore.getState();
+  return { connected: isConnected, connector, network };
+});

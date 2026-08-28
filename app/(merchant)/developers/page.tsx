@@ -55,6 +55,10 @@ export default function DevelopersPage() {
     }
     notify.success('Copied to clipboard');
   }, [notify]);
+  const handleCopyText = handleCopy;
+  const handleCopyKey = useCallback((key: { prefix: string; suffix: string }) => {
+    handleCopy(`${key.prefix}${key.suffix}`);
+  }, [handleCopy]);
 
   const handleCreateKey = async () => {
     if (!newKeyName.trim()) {
@@ -189,7 +193,7 @@ export default function DevelopersPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-foreground">{key.name}</p>
                   <p className="text-xs text-muted-foreground font-mono">
-                    {key.prefix}{showKey === key.id ? '9876543210fedcba' : '••••••••••••••••'}{key.suffix}
+                    {key.prefix}{showKey === key.id ? '••••...••••' : '••••••••••••••••'}{key.suffix}
                   </p>
                 </div>
                 <div className="text-right hidden sm:block">
@@ -200,7 +204,7 @@ export default function DevelopersPage() {
                   <Button variant="ghost" size="icon" aria-label="Toggle visibility" className="min-h-[44px] min-w-[44px] rounded-lg" onClick={() => setShowKey(showKey === key.id ? null : key.id)}>
                     {showKey === key.id ? <EyeOff className="w-3.5 h-3.5 text-muted-foreground" /> : <Eye className="w-3.5 h-3.5 text-muted-foreground" />}
                   </Button>
-                  <Button variant="ghost" size="icon" aria-label="Copy API key" className="min-h-[44px] min-w-[44px] rounded-lg" onClick={() => handleCopy(`${key.prefix}EXAMPLE${key.suffix}`)}>
+                  <Button variant="ghost" size="icon" aria-label="Copy API key" className="min-h-[44px] min-w-[44px] rounded-lg" onClick={() => handleCopyKey(key)}>
                     <Copy className="w-3.5 h-3.5 text-muted-foreground" />
                   </Button>
                   <Button variant="ghost" size="icon" aria-label="Revoke API key" className="min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground hover:text-destructive" onClick={() => handleRevokeKey(key.id)}>
@@ -214,7 +218,7 @@ export default function DevelopersPage() {
       </Card>
 
       {/* Quickstart code */}
-      <CodeExample onCopy={handleCopy} />
+      <CodeExample onCopy={handleCopyText} />
 
       {/* Webhook Endpoint URL Config */}
       <Card className="border border-border bg-card shadow-sm">

@@ -3,7 +3,7 @@
 import { useCallback, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
-import { MerchantSidebar, MobileNavDrawer, Topbar, Footer, MobileBottomNav } from "@/components/layout";
+import { MerchantSidebar, MobileNavDrawer, Topbar, MobileBottomNav } from "@/components/layout";
 import { merchantNavItems } from "@/lib/navigation/merchantNav";
 import { PageTransition, ErrorBoundary } from "@/components/shared";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
@@ -12,6 +12,7 @@ import { useAuthStore } from "@/lib/store/authStore";
 import { useSessionTimeout } from "@/lib/hooks/useSessionTimeout";
 import { useRateLimitCountdown } from "@/lib/hooks/useRateLimitCountdown";
 import { SessionTimeoutModal } from "@/components/SessionTimeoutModal";
+import { CommandPalette } from "@/components/command/CommandPalette";
 
 export default function MerchantLayout({
   children,
@@ -34,21 +35,19 @@ export default function MerchantLayout({
     router.push('/auth/login');
   }, [logout, router]);
 
-  const { showWarning, secondsRemaining, dismissWarning } = useSessionTimeout({
+  const { showWarning, secondsRemaining, isExtending, extendSession } = useSessionTimeout({
     onTimeout: handleTimeoutLogout,
   });
 
   useRateLimitCountdown();
 
   const handleExtend = useCallback(async () => {
-    try {
-      await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
-      dismissWarning();
-    } catch {
+    const success = await extendSession();
+    if (!success) {
       logout();
       router.push('/auth/login');
     }
-  }, [logout, router, dismissWarning]);
+  }, [logout, router, extendSession]);
 
   // Prefetch only the two most likely next destinations on mount.
   // All other routes are prefetched lazily on hover/focus via Next.js Link
@@ -111,14 +110,15 @@ export default function MerchantLayout({
             </PageTransition>
           </div>
         </main>
-
-        <Footer />
       </div>
+
+      <CommandPalette role="merchant" />
 
       {isAuthenticated && (
         <SessionTimeoutModal
           open={showWarning}
           secondsRemaining={secondsRemaining}
+          isExtending={isExtending}
           onExtend={handleExtend}
           onLogout={handleTimeoutLogout}
         />

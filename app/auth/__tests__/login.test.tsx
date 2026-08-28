@@ -69,12 +69,26 @@ jest.mock('@/components/layout/Header', () => () => <header data-testid="mock-he
 jest.mock('@/components/layout/Footer', () => () => <footer data-testid="mock-footer" />);
 
 // Mock walletStore so RegisterPage renders without open handles
-jest.mock('@/lib/store/walletStore', () => ({
-  useWalletStore: jest.fn(() => ({
+jest.mock('@/lib/store/walletStore', () => {
+  const mockState: Record<string, unknown> = {
     connect: jest.fn().mockResolvedValue(undefined),
     address: null,
-  })),
-}));
+    walletModalOpen: false,
+    setWalletModalOpen: jest.fn(),
+    signMessage: jest.fn().mockResolvedValue('mock_signature'),
+    walletConnectPending: false,
+    connectError: null,
+  };
+  const fn = jest.fn((selector: (s: typeof mockState) => unknown) => selector(mockState));
+  (fn as unknown as Record<string, unknown>).getState = () => mockState;
+  (fn as unknown as Record<string, unknown>).setState = jest.fn();
+  return {
+    useWalletStore: Object.assign(fn, {
+      getState: () => mockState,
+      setState: jest.fn(),
+    }),
+  };
+});
 
 // Mock apiClient
 jest.mock('@/lib/api/axios', () => ({
@@ -132,15 +146,87 @@ describe('Authentication Form Validation & Accessibility Tests', () => {
 
       expect(screen.getByTestId('mock-wallet-modal')).toBeInTheDocument();
     });
+
+    it('renders email and password inputs with correct autocomplete and name attributes', () => {
+      render(<LoginPage />);
+
+      const emailInput = screen.getByLabelText(/Email address/i);
+      const passwordInput = screen.getByLabelText(/^Password/i);
+
+      expect(emailInput).toHaveAttribute('name', 'email');
+      expect(emailInput).toHaveAttribute('autoComplete', 'email');
+      expect(passwordInput).toHaveAttribute('name', 'password');
+      expect(passwordInput).toHaveAttribute('autoComplete', 'current-password');
+    });
+
+    it('focuses the email input on failed submit with empty fields and sets aria attributes', async () => {
+      const user = userEvent.setup();
+      render(<LoginPage />);
+
+      const submitButton = screen.getByRole('button', { name: /Sign In with Email/i });
+      const emailInput = screen.getByLabelText(/Email address/i);
+
+      await user.click(submitButton);
+
+      // Focus should move to email input
+      expect(emailInput).toHaveFocus();
+      expect(emailInput).toHaveAttribute('aria-invalid', 'true');
+      expect(emailInput).toHaveAttribute('aria-describedby', 'login-email-error');
+      expect(screen.getByText('Email address is required')).toBeInTheDocument();
+    });
+
+    it('focuses the password input when email is valid but password is empty', async () => {
+      const user = userEvent.setup();
+      render(<LoginPage />);
+
+      const emailInput = screen.getByLabelText(/Email address/i);
+      const passwordInput = screen.getByLabelText(/^Password/i);
+      const submitButton = screen.getByRole('button', { name: /Sign In with Email/i });
+
+      await user.type(emailInput, 'merchant@bettapay.com');
+      await user.click(submitButton);
+
+      expect(passwordInput).toHaveFocus();
+      expect(passwordInput).toHaveAttribute('aria-invalid', 'true');
+      expect(passwordInput).toHaveAttribute('aria-describedby', 'login-password-error');
+    });
   });
 
   describe('Register Page', () => {
-    it('redirects to /auth/login on mount', async () => {
+    it('renders full registration form with correct autocomplete and name attributes', () => {
       render(<RegisterPage />);
 
-      await waitFor(() => {
-        expect(mockReplace).toHaveBeenCalledWith('/auth/login');
-      });
+      const nameInput = screen.getByLabelText(/Full Name/i);
+      const emailInput = screen.getByLabelText(/Email address/i);
+      const passwordInput = screen.getByLabelText(/^Password/i);
+      const confirmPasswordInput = screen.getByLabelText(/Confirm Password/i);
+
+      expect(nameInput).toHaveAttribute('name', 'name');
+      expect(nameInput).toHaveAttribute('autoComplete', 'name');
+
+      expect(emailInput).toHaveAttribute('name', 'email');
+      expect(emailInput).toHaveAttribute('autoComplete', 'email');
+
+      expect(passwordInput).toHaveAttribute('name', 'password');
+      expect(passwordInput).toHaveAttribute('autoComplete', 'new-password');
+
+      expect(confirmPasswordInput).toHaveAttribute('name', 'confirmPassword');
+      expect(confirmPasswordInput).toHaveAttribute('autoComplete', 'new-password');
+    });
+
+    it('focuses first errored input on submit failure and associates aria-describedby', async () => {
+      const user = userEvent.setup();
+      render(<RegisterPage />);
+
+      const submitButton = screen.getByRole('button', { name: /Create Account/i });
+      const nameInput = screen.getByLabelText(/Full Name/i);
+
+      await user.click(submitButton);
+
+      expect(nameInput).toHaveFocus();
+      expect(nameInput).toHaveAttribute('aria-invalid', 'true');
+      expect(nameInput).toHaveAttribute('aria-describedby', 'register-name-error');
     });
   });
 });
+

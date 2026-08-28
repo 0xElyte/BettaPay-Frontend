@@ -1,7 +1,6 @@
 "use client";
 
-import { RECAPTCHA_SITE_KEY } from '@/lib/config';
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -29,6 +28,12 @@ declare global {
   }
 }
 
+// Minimum time (ms) a human needs to fill the form. Submissions faster than
+// this are treated as bot traffic and silently rejected client-side.
+const MIN_FILL_TIME_MS = 3_000;
+// Minimum interval (ms) between successive submissions.
+const SUBMIT_THROTTLE_MS = 5_000;
+
 // Define schema matching API validations
 const contactFormSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -42,7 +47,7 @@ const contactFormSchema = z.object({
     .string()
     .min(20, { message: "Message must be at least 20 characters." })
     .max(2000, { message: "Message must not exceed 2000 characters." }),
-  website: z.string().optional(), // Honeypot field
+  website: z.string().optional(), // Honeypot field — must remain empty
 });
 
 type ContactFormData = z.infer<typeof contactFormSchema>;
@@ -73,6 +78,8 @@ export default function ContactForm() {
   const searchParams = useSearchParams();
   const subjectParam = searchParams.get("subject");
   const [recaptchaLoaded, setRecaptchaLoaded] = useState(false);
+  const loadedAtRef = useRef<number>(Date.now());
+  const lastSubmitRef = useRef<number>(0);
 
   const {
     register,
@@ -151,6 +158,44 @@ export default function ContactForm() {
   };
 
   const onSubmit = async (data: ContactFormData) => {
+    // ── Spam gate: reject submissions faster than a human could fill ────
+    const fillTime = Date.now() - loadedAtRef.current;
+    if (fillTime < MIN_FILL_TIME_MS) {
+      // Silently reject — don't alert bots.
+      toast.success("Message sent successfully! We will get back to you shortly.");
+      reset({
+        name: "",
+        email: "",
+        company: "",
+        subject: "General",
+        message: "",
+        website: "",
+      });
+      return;
+    }
+
+    // ── Throttle gate: prevent rapid double-submits ─────────────────────
+    const now = Date.now();
+    if (now - lastSubmitRef.current < SUBMIT_THROTTLE_MS) {
+      toast.error("Please wait a few seconds before sending another message.");
+      return;
+    }
+    lastSubmitRef.current = now;
+
+    // ── Honeypot gate: bots fill hidden fields ──────────────────────────
+    if (data.website) {
+      toast.success("Message sent successfully! We will get back to you shortly.");
+      reset({
+        name: "",
+        email: "",
+        company: "",
+        subject: "General",
+        message: "",
+        website: "",
+      });
+      return;
+    }
+
     const recaptchaToken = await getRecaptchaToken();
 
     try {
@@ -167,12 +212,16 @@ export default function ContactForm() {
 
       const result = await response.json();
 
+      if (response.status === 429) {
+        throw new Error("Too many requests. Please try again later.");
+      }
+
       if (!response.ok) {
         throw new Error(result.error || "Something went wrong.");
       }
 
       toast.success("Message sent successfully! We will get back to you shortly.");
-      
+
       // Reset form but preserve honeypot setup
       reset({
         name: "",

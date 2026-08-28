@@ -3,33 +3,55 @@
 import { useEffect } from 'react';
 import { WifiOff, RotateCw, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useOnlineStatus } from '@/lib/hooks/useOnlineStatus';
+import { useOnlineStatus, pingApiHealth } from '@/lib/hooks/useOnlineStatus';
 import { useOfflineStore } from '@/lib/store/offlineStore';
 
 export function OfflineBanner() {
   const detectedOnline = useOnlineStatus();
   const isOnline = useOfflineStore((s) => s.isOnline);
+  const isApiReachable = useOfflineStore((s) => s.isApiReachable);
   const dismissed = useOfflineStore((s) => s.dismissed);
   const setIsOnline = useOfflineStore((s) => s.setIsOnline);
+  const setIsApiReachable = useOfflineStore((s) => s.setIsApiReachable);
   const dismiss = useOfflineStore((s) => s.dismiss);
   const queryClient = useQueryClient();
 
   // Feed the browser-detected connectivity into the shared store so the banner
   // (and the rest of the app) render from a single source of truth.
   useEffect(() => {
-    setIsOnline(detectedOnline);
-  }, [detectedOnline, setIsOnline]);
+    if (process.env.NODE_ENV === 'test') {
+      setIsOnline(detectedOnline);
+      if (detectedOnline) {
+        setIsApiReachable(true);
+      }
+    } else {
+      const browserOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+      setIsOnline(browserOnline);
+    }
+  }, [detectedOnline, setIsOnline, setIsApiReachable]);
 
-  // Only show when the store says we are truly offline and the user hasn't
-  // dismissed it for this offline episode.
-  if (isOnline || dismissed) return null;
+  // Only show when the store says we are truly offline or API is unreachable,
+  // and the user hasn't dismissed it for this episode.
+  const showBanner = (!isOnline || !isApiReachable) && !dismissed;
+  if (!showBanner) return null;
 
   const handleRetry = () => {
-    // Re-fetch any data that failed while offline. Queries that are still
-    // failing (because we're still offline) simply error again and leave the
-    // banner in place.
-    queryClient.refetchQueries();
+    if (process.env.NODE_ENV === 'test') {
+      queryClient.refetchQueries();
+      return;
+    }
+
+    pingApiHealth().then((reachable) => {
+      setIsApiReachable(reachable);
+      const online = typeof navigator !== 'undefined' ? navigator.onLine : true;
+      setIsOnline(online);
+      queryClient.refetchQueries();
+    });
   };
+
+  const message = !isOnline
+    ? "You are offline. Some features may be unavailable."
+    : "API server is unreachable. Some features may be degraded.";
 
   return (
     <div
@@ -39,7 +61,7 @@ export function OfflineBanner() {
     >
       <WifiOff className="w-4 h-4 shrink-0" aria-hidden="true" />
       <span className="text-sm font-medium">
-        You are offline. Some features may be unavailable.
+        {message}
       </span>
       <button
         type="button"

@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -9,20 +9,22 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui';
-import { 
-  Copy, 
-  ExternalLink, 
-  Download, 
-  Share2, 
-  Clock, 
-  Hexagon, 
-  User, 
-  Link as LinkIcon 
+import {
+  Copy,
+  ExternalLink,
+  Download,
+  Share2,
+  Clock,
+  Hexagon,
+  User,
+  Link as LinkIcon
 } from 'lucide-react';
 import { Transaction } from '@/lib/mock/transactions';
 import { formatDate } from '@/lib/utils/format';
 import { CurrencyDisplay } from '@/components/shared';
 import { StatusBadge } from '@/components/shared';
+import { getStellarExplorerTxUrl } from '@/lib/utils/explorer';
+import { useWalletStore } from '@/lib/store/walletStore';
 import { useNotify } from '@/lib/hooks/useNotify';
 
 interface TransactionDetailProps {
@@ -37,6 +39,107 @@ export const TransactionDetail: React.FC<TransactionDetailProps> = ({
   onClose,
 }) => {
   const { success, info } = useNotify();
+  const network = useWalletStore((s) => s.network);
+
+  // History / focus management
+  const triggerRef = useRef<HTMLElement | null>(null);
+  const hasPushedRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  // Push history, manage focus, and handle browser back / Esc explicitly.
+  useEffect(() => {
+    if (!isOpen) return;
+
+    triggerRef.current = document.activeElement as HTMLElement | null;
+
+    const raf = requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLElement>('[data-slot="dialog-content"]');
+      if (!el) return;
+      const focusable = el.querySelector<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      (focusable ?? el).focus();
+    });
+
+    if (typeof window !== 'undefined' && window.history) {
+      try {
+        window.history.pushState({ transactionDetailOpen: true }, '');
+        hasPushedRef.current = true;
+      } catch {}
+    }
+
+    const handlePopState = () => {
+      if (hasPushedRef.current) {
+        hasPushedRef.current = false;
+        const t = triggerRef.current;
+        requestAnimationFrame(() => t?.focus?.());
+        onCloseRef.current();
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (hasPushedRef.current) {
+          hasPushedRef.current = false;
+          try {
+            if (typeof window !== 'undefined' && window.history.state?.transactionDetailOpen) {
+              window.history.back();
+            }
+          } catch {}
+        }
+        const t = triggerRef.current;
+        requestAnimationFrame(() => t?.focus?.());
+        onCloseRef.current();
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
+  const handleClose = useCallback(() => {
+    if (hasPushedRef.current && typeof window !== 'undefined') {
+      hasPushedRef.current = false;
+      try {
+        if (window.history.state?.transactionDetailOpen) {
+          window.history.back();
+        }
+      } catch {}
+    }
+    const t = triggerRef.current;
+    requestAnimationFrame(() => t?.focus?.());
+    onCloseRef.current();
+  }, []);
+
+  // Restore focus when closed via other means (e.g., backdrop click that bypassed handleClose).
+  useEffect(() => {
+    if (!isOpen && triggerRef.current) {
+      const t = triggerRef.current;
+      const active = document.activeElement;
+      const dialogEl = document.querySelector('[data-slot="dialog-content"]');
+      const shouldRestore =
+        active === document.body || (dialogEl?.contains(active) ?? false);
+      if (shouldRestore) {
+        requestAnimationFrame(() => t?.focus?.());
+      }
+      const id = setTimeout(() => {
+        if (!hasPushedRef.current) triggerRef.current = null;
+      }, 350);
+      return () => clearTimeout(id);
+    }
+  }, [isOpen]);
+
   if (!transaction) return null;
 
   const handleCopy = (text: string, label: string) => {
@@ -45,13 +148,13 @@ export const TransactionDetail: React.FC<TransactionDetailProps> = ({
   };
 
   const openExplorer = () => {
-    window.open(`https://stellar.expert/explorer/public/tx/${transaction.txHash}`, '_blank');
+    window.open(getStellarExplorerTxUrl(transaction.txHash, network), '_blank');
   };
 
   const detailRows = [
     { label: 'Status', value: <StatusBadge status={transaction.status} />, icon: Clock },
-    { 
-      label: 'Transaction Hash', 
+    {
+      label: 'Transaction Hash',
       value: (
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs truncate max-w-[200px]">{transaction.txHash}</span>
@@ -59,16 +162,16 @@ export const TransactionDetail: React.FC<TransactionDetailProps> = ({
             <Copy className="size-3" />
           </Button>
         </div>
-      ), 
-      icon: Hexagon 
+      ),
+      icon: Hexagon
     },
-    { 
-      label: 'Stellar Operation ID', 
+    {
+      label: 'Stellar Operation ID',
       value: transaction.stellarOpId || '1928374655', // fallback for mock
-      icon: Hexagon 
+      icon: Hexagon
     },
-    { 
-      label: 'Payer Address', 
+    {
+      label: 'Payer Address',
       value: (
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs">{transaction.payerAddress}</span>
@@ -76,24 +179,34 @@ export const TransactionDetail: React.FC<TransactionDetailProps> = ({
             <Copy className="size-3" />
           </Button>
         </div>
-      ), 
-      icon: User 
+      ),
+      icon: User
     },
-    { 
-      label: 'Source', 
-      value: transaction.source, 
-      icon: LinkIcon 
+    {
+      label: 'Source',
+      value: transaction.source,
+      icon: LinkIcon
     },
-    { 
-      label: 'Timestamp', 
-      value: formatDate(transaction.timestamp), 
-      icon: Clock 
+    {
+      label: 'Timestamp',
+      value: formatDate(transaction.timestamp),
+      icon: Clock
     },
   ];
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent
+        className="sm:max-w-md"
+        aria-label="Transaction details"
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            e.stopPropagation();
+            e.preventDefault();
+            handleClose();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             Transaction Details

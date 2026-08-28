@@ -1,18 +1,27 @@
 "use client";
 
+import { useMemo } from "react";
+
 import { Header, Footer } from "@/components/layout";
 import { OverallBanner } from "@/components/status/OverallBanner";
 import { ComponentStatusGrid } from "@/components/status/ComponentStatus";
 import { IncidentTimeline } from "@/components/status/IncidentTimeline";
 import { SubscribeForm } from "@/components/status/SubscribeForm";
 import {
-  mockComponents,
-  mockIncidents,
+  getComponents,
+  getIncidents,
   getOverallStatus,
 } from "@/lib/status/data";
+import { useNow } from "@/lib/hooks/useNow";
 
 export default function StatusPage() {
-  const overall = getOverallStatus(mockComponents);
+  // `useNow` seeds from a minute-floored clock so the server render and the
+  // first client render agree, then ticks. Incident timestamps are derived
+  // from it, which is what keeps "resolved 2 minutes ago" honest.
+  const now = useNow();
+  const components = useMemo(() => getComponents(now), [now]);
+  const incidents = useMemo(() => getIncidents(now), [now]);
+  const overall = getOverallStatus(components);
 
   return (
     <div className="min-h-screen bg-card text-foreground flex flex-col">
@@ -38,7 +47,7 @@ export default function StatusPage() {
             >
               Services
             </h2>
-            <ComponentStatusGrid components={mockComponents} />
+            <ComponentStatusGrid components={components} />
           </section>
 
           <section aria-labelledby="incidents-heading">
@@ -48,7 +57,7 @@ export default function StatusPage() {
             >
               Incident History
             </h2>
-            <IncidentTimeline incidents={mockIncidents} />
+            <IncidentTimeline incidents={incidents} />
           </section>
 
           <section aria-labelledby="subscribe-heading" className="space-y-3">

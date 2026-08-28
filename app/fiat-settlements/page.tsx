@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Lock,
 } from 'lucide-react';
+import LiveAnchorTable from '@/components/settlement/LiveAnchorTable';
 
 export const metadata: Metadata = {
   title: 'Fiat Settlements | BettaPay',
@@ -24,15 +25,6 @@ export const metadata: Metadata = {
     type: 'website',
   },
 };
-
-const ANCHORS = [
-  { country: 'Nigeria', flag: '🇳🇬', currency: 'NGN', anchor: 'Cowrie Integrated', kyc: 'Level 1-3', time: 'Instant (< 2 mins)' },
-  { country: 'European Union', flag: '🇪🇺', currency: 'EUR', anchor: 'Tempo Payments', kyc: 'Level 2', time: '10–30 mins' },
-  { country: 'United States', flag: '🇺🇸', currency: 'USD', anchor: 'MoneyGram Stellar', kyc: 'Level 2', time: 'Instant' },
-  { country: 'Brazil', flag: '🇧🇷', currency: 'BRL', anchor: 'Yellow Card Financial', kyc: 'Level 1', time: 'Instant (< 5 mins)' },
-  { country: 'Kenya', flag: '🇰🇪', currency: 'KES', anchor: 'AZA Finance / BitPesa', kyc: 'Level 1-2', time: '15–30 mins' },
-  { country: 'South Africa', flag: '🇿🇦', currency: 'ZAR', anchor: 'Clickatell / Anchorage', kyc: 'Level 2', time: 'Instant' },
-];
 
 const SUPPORTED_ASSETS = [
   { code: 'USDC', name: 'USD Coin', type: 'Stablecoin (Circle)', icon: '$' },
@@ -166,39 +158,7 @@ export default function FiatSettlementsPage() {
           </p>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-muted/50 border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
-                <tr>
-                  <th className="py-4 px-6 font-semibold">Country</th>
-                  <th className="py-4 px-6 font-semibold">Currency</th>
-                  <th className="py-4 px-6 font-semibold">Licensed Anchor</th>
-                  <th className="py-4 px-6 font-semibold">KYC Level</th>
-                  <th className="py-4 px-6 font-semibold">Settlement Time</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {ANCHORS.map((row) => (
-                  <tr key={row.currency} className="hover:bg-muted/30 transition-colors">
-                    <td className="py-4 px-6 font-medium text-foreground flex items-center gap-3">
-                      <span className="text-xl">{row.flag}</span>
-                      {row.country}
-                    </td>
-                    <td className="py-4 px-6 font-mono font-bold text-primary">{row.currency}</td>
-                    <td className="py-4 px-6 text-foreground font-medium">{row.anchor}</td>
-                    <td className="py-4 px-6">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-foreground border border-border">
-                        {row.kyc}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 font-medium text-emerald-600 dark:text-emerald-400">{row.time}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <LiveAnchorTable />
       </section>
 
       {/* Supported Assets & Benefits Grid */}
@@ -237,7 +197,7 @@ export default function FiatSettlementsPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {BENEFITS.map((benefit) => {
-                const Icon = benefit.icon;
+                const Icon = benefit.icon as any;
                 return (
                   <div key={benefit.title} className="p-6 rounded-2xl bg-card border border-border shadow-sm space-y-3">
                     <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">

@@ -5,19 +5,19 @@ import { useRateLimitStore } from '../store/rateLimitStore';
 
 /**
  * Hook that manages the rate limit countdown timer.
- * Calls tick() every second to decrement the seconds remaining counter.
- * Automatically cleans up the interval when rate limit expires or component unmounts.
+ *
+ * Creates a single steady interval on mount that recomputes `secondsRemaining`
+ * from the stored epoch on every tick. The interval is only torn down on
+ * unmount — store changes no longer recreate it, preventing drift.
  */
 export function useRateLimitCountdown() {
-  const { rateLimitedUntil, tick } = useRateLimitStore();
-
   useEffect(() => {
-    if (rateLimitedUntil === 0) return;
-
     const interval = setInterval(() => {
+      const { rateLimitedUntil, tick } = useRateLimitStore.getState();
+      if (rateLimitedUntil === 0) return;
       tick();
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [rateLimitedUntil, tick]);
+  }, []);
 }

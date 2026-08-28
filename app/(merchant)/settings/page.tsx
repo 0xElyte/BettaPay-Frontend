@@ -88,21 +88,21 @@ export default function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
-  const [passwordErrors, setPasswordErrors] = useState<{
+
+  // Derived live errors for immediate feedback (used for rendering)
+  const passwordErrors = useMemo<{
     current?: string;
     newPass?: string;
     confirm?: string;
-  }>({});
-
-  const validatePassword = useCallback(() => {
-    const errors: typeof passwordErrors = {};
+  }>(() => {
+    const errors: { current?: string; newPass?: string; confirm?: string } = {};
 
     if (!currentPassword) {
       errors.current = 'Current password is required';
     }
 
     if (newPassword.length < 8) {
-      errors.newPass = 'Password must be at least 8 characters';
+      errors.newPass = 'Password must be at least 8 characters long';
     } else if (!/[0-9]/.test(newPassword)) {
       errors.newPass = 'Password must contain at least one number';
     } else if (!/[A-Z]/.test(newPassword)) {
@@ -113,9 +113,12 @@ export default function SettingsPage() {
       errors.confirm = 'Passwords do not match';
     }
 
-    setPasswordErrors(errors);
-    return Object.keys(errors).length === 0;
+    return errors;
   }, [currentPassword, newPassword, confirmNewPassword]);
+
+  const validatePassword = useCallback(() => {
+    return Object.keys(passwordErrors).length === 0;
+  }, [passwordErrors]);
 
   const isPasswordValid = useMemo(() => {
     return (
@@ -139,7 +142,6 @@ export default function SettingsPage() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmNewPassword('');
-      setPasswordErrors({});
     } catch (err: unknown) {
       const apiMessage =
         (err as { response?: { data?: { error?: string; message?: string } } })

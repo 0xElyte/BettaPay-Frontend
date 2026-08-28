@@ -1,53 +1,35 @@
-let timeoutId: ReturnType<typeof setTimeout> | null = null;
-let clearAnnouncerTimeoutId: ReturnType<typeof setTimeout> | null = null;
-let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-let latestMessage = '';
+let announceTimer: ReturnType<typeof setTimeout> | null = null;
+let clearTimer: ReturnType<typeof setTimeout> | null = null;
+let lastMessage = '';
 
 export function announce(message: string): void {
   if (typeof document === 'undefined') return;
   const el = document.getElementById('announcer');
   if (!el) return;
 
-  // Clear any pending debounced triggers
-  if (timeoutId) {
-    clearTimeout(timeoutId);
-  }
-  // Clear any scheduled text clearance timers
-  if (clearAnnouncerTimeoutId) {
-    clearTimeout(clearAnnouncerTimeoutId);
-  }
+  // Coalesce identical messages — skip if the same text was just announced.
+  if (message === lastMessage) return;
 
-  // Ensure announcer is configured for polite announcements
+  // Clear any pending announce or clearance timers from the previous call.
+  if (announceTimer) clearTimeout(announceTimer);
+  if (clearTimer) clearTimeout(clearTimer);
+
   el.setAttribute('aria-live', 'polite');
 
-  // Debounce announcement trigger
-  timeoutId = setTimeout(() => {
-    // Clear live region text to announce clean changes
+  // Single debounce: clear the region, then write the new message.
+  announceTimer = setTimeout(() => {
     el.textContent = '';
-    
-    // Focus screen reader's attention to the new message text
+
     setTimeout(() => {
       el.textContent = message;
 
-      // Clear the live region so duplicate alerts can trigger subsequently
-      clearAnnouncerTimeoutId = setTimeout(() => {
+      // Clear the live region so a subsequent identical message can re-trigger.
+      clearTimer = setTimeout(() => {
         el.textContent = '';
       }, 1000);
     }, 100);
   }, 500);
 
-  latestMessage = message;
-
-  if (debounceTimer) {
-    clearTimeout(debounceTimer);
-  }
-
-  debounceTimer = setTimeout(() => {
-    el.textContent = '';
-    setTimeout(() => {
-      el.textContent = latestMessage;
-    }, 100);
-    debounceTimer = null;
-  }, 500);
+  lastMessage = message;
 }
 

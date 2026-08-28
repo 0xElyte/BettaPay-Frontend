@@ -23,10 +23,13 @@ import { useNotify } from "@/lib/hooks/useNotify";
 import { ErrorDisplay } from "@/components/shared";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useWalletStore } from "@/lib/store/walletStore";
+import { getStellarExplorerAccountUrl } from "@/lib/utils/explorer";
+import { formatNumber } from "@/lib/utils/format";
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui";
+import { AccountPicker } from "@/components/wallet/AccountPicker";
 
 const WalletActivityHistory = dynamic(() => import('@/components/wallet/WalletActivityHistory').then(m => ({ default: m.WalletActivityHistory })), {
   loading: () => <Skeleton className="h-64 rounded-xl" />,
@@ -208,7 +211,10 @@ export default function WalletPage() {
                 {primaryBalance.assetCode} Balance
               </p>
               <p className="text-4xl font-bold">
-                {parseFloat(primaryBalance.balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 7 })}{" "}
+                {formatNumber(parseFloat(primaryBalance.balance), undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 7,
+                })}{" "}
                 <span className="text-lg font-normal text-background/60">{primaryBalance.assetCode}</span>
               </p>
             </div>
@@ -259,7 +265,7 @@ export default function WalletPage() {
                 <QrCode className="w-3.5 h-3.5" />
               </Button>
               <a
-                href={`https://stellar.expert/explorer/${network}/account/${address}`}
+                href={getStellarExplorerAccountUrl(address, network)}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="View on Stellar Expert"
@@ -271,6 +277,9 @@ export default function WalletPage() {
           </div>
         </div>
       </div>
+
+      {/* Account Picker for multi-account sessions */}
+      <AccountPicker />
 
       {/* Reconnecting Banner */}
       {isReconnecting && (
@@ -340,7 +349,10 @@ export default function WalletPage() {
                   )}
                 </div>
                 <p className="text-2xl font-bold text-foreground">
-                  {parseFloat(asset.balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 7 })}
+                  {formatNumber(parseFloat(asset.balance), undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 7,
+                  })}
                 </p>
               </CardContent>
             </Card>
@@ -375,7 +387,7 @@ export default function WalletPage() {
       </Dialog>
 
       {/* Transaction history */}
-      <WalletActivityHistory />
+      <WalletActivityHistory address={address} />
     </div>
   );
 }

@@ -51,7 +51,7 @@ const partners = [
 
 export function Investors() {
   return (
-    <section className="py-20 md:py-28 relative overflow-hidden border-b border-border/40">
+    <section aria-labelledby="investors-heading" className="py-20 md:py-28 relative overflow-hidden border-b border-border/40">
       <div className="container mx-auto px-6">
         {/* Header */}
         <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
@@ -59,7 +59,7 @@ export function Investors() {
             <Award className="w-3.5 h-3.5" />
             <span>Capital & Strategic Backers</span>
           </div>
-          <h2 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+          <h2 id="investors-heading" className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
             Backed by leading Web3 investors
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -68,41 +68,42 @@ export function Investors() {
         </div>
 
         {/* Investors Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+        <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
           {investors.map((investor, idx) => (
-            <motion.a
-              key={investor.name}
-              href={investor.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: idx * 0.1 }}
-              className="group relative rounded-2xl bg-card border border-border p-6 shadow-card hover:shadow-card-hover hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between"
-            >
-              <div>
-                {/* Logo Placeholder with Grayscale to Color Hover */}
-                <div className="h-16 rounded-xl bg-muted/60 flex items-center justify-between px-4 mb-6 border border-border/50 group-hover:bg-primary/10 group-hover:border-primary/30 transition-all duration-300">
-                  <span className="font-extrabold tracking-widest text-lg text-muted-foreground grayscale group-hover:grayscale-0 group-hover:text-primary transition-all duration-300">
-                    {investor.logoText}
-                  </span>
-                  <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                </div>
+            <li key={investor.name}>
+              <motion.a
+                href={investor.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: idx * 0.1 }}
+                className="group relative rounded-2xl bg-card border border-border p-6 shadow-card hover:shadow-card-hover hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between h-full"
+              >
+                <div>
+                  {/* Logo Placeholder with Grayscale to Color Hover */}
+                  <div className="h-16 rounded-xl bg-muted/60 flex items-center justify-between px-4 mb-6 border border-border/50 group-hover:bg-primary/10 group-hover:border-primary/30 transition-all duration-300">
+                    <span className="font-extrabold tracking-widest text-lg text-muted-foreground grayscale group-hover:grayscale-0 group-hover:text-primary transition-all duration-300">
+                      {investor.logoText}
+                    </span>
+                    <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
 
-                <h3 className="font-bold text-foreground text-base mb-1 group-hover:text-primary transition-colors">
-                  {investor.name}
-                </h3>
-                <p className="text-xs font-semibold text-primary/90 mb-2">
-                  {investor.category}
-                </p>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  {investor.description}
-                </p>
-              </div>
-            </motion.a>
+                  <h3 className="font-bold text-foreground text-base mb-1 group-hover:text-primary transition-colors">
+                    {investor.name}
+                  </h3>
+                  <p className="text-xs font-semibold text-primary/90 mb-2">
+                    {investor.category}
+                  </p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {investor.description}
+                  </p>
+                </div>
+              </motion.a>
+            </li>
           ))}
-        </div>
+        </ul>
 
         {/* Partners Banner */}
         <div className="rounded-2xl bg-card/60 border border-border/80 p-8 text-center max-w-4xl mx-auto shadow-card">
@@ -112,18 +113,18 @@ export function Investors() {
               Ecosystem & Liquidity Partners
             </span>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 items-center justify-center pt-2">
+          <ul className="grid grid-cols-2 sm:grid-cols-4 gap-6 items-center justify-center pt-2">
             {partners.map((partner, idx) => (
-              <div key={idx} className="space-y-1">
+              <li key={idx} className="space-y-1">
                 <div className="text-sm font-semibold text-foreground/90">
                   {partner.name}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {partner.tier}
                 </div>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       </div>
     </section>

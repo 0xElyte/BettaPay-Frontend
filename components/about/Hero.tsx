@@ -38,7 +38,7 @@ const metrics = [
 
 export function Hero() {
   return (
-    <section className="relative overflow-hidden pt-20 pb-16 md:pt-28 md:pb-24 border-b border-border/40">
+    <section aria-labelledby="about-hero-heading" className="relative overflow-hidden pt-20 pb-16 md:pt-28 md:pb-24 border-b border-border/40">
       {/* Background Gradients & Glow */}
       <div className="aria-hidden:true pointer-events-none absolute inset-0 -z-10 flex items-center justify-center">
         <div className="h-[450px] w-[600px] rounded-full bg-primary/10 blur-[130px] dark:bg-primary/15 animate-pulse" />
@@ -61,6 +61,7 @@ export function Hero() {
 
           {/* Headline */}
           <motion.h1
+            id="about-hero-heading"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
@@ -73,14 +74,14 @@ export function Hero() {
           </motion.h1>
 
           {/* Subheadline */}
-          <motion.p
+          <motion.h2
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="text-lg md:text-xl text-muted-foreground leading-relaxed text-balance max-w-2xl mx-auto"
+            className="text-lg md:text-xl text-muted-foreground leading-relaxed text-balance max-w-2xl mx-auto font-normal"
           >
             BettaPay empowers businesses across Africa to accept stablecoins, manage digital treasury, and settle into local fiat currency instantly without custodial risk or high transaction fees.
-          </motion.p>
+          </motion.h2>
 
           {/* Buttons */}
           <motion.div
@@ -105,16 +106,16 @@ export function Hero() {
         </div>
 
         {/* Metrics Grid */}
-        <motion.div
+        <motion.ul
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.4 }}
           className="mt-16 md:mt-24 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
         >
           {metrics.map((metric, idx) => {
-            const IconComponent = metric.icon;
+            const IconComponent = metric.icon as any;
             return (
-              <div
+              <li
                 key={idx}
                 className="group relative rounded-2xl bg-card/60 backdrop-blur-md border border-border/80 p-6 shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 hover:border-primary/40"
               >
@@ -135,10 +136,10 @@ export function Hero() {
                 <div className="text-xs text-muted-foreground">
                   {metric.description}
                 </div>
-              </div>
+              </li>
             );
           })}
-        </motion.div>
+        </motion.ul>
       </div>
     </section>
   );

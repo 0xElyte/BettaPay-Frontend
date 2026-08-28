@@ -2,16 +2,19 @@
 
 import { ThemeProvider } from "next-themes";
 import { ReactNode, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/store/authStore";
 import { useSessionCheck } from "@/lib/hooks/useSessionCheck";
 import { useCrossTabAuth } from "@/lib/hooks/useCrossTabAuth";
+import { useCrossTabRateLimit } from "@/lib/hooks/useCrossTabRateLimit";
 import { setAppRouter } from "@/lib/navigation/appRouter";
 import { OfflineBanner } from "@/components/ui";
 import { initRum } from "@/lib/rum";
+import { initErrorReporting } from "@/lib/errorReporting";
 import { useRouteChange } from "@/lib/rum/useRouteChange";
 import { useHydrationCapture } from "@/lib/rum/useHydrationCapture";
+import { isPublicRoute, isAuthRoute } from "@/lib/auth/session";
 
 export function Providers({ children }: { children: ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -61,16 +64,38 @@ export function Providers({ children }: { children: ReactNode }) {
     return cleanup;
   }, []);
 
+  // Install global handlers for uncaught errors and unhandled rejections.
+  useEffect(() => {
+    const cleanup = initErrorReporting();
+    return cleanup;
+  }, []);
+
   useRouteChange();
   useHydrationCapture();
-  useSessionCheck();
+  const { isVerifying } = useSessionCheck();
   useCrossTabAuth();
+  const pathname = usePathname();
+  const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
+  // Prevent flash of protected page for logged-out users (fix #575):
+  // when we have a persisted isLoggedIn but no in-memory auth, hook is
+  // re-verifying via GET /api/auth/session — same contract as middleware's
+  // getSessionFromCookies/isSessionValid on auth_token+user_role. Hold
+  // protected content until the check settles.
+  const isProtectedRoute = Boolean(pathname && !isPublicRoute(pathname) && !isAuthRoute(pathname));
+  const showFlashGuard = isVerifying && !isAuthenticated && isLoggedIn && isProtectedRoute;
+  useCrossTabRateLimit();
 
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem={true}>
         <OfflineBanner />
-        {children}
+        {showFlashGuard ? (
+          <div className="min-h-[60vh] flex items-center justify-center p-8" aria-busy="true" aria-live="polite">
+            <div className="text-sm text-muted-foreground">Verifying session…</div>
+          </div>
+        ) : (
+          children
+        )}
       </ThemeProvider>
     </QueryClientProvider>
   );

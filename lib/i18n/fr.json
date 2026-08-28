@@ -38,10 +38,60 @@
     "or": "ou",
     "connectWallet": "Connecter le portefeuille Freighter",
     "learnMore": "En savoir plus sur BettaPay",
+    "forgotPassword": "Mot de passe oublié ?",
     "benefits": {
       "settlement": { "title": "Règlement instantané", "description": "Les transactions sont réglées en quelques secondes sur Stellar Soroban" },
       "currency": { "title": "Multidevise", "description": "Acceptez l'USDC, convertissez automatiquement en monnaie locale" },
       "custody": { "title": "Non dépositaire", "description": "Vous gardez toujours le contrôle de vos fonds et de vos clés" }
+    }
+  },
+  "forgotPassword": {
+    "title": "Réinitialiser votre mot de passe",
+    "description": "Entrez l'adresse e-mail associée à votre compte et nous vous enverrons un lien de réinitialisation.",
+    "emailLabel": "Adresse e-mail",
+    "emailPlaceholder": "vous@exemple.com",
+    "submit": "Envoyer le lien",
+    "submitting": "Envoi en cours…",
+    "backToLogin": "Retour à la connexion",
+    "confirmation": {
+      "title": "Vérifiez votre boîte de réception",
+      "description": "Si cet e-mail est enregistré, vous recevrez un lien de réinitialisation sous peu. Vérifiez vos spams si vous ne le voyez pas dans les prochaines minutes.",
+      "backToLogin": "Retour à la connexion"
+    },
+    "errors": {
+      "invalidEmail": "Veuillez saisir une adresse e-mail valide.",
+      "tooManyRequests": "Trop de tentatives. Veuillez attendre quelques minutes et réessayer.",
+      "generic": "Une erreur s'est produite. Veuillez réessayer plus tard."
+    }
+  },
+  "resetPassword": {
+    "title": "Définir un nouveau mot de passe",
+    "description": "Choisissez un mot de passe fort pour votre compte.",
+    "newPasswordLabel": "Nouveau mot de passe",
+    "confirmPasswordLabel": "Confirmer le mot de passe",
+    "newPasswordPlaceholder": "Entrez le nouveau mot de passe",
+    "confirmPasswordPlaceholder": "Ressaisissez le nouveau mot de passe",
+    "requirements": {
+      "minLength": "Au moins 8 caractères",
+      "uppercase": "Une lettre majuscule",
+      "lowercase": "Une lettre minuscule",
+      "number": "Un chiffre",
+      "special": "Un caractère spécial"
+    },
+    "submit": "Réinitialiser le mot de passe",
+    "submitting": "Réinitialisation…",
+    "success": {
+      "title": "Mot de passe réinitialisé",
+      "description": "Votre mot de passe a été mis à jour et toutes les autres sessions ont été révoquées. Veuillez vous connecter avec votre nouveau mot de passe.",
+      "loginLink": "Se connecter"
+    },
+    "errors": {
+      "tokenExpired": "Ce lien de réinitialisation a expiré. Veuillez en demander un nouveau.",
+      "tokenInvalid": "Ce lien de réinitialisation est invalide. Veuillez en demander un nouveau.",
+      "passwordMismatch": "Les mots de passe ne correspondent pas.",
+      "passwordWeak": "Le mot de passe ne répond pas aux exigences.",
+      "tooManyRequests": "Trop de tentatives. Veuillez attendre quelques minutes et réessayer.",
+      "generic": "Une erreur s'est produite. Veuillez réessayer plus tard."
     }
   }
 }

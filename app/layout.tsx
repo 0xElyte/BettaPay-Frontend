@@ -7,8 +7,6 @@ import { cn } from "@/lib/utils";
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { I18nProvider } from '@/components/i18n/I18nProvider';
 import { TranslationCoveragePanel } from '@/components/i18n/TranslationCoveragePanel';
-import { ensureCsrfCookie } from '@/lib/utils/csrf';
-import { SITE_URL, GOOGLE_CLIENT_ID } from '@/lib/config';
 
 
 const fraunces = Fraunces({
@@ -38,17 +36,28 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Seed the CSRF cookie before the page HTML is streamed to the client.
-  // ensureCsrfCookie() is a no-op when a valid token is already present,
-  // so this adds no overhead on subsequent requests.
-  await ensureCsrfCookie();
+  // CSRF cookie is now seeded in `middleware.ts` via `ensureCsrfCookieInMiddleware`
+  // (using NextResponse.cookies.set, which is allowed in middleware). The
+  // previous `await ensureCsrfCookie()` call here triggered
+  // `Cookies can only be modified in a Server Action or Route Handler` in
+  // Next 14.2+ when called from a Server Component layout.
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() || undefined;
+  // Guard provider initialization on a real client id. When unset/empty/whitespace
+  // we render the app without GoogleOAuthProvider so the SDK never receives an
+  // empty string (which it treats as valid config and logs errors for). The
+  // login page (app/auth/login/page.tsx) shows a disabled "Google login
+  // unavailable" fallback with tooltip + dev console.warn in this state.
 
-  const googleClientId = GOOGLE_CLIENT_ID;
-  // Pass the clientId straight to GoogleOAuthProvider only when configured;
-  // otherwise pass an empty placeholder so the provider target render does
-  // not blow up if a GoogleLogin button somehow ends up rendered. The login
-  // page is responsible for showing a disabled fallback when the ID is
-  // missing so users still get an explanatory UI instead of a silent failure.
+  const inner = (
+    <I18nProvider>
+      <Providers>
+        {children}
+        <Toaster />
+        <div id="announcer" aria-live="polite" aria-atomic="true" className="sr-only" />
+      </Providers>
+      <TranslationCoveragePanel />
+    </I18nProvider>
+  );
 
   return (
     <html lang="en" className={cn("font-sans antialiased", fraunces.variable, dmSans.variable)}>
@@ -59,16 +68,11 @@ export default async function RootLayout({
         >
           Skip to main content
         </a>
-        <GoogleOAuthProvider clientId={googleClientId ?? ''}>
-          <I18nProvider>
-            <Providers>
-              {children}
-              <Toaster />
-              <div id="announcer" aria-live="polite" aria-atomic="true" className="sr-only" />
-            </Providers>
-            <TranslationCoveragePanel />
-          </I18nProvider>
-        </GoogleOAuthProvider>
+        {googleClientId ? (
+          <GoogleOAuthProvider clientId={googleClientId}>{inner}</GoogleOAuthProvider>
+        ) : (
+          inner
+        )}
       </body>
     </html>
   );

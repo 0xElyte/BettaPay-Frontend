@@ -108,9 +108,10 @@ export const MobileNavDrawer = ({
         aria-hidden="true"
       />
 
-      {/* Drawer content panel */}
+      {/* Drawer content panel - overlay-with-scrim pattern below md (sidebar width) */}
       <div
         ref={drawerRef}
+        id="mobile-nav"
         className={cn(
           'fixed inset-y-0 left-0 z-50 w-64 bg-sidebar border-r border-sidebar-border shadow-surface-xl transform transition-transform duration-300 ease-in-out md:hidden flex flex-col',
           isOpen ? 'translate-x-0' : '-translate-x-full'
@@ -144,7 +145,7 @@ export const MobileNavDrawer = ({
         <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-            const Icon = item.icon;
+            const Icon = item.icon as any;
 
             return (
               <Link

@@ -373,6 +373,18 @@ const settlementSchema = [
   { name: 'amountUsdc', type: 'number', required: true, description: 'Amount settled in USDC.' },
   { name: 'amountNgn', type: 'number | null', required: false, description: 'Fiat amount paid out.' },
   { name: 'status', type: 'string', required: true, description: 'One of pending, processing, completed, failed.' },
+  {
+    name: 'effectiveRule',
+    type: 'object',
+    required: true,
+    description: 'The resolved settlement rule applied to this settlement: merchant, then default, then governance.',
+    children: [
+      { name: 'feeBps', type: 'number', required: true, description: 'Settlement fee in basis points.' },
+      { name: 'autoSettle', type: 'boolean', required: true, description: 'Whether automatic settlement is enabled.' },
+      { name: 'delay', type: 'number', required: true, description: 'Settlement delay in minutes.' },
+      { name: 'source', type: "'merchant' | 'default' | 'governance'", required: true, description: 'Rule level that supplied the effective values.' },
+    ],
+  },
   { name: 'txHash', type: 'string | null', required: false, description: 'On-chain settlement transaction hash.' },
   { name: 'bankName', type: 'string | null', required: false, description: 'Destination bank for fiat payout.' },
   { name: 'accountNumber', type: 'string | null', required: false, description: 'Masked destination account number.' },
@@ -442,6 +454,49 @@ export const settlementEndpoints: Endpoint[] = [
     },
     errors: [...authErrors, { status: 404, code: 'NOT_FOUND', description: 'No settlement with that id.' }],
     rateLimit: RATE_GLOBAL,
+  },
+  {
+    id: 'settlements-actions',
+    title: 'Apply a bulk settlement action',
+    description:
+      'Approves, rejects, or holds pending settlements for the authenticated merchant. Each settlement is evaluated independently, so a mixed response is possible.',
+    method: 'POST',
+    path: '/api/settlements/actions',
+    auth: true,
+    requestHeaders: [authHeader, jsonHeader],
+    requestBody: [
+      { name: 'action', type: "'approve' | 'reject' | 'hold'", required: true, description: 'Action to apply to every requested settlement.', example: 'approve' },
+      { name: 'settlementIds', type: 'string[]', required: true, description: 'IDs of pending settlements to evaluate.', example: '["7d5a...", "8e6b..."]' },
+    ],
+    requestExample: { action: 'approve', settlementIds: ['7d5a...', '8e6b...', '9f7c...'] },
+    responseStatus: 200,
+    responseSchema: [
+      { name: 'summary', type: 'object', required: true, description: 'Aggregate result for the requested settlements.', children: [
+        { name: 'requested', type: 'number', required: true, description: 'Number of settlement IDs submitted.' },
+        { name: 'succeeded', type: 'number', required: true, description: 'Number of settlements updated successfully.' },
+        { name: 'failed', type: 'number', required: true, description: 'Number of settlements that could not be updated.' },
+      ] },
+      { name: 'results', type: 'SettlementActionResult[]', required: true, description: 'Independent result for every submitted settlement ID.', children: [
+        { name: 'id', type: 'string (uuid)', required: true, description: 'Submitted settlement id.' },
+        { name: 'success', type: 'boolean', required: true, description: 'Whether the requested action succeeded for this settlement.' },
+        { name: 'status', type: 'string', required: true, description: 'Resulting settlement status.' },
+        { name: 'error', type: 'string | null', required: true, description: 'Failure reason, or null when successful.' },
+      ] },
+    ],
+    responseExample: {
+      summary: { requested: 3, succeeded: 2, failed: 1 },
+      results: [
+        { id: '7d5a...', success: true, status: 'processing', error: null },
+        { id: '8e6b...', success: true, status: 'processing', error: null },
+        { id: '9f7c...', success: false, status: 'pending', error: 'Settlement is no longer actionable.' },
+      ],
+    },
+    errors: [
+      ...authErrors,
+      validationError,
+      { status: 409, code: 'IDEMPOTENCY_CONFLICT', description: 'The requested action conflicts with the current settlement state.' },
+    ],
+    rateLimit: RATE_MUTATION,
   },
 ];
 

@@ -7,7 +7,8 @@ interface TableSkeletonProps {
 
 export function TableSkeleton({ rows = 6, columns = 7 }: TableSkeletonProps) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" role="status" aria-busy="true" aria-label="Loading table data">
+      <span className="sr-only">Loading table data…</span>
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} className="flex items-center gap-4">
           {Array.from({ length: columns }).map((_, j) => (

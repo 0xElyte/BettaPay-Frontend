@@ -1,5 +1,7 @@
 import {
   PRICING_TIERS,
+  COMPARISON_ROWS,
+  FEATURE_CAPABILITY_MAP,
   MIN_VOLUME,
   MAX_VOLUME,
   DEFAULT_VOLUME,
@@ -102,6 +104,47 @@ describe('lib/pricing', () => {
 
     it('routes Enterprise CTA to the sales contact form', () => {
       expect(enterprise.cta.href).toBe('/contact?subject=enterprise-pricing');
+    });
+
+    it('every feature string maps to a documented capability in FEATURE_CAPABILITY_MAP', () => {
+      for (const tier of PRICING_TIERS) {
+        for (const feature of tier.features) {
+          expect(FEATURE_CAPABILITY_MAP).toHaveProperty([feature]);
+        }
+      }
+    });
+  });
+
+  describe('COMPARISON_ROWS', () => {
+    it('has a row for every expected comparison feature', () => {
+      const labels = COMPARISON_ROWS.map((r) => r.feature);
+      expect(labels).toContain('Transaction fee');
+      expect(labels).toContain('Monthly volume included');
+      expect(labels).toContain('Settlement speed');
+      expect(labels).toContain('Webhooks');
+      expect(labels).toContain('Uptime SLA');
+    });
+
+    it('derives transaction fee values from PRICING_TIERS', () => {
+      const feeRow = COMPARISON_ROWS.find((r) => r.feature === 'Transaction fee')!;
+      expect(feeRow.starter).toBe(starter.transactionFee);
+      expect(feeRow.growth).toBe(growth.transactionFee);
+      expect(feeRow.enterprise).toBe(enterprise.transactionFee);
+    });
+
+    it('reflects webhooks availability from PRICING_TIERS', () => {
+      const row = COMPARISON_ROWS.find((r) => r.feature === 'Webhooks')!;
+      expect(row.starter).toBe(starter.webhooks);
+      expect(row.growth).toBe(growth.webhooks);
+      expect(row.enterprise).toBe(enterprise.webhooks);
+    });
+
+    it('covers all three tier columns for every row', () => {
+      for (const row of COMPARISON_ROWS) {
+        expect(row).toHaveProperty('starter');
+        expect(row).toHaveProperty('growth');
+        expect(row).toHaveProperty('enterprise');
+      }
     });
   });
 });

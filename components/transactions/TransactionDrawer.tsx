@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { Copy, Check, X, ExternalLink } from 'lucide-react';
 import type { ApiPayment } from '@/lib/api/hooks';
@@ -9,6 +9,7 @@ import { StatusBadge } from '@/components/shared/StatusBadge';
 import { CurrencyDisplay } from '@/components/shared/CurrencyDisplay';
 import { formatDate, truncateAddress } from '@/lib/utils/format';
 import { getStellarExplorerTxUrl } from '@/lib/utils/explorer';
+import { useWalletStore } from '@/lib/store/walletStore';
 import { useNotify } from '@/lib/hooks/useNotify';
 import { cn } from '@/lib/utils';
 
@@ -89,19 +90,128 @@ export const TransactionDrawer = ({ transaction, isOpen, onClose }: TransactionD
   // Retain the last transaction while the closing slide-out animation plays,
   // since the parent clears `transaction` at the same moment it closes.
   const [tx, setTx] = useState<ApiPayment | null>(transaction);
+  const network = useWalletStore((s) => s.network);
+
+  // History / focus management refs
+  const popupRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
+  const hasPushedRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (transaction) setTx(transaction);
   }, [transaction]);
 
+  // Push history state when opening, handle popstate (browser back), focus, and explicit Esc.
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Save the element that triggered the drawer so focus can be restored on close.
+    triggerRef.current = document.activeElement as HTMLElement | null;
+
+    // Move focus into the drawer on next frame (after portal mounts).
+    const raf = requestAnimationFrame(() => {
+      const el = popupRef.current;
+      if (!el) return;
+      const focusable = el.querySelector<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      (focusable ?? el).focus();
+    });
+
+    // History integration: push a state so browser back closes the drawer.
+    if (typeof window !== 'undefined' && window.history) {
+      try {
+        window.history.pushState({ transactionDrawerOpen: true }, '');
+        hasPushedRef.current = true;
+      } catch {
+        // pushState can throw in some iframe / test environments — ignore.
+      }
+    }
+
+    const handlePopState = () => {
+      if (hasPushedRef.current) {
+        hasPushedRef.current = false;
+        const t = triggerRef.current;
+        // Restore focus after the drawer unmounts / closes.
+        requestAnimationFrame(() => t?.focus?.());
+        onCloseRef.current();
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        // Explicit Esc path: if we pushed history, go back to keep history consistent.
+        if (hasPushedRef.current) {
+          hasPushedRef.current = false;
+          try {
+            if (typeof window !== 'undefined' && window.history.state?.transactionDrawerOpen) {
+              window.history.back();
+            }
+          } catch {}
+        }
+        const t = triggerRef.current;
+        requestAnimationFrame(() => t?.focus?.());
+        onCloseRef.current();
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
+  const handleClose = useCallback(() => {
+    if (hasPushedRef.current && typeof window !== 'undefined') {
+      hasPushedRef.current = false;
+      try {
+        if (window.history.state?.transactionDrawerOpen) {
+          window.history.back();
+        }
+      } catch {}
+    }
+    const t = triggerRef.current;
+    requestAnimationFrame(() => t?.focus?.());
+    onCloseRef.current();
+  }, []);
+
+  // Restore focus when isOpen becomes false (e.g., parent closed directly).
+  useEffect(() => {
+    if (!isOpen && triggerRef.current) {
+      const t = triggerRef.current;
+      const shouldRestore =
+        document.activeElement === document.body ||
+        popupRef.current?.contains(document.activeElement);
+      if (shouldRestore) {
+        requestAnimationFrame(() => t?.focus?.());
+      }
+      const id = setTimeout(() => {
+        // Keep the ref until the close animation completes.
+        if (!hasPushedRef.current) triggerRef.current = null;
+      }, 350);
+      return () => clearTimeout(id);
+    }
+  }, [isOpen]);
+
   if (!tx) return null;
 
   const dash = '—';
-  const explorerUrl = tx.txHash ? getStellarExplorerTxUrl(tx.txHash) : null;
+  const explorerUrl = tx.txHash ? getStellarExplorerTxUrl(tx.txHash, network) : null;
 
   return (
-    <DialogPrimitive.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <DialogPrimitive.Root open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogPrimitive.Portal>
-        {/* Backdrop – clicking it closes the drawer (handled by base-ui) */}
+        {/* Backdrop – clicking it closes the drawer (handled by base-ui, funnelled through handleClose) */}
         <DialogPrimitive.Backdrop
           className={cn(
             'fixed inset-0 z-50 bg-black/40',
@@ -111,7 +221,18 @@ export const TransactionDrawer = ({ transaction, isOpen, onClose }: TransactionD
           )}
         />
         <DialogPrimitive.Popup
-          // Escape key + click-outside are handled natively by base-ui Dialog.
+          ref={popupRef}
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Transaction details"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.stopPropagation();
+              e.preventDefault();
+              handleClose();
+            }
+          }}
           className={cn(
             'fixed inset-y-0 right-0 z-50 flex h-full w-full flex-col bg-background shadow-xl outline-none',
             'border-l border-border/50 sm:w-[400px] sm:max-w-[400px]',

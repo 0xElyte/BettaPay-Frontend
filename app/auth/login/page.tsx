@@ -1,8 +1,9 @@
 "use client";
 
-import { Suspense } from 'react';
+import React, { useState, useRef, Suspense } from 'react';
 import { Loader2, Shield, Zap, Globe, ArrowRight } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 
 import { Button } from '@/components/ui';
 import { WalletModalFallback } from '@/components/wallet/WalletModalFallback';
@@ -10,7 +11,8 @@ import { NetworkTooltip } from '@/components/ui/network-tooltip';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAppTranslation } from '@/lib/i18n/useAppTranslation';
 import { useLogin } from '@/lib/hooks/useLogin';
-import { GOOGLE_CLIENT_ID } from '@/lib/config';
+import { EmailLoginForm } from '@/components/auth/EmailLoginForm';
+import { MagicLinkForm } from '@/components/auth/MagicLinkForm';
 
 // Module-level sentinel: fires the dev-mode missing-config warning at most
 // once across the lifetime of the JS bundle. Avoids the Strict Mode effect
@@ -27,16 +29,16 @@ const benefits = [
 
 export default function LoginPage() {
   const { t } = useAppTranslation();
-
   const {
     isWalletLoading,
+    walletModalOpen,
     setWalletModalOpen,
     onGoogleSuccess,
     onWalletConnected,
-    error
+    error,
   } = useLogin();
 
-  const googleClientId = GOOGLE_CLIENT_ID;
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim();
   const googleConfigured = Boolean(googleClientId);
 
   // Surface the missing-config situation to developers exactly once. We
@@ -57,7 +59,11 @@ export default function LoginPage() {
   return (
     <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
       <Suspense fallback={<WalletModalFallback />}>
-        <WalletModal onConnected={onWalletConnected} />
+        <WalletModal 
+          isOpen={walletModalOpen} 
+          onClose={() => setWalletModalOpen(false)} 
+          onConnected={onWalletConnected}
+        />
       </Suspense>
 
       {/* Heading */}
@@ -68,8 +74,21 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {/* Auth buttons */}
+      {/* Auth buttons & Email Form */}
       <div className="space-y-3">
+        {/* Email / Password Sign In Form */}
+        <EmailLoginForm />
+
+        {/* Passwordless: email magic link (issue #466) */}
+        <MagicLinkForm />
+
+        <div className="relative flex items-center py-1">
+          <div className="flex-1 h-px bg-border" />
+          <span className="px-3 text-xs text-muted-foreground font-medium">{t('login.or')}</span>
+          <div className="flex-1 h-px bg-border" />
+        </div>
+
+        {/* Alternate Login Options: Wallet & Google */}
         {googleConfigured ? (
           <div className="flex justify-center [&>div]:w-full rounded-xl overflow-hidden border border-border">
             <GoogleLogin
@@ -90,6 +109,7 @@ export default function LoginPage() {
             <Button
               variant="outline"
               disabled
+              aria-disabled="true"
               aria-describedby="google-login-missing-config"
               className="w-full h-12 border-border bg-card text-muted-foreground cursor-not-allowed"
               title="Google login not configured — set NEXT_PUBLIC_GOOGLE_CLIENT_ID"
@@ -98,12 +118,6 @@ export default function LoginPage() {
             </Button>
           </NetworkTooltip>
         )}
-
-        <div className="relative flex items-center py-1">
-          <div className="flex-1 h-px bg-border" />
-          <span className="px-3 text-xs text-muted-foreground font-medium">{t('login.or')}</span>
-          <div className="flex-1 h-px bg-border" />
-        </div>
 
         <Button
           type="button"
@@ -114,6 +128,17 @@ export default function LoginPage() {
           {isWalletLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           {t('login.connectWallet')}
         </Button>
+
+        {/* Register link */}
+        <div className="text-center pt-2">
+          <span className="text-xs text-muted-foreground">Don&apos;t have an account? </span>
+          <Link
+            href="/auth/register"
+            className="text-xs font-semibold text-primary hover:underline"
+          >
+            Create an account
+          </Link>
+        </div>
       </div>
 
       {/* Benefits */}

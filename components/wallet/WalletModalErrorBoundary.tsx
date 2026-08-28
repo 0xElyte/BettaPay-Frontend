@@ -1,80 +1,64 @@
-"use client";
-
-import { Component, type ReactNode } from "react";
-import { AlertTriangle, RotateCcw } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui";
-import { Button } from "@/components/ui";
+import React, { Component, ReactNode } from 'react';
 
 interface WalletModalErrorBoundaryProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  /** Recreate the dynamically-imported WalletModal so the failed chunk is re-fetched. */
-  onRetry: () => void;
   children: ReactNode;
+  onRetry?: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 interface WalletModalErrorBoundaryState {
   hasError: boolean;
+  error: Error | null;
 }
 
-/**
- * Catches chunk-load failures from the dynamically-imported WalletModal
- * (network error, stale deploy, etc.) and shows a retry prompt instead of
- * leaving WalletModalFallback's skeleton on screen forever.
- */
 export class WalletModalErrorBoundary extends Component<
   WalletModalErrorBoundaryProps,
   WalletModalErrorBoundaryState
 > {
-  state: WalletModalErrorBoundaryState = { hasError: false };
-
-  static getDerivedStateFromError(): WalletModalErrorBoundaryState {
-    return { hasError: true };
+  constructor(props: WalletModalErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
   }
 
-  componentDidCatch(error: unknown) {
-    console.error("Failed to load wallet modal", error);
+  static getDerivedStateFromError(error: Error): WalletModalErrorBoundaryState {
+    return { hasError: true, error };
   }
 
-  handleRetry = () => {
-    this.setState({ hasError: false });
-    this.props.onRetry();
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
+    console.error("WalletModalErrorBoundary caught an error:", error, errorInfo);
+  }
+
+  handleRetry = (): void => {
+    this.setState({ hasError: false, error: null });
+    if (this.props.onRetry) {
+      this.props.onRetry();
+    }
   };
 
   render() {
-    const { open, onOpenChange, children } = this.props;
-
-    if (!this.state.hasError) return children;
-    if (!open) return null;
-
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-destructive">
-              <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
-              Failed to load wallet modal
-            </DialogTitle>
-          </DialogHeader>
-
-          <p className="text-sm text-muted-foreground">
-            We couldn&apos;t load the wallet connector. Check your connection and try again.
+    if (this.state.hasError) {
+      return (
+        <div className="wallet-error-fallback p-4 text-center border border-red-200 rounded-lg bg-red-50 space-y-3">
+          <p className="text-sm text-red-600 font-medium">
+            Failed to connect wallet or load session.
           </p>
+          {this.state.error?.message && (
+            <p className="text-xs text-red-500 font-mono break-all">
+              {this.state.error.message}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={this.handleRetry}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-md shadow-sm transition-colors"
+          >
+            Retry Connection
+          </button>
+        </div>
+      );
+    }
 
-          <DialogFooter>
-            <Button onClick={this.handleRetry} className="gap-2">
-              <RotateCcw className="w-4 h-4" aria-hidden="true" />
-              Retry
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    );
+    return this.props.children;
   }
 }

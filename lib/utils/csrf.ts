@@ -16,6 +16,18 @@
 export const CSRF_COOKIE_NAME = 'csrf_token';
 export const CSRF_HEADER_NAME = 'X-CSRF-Token';
 
+/**
+ * Companion HttpOnly cookie that binds the readable `csrf_token` to the
+ * current session (issue #486). It holds `sha256(csrfToken + sessionKey)`
+ * where `sessionKey` is derived from the auth token. The backend verifies:
+ *   - `X-CSRF-Token` header === `csrf_token` cookie   (double-submit), AND
+ *   - `csrf_sid` cookie === sha256(csrf_token + sessionKey)   (binding)
+ * so a token minted for a different visitor / a pre-login page on the same
+ * browser profile is rejected once a real session exists — a bare random
+ * value is no longer sufficient.
+ */
+export const CSRF_SID_COOKIE_NAME = 'csrf_sid';
+
 // ─── Token length ────────────────────────────────────────────────────────────
 // 32 random bytes → 64 hex characters. Used to validate tokens read back from
 // cookies (quick sanity check before forwarding as a header value).
@@ -44,6 +56,45 @@ export function generateCsrfToken(): string {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const nodeCrypto = require('crypto') as typeof import('crypto');
   return nodeCrypto.randomBytes(CSRF_TOKEN_BYTE_LENGTH).toString('hex');
+}
+
+/** A short, stable per-session key derived from the auth token — enough to
+ *  differentiate one session from another without storing the token itself. */
+export function sessionKeyFromAuthToken(authToken: string | undefined | null): string {
+  if (!authToken) return 'anon';
+  return authToken.slice(0, 24);
+}
+
+/** `sha256(csrfToken + '.' + sessionKey)` as hex. Sync in all runtimes. */
+export function deriveCsrfBinding(csrfToken: string, sessionKey: string): string {
+  const input = `${csrfToken}.${sessionKey}`;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const nodeCrypto = require('crypto') as typeof import('crypto');
+  return nodeCrypto.createHash('sha256').update(input).digest('hex');
+}
+
+/** Set-Cookie for the HttpOnly binding cookie (issue #486). */
+export function buildCsrfSidCookieHeader(binding: string): string {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const parts = [
+    `${CSRF_SID_COOKIE_NAME}=${binding}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Strict',
+    'Max-Age=86400',
+    ...(isProduction ? ['Secure'] : []),
+  ];
+  return parts.join('; ');
+}
+
+/** Expires both CSRF cookies. Call on logout. */
+export function buildCsrfClearCookieHeaders(): string[] {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const secure = isProduction ? '; Secure' : '';
+  return [
+    `${CSRF_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Strict${secure}`,
+    `${CSRF_SID_COOKIE_NAME}=; Path=/; HttpOnly; Max-Age=0; SameSite=Strict${secure}`,
+  ];
 }
 
 // ─── Cookie reading (client-side) ────────────────────────────────────────────
@@ -99,6 +150,12 @@ export function buildCsrfCookieHeader(token: string): string {
  *   import { ensureCsrfCookie } from '@/lib/utils/csrf';
  *   // Inside the async server component:
  *   await ensureCsrfCookie();
+ *
+ * @deprecated Calling this from a Server Component layout triggers
+ * `Cookies can only be modified in a Server Action or Route Handler` in
+ * Next 14.2+. Prefer `ensureCsrfCookieInMiddleware` in `middleware.ts` which
+ * uses `NextRequest`/`NextResponse` (allowed). This function is kept for
+ * backwards-compat with `GET /api/auth/csrf` route handlers only.
  */
 export async function ensureCsrfCookie(): Promise<void> {
   // Dynamic import so this module stays importable in client bundles without
@@ -122,5 +179,32 @@ export async function ensureCsrfCookie(): Promise<void> {
     secure: isProduction,
     maxAge: 86400,
     httpOnly: false, // Must be readable by JS for the double-submit header
+  });
+}
+
+// ─── Middleware helper (NextRequest/NextResponse) ────────────────────────────
+
+/**
+ * Middleware-safe CSRF bootstrap. Uses `NextRequest.cookies` (read) and
+ * `NextResponse.cookies.set` (write) which are allowed in `middleware.ts`.
+ * Call this at the top of `middleware` before any redirects so every
+ * response seeds the cookie.
+ */
+export function ensureCsrfCookieInMiddleware(
+  request: { cookies: { get(name: string): { value: string } | undefined } },
+  response: { cookies: { set(name: string, value: string, opts: Record<string, unknown>): void } },
+): void {
+  const existing = request.cookies.get(CSRF_COOKIE_NAME)?.value;
+  if (existing && existing.length === CSRF_TOKEN_HEX_LENGTH) {
+    return;
+  }
+  const token = generateCsrfToken();
+  const isProduction = process.env.NODE_ENV === 'production';
+  response.cookies.set(CSRF_COOKIE_NAME, token, {
+    path: '/',
+    sameSite: 'strict',
+    secure: isProduction,
+    maxAge: 86400,
+    httpOnly: false,
   });
 }
