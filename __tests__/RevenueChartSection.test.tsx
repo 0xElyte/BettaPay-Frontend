@@ -41,12 +41,12 @@ describe('RevenueChartSection - total equals sum of plotted bars', () => {
   });
 
   it('does not import mock settlements in production path - no mock settlements used for real merchants', () => {
-    // This test documents the invariant: RevenueChartSection and dashboard page
-    // must NOT import from lib/mock/settlements. The only mock allowed is the
-    // preview mockChartData exported from RevenueChart itself.
-    // We assert that mockSettlements is not used by checking that real payments
-    // produce a different total than the hard-coded mock settlements sum.
-    // mockSettlements sum = 12450 + 8200.5 + 5000 = 25650.5
+    // Invariant (issue #536): no dashboard code path uses the old mock
+    // settlements fixture. `lib/mock/settlements.ts` has been deleted; the
+    // only mock allowed is the preview `mockChartData` exported from
+    // RevenueChart itself, used solely when there are no real payments.
+    // Its historical sum was 12450 + 8200.5 + 5000 = 25650.5; a real total
+    // must never coincidentally equal it.
     const mockSettlementsSum = 12450 + 8200.5 + 5000;
     const payments = [
       { amountUsdc: 1000, createdAt: '2026-08-20T10:00:00Z', status: 'success' },
