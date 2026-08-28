@@ -63,5 +63,35 @@
       "tooManyRequests": "Majaribio mengi sana. Tafadhali subiri dakika chache na ujaribu tena.",
       "generic": "Hitilafu fulani imetokea. Tafadhali jaribu tena baadaye."
     }
+  },
+  "resetPassword": {
+    "title": "Weka nywila mpya",
+    "description": "Chagua nywila imara kwa akaunti yako.",
+    "newPasswordLabel": "Nywila mpya",
+    "confirmPasswordLabel": "Thibitisha nywila",
+    "newPasswordPlaceholder": "Weka nywila mpya",
+    "confirmPasswordPlaceholder": "Weka tena nywila mpya",
+    "requirements": {
+      "minLength": "Angalau herufi 8",
+      "uppercase": "Herufi moja kubwa",
+      "lowercase": "Herufi moja ndogo",
+      "number": "Nambari moja",
+      "special": "Herufi moja maalum"
+    },
+    "submit": "Weka upya nywila",
+    "submitting": "Inaweka upya…",
+    "success": {
+      "title": "Nywila imewekwa upya",
+      "description": "Nywila yako imesasishwa na vipindi vingine vyote vimebatilishwa. Tafadhali ingia kwa nywila yako mpya.",
+      "loginLink": "Ingia"
+    },
+    "errors": {
+      "tokenExpired": "Kiungo hiki cha kuweka upya kimeisha muda. Tafadhali omba kipya.",
+      "tokenInvalid": "Kiungo hiki cha kuweka upya ni batili. Tafadhali omba kipya.",
+      "passwordMismatch": "Nywila hazilingani.",
+      "passwordWeak": "Nywila haikidhi mahitaji.",
+      "tooManyRequests": "Majaribio mengi sana. Tafadhali subiri dakika chache na ujaribu tena.",
+      "generic": "Hitilafu fulani imetokea. Tafadhali jaribu tena baadaye."
+    }
   }
 }
