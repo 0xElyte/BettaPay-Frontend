@@ -45,12 +45,14 @@ export function NotificationCenter({ unreadNotificationCount = 0 }: Notification
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [preferences, setPreferences] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
   const [loading, setLoading] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
       const payload = await fetchNotifications();
       setNotifications(payload.notifications ?? []);
       setPreferences(payload.preferences ?? DEFAULT_NOTIFICATION_PREFERENCES);
+      setHasFetched(true);
     } catch {
       // Silently fail; UI will show empty state and keep the bell available.
     }
@@ -90,18 +92,26 @@ export function NotificationCenter({ unreadNotificationCount = 0 }: Notification
     };
   }, [refresh]);
 
-  const unreadCount = useMemo(
-    () => Math.max(unreadNotificationCount, notifications.filter((notification) => !notification.read).length),
-    [notifications, unreadNotificationCount],
-  );
+  const unreadCount = useMemo(() => {
+    const localUnread = notifications.filter((notification) => !notification.read).length;
+    if (hasFetched) {
+      return localUnread;
+    }
+    return Math.max(unreadNotificationCount, localUnread);
+  }, [hasFetched, notifications, unreadNotificationCount]);
 
   const handleMarkAllRead = useCallback(async () => {
-    await fetch('/api/notifications', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'mark_all_read' }),
-    });
-    await refresh();
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    try {
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'mark_all_read' }),
+      });
+      await refresh();
+    } catch {
+      // Keep optimistic update on failure
+    }
   }, [refresh]);
 
   const handleTogglePreference = useCallback(async (key: NotificationType) => {
@@ -118,12 +128,17 @@ export function NotificationCenter({ unreadNotificationCount = 0 }: Notification
   }, [preferences, refresh]);
 
   const handleMarkRead = useCallback(async (id: string) => {
-    await fetch('/api/notifications', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'mark_read', id }),
-    });
-    await refresh();
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    try {
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'mark_read', id }),
+      });
+      await refresh();
+    } catch {
+      // Keep optimistic update on failure
+    }
   }, [refresh]);
 
   const notificationLabel = unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications';
