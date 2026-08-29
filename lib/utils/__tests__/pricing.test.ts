@@ -109,10 +109,7 @@ describe('lib/pricing', () => {
     it('every feature string maps to a documented capability in FEATURE_CAPABILITY_MAP', () => {
       for (const tier of PRICING_TIERS) {
         for (const feature of tier.features) {
-          expect(
-            FEATURE_CAPABILITY_MAP,
-            `Tier "${tier.name}" feature "${feature}" has no entry in FEATURE_CAPABILITY_MAP`
-          ).toHaveProperty(feature);
+          expect(FEATURE_CAPABILITY_MAP).toHaveProperty([feature]);
         }
       }
     });

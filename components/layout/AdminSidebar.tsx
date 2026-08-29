@@ -169,37 +169,15 @@ export const AdminSidebar = () => {
               title={collapsed ? item.label : undefined}
               className={cn(
                 // Base styles — match MerchantSidebar spacing/radius/typography
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
+                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors",
                 collapsed && "justify-center px-2",
-                // State variants
+                // Active state is a background fill, not a left-border stripe
+                // (issue #61) — mirrors MerchantSidebar's `bg-primary/10` on
+                // this sidebar's dark surface.
                 active
-                  ? "text-white"
-                  : "text-slate-400 hover:text-white"
+                  ? "bg-white/10 text-white font-semibold"
+                  : "font-medium text-slate-400 hover:bg-white/5 hover:text-white"
               )}
-              style={
-                active
-                  ? {
-                      background:
-                        "linear-gradient(90deg, rgba(124,58,237,0.25) 0%, rgba(79,70,229,0.12) 100%)",
-                      border: "1px solid rgba(124,58,237,0.35)",
-                      boxShadow: "inset 0 0 0 0 transparent",
-                    }
-                  : {
-                      // Hover handled via Tailwind; keep border slot to avoid layout shift
-                      border: "1px solid transparent",
-                    }
-              }
-              onMouseEnter={(e) => {
-                if (!active) {
-                  (e.currentTarget as HTMLElement).style.background =
-                    "rgba(255,255,255,0.04)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!active) {
-                  (e.currentTarget as HTMLElement).style.background = "";
-                }
-              }}
             >
               <Icon
                 className={cn(

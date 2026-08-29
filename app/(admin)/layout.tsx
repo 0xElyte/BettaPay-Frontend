@@ -10,6 +10,7 @@ import { Topbar } from '@/components/layout';
 import Footer from '@/components/layout/Footer';
 import Image from 'next/image';
 import { useAuthStore } from '@/lib/store/authStore';
+import { CommandPalette } from '@/components/command/CommandPalette';
 
 export default function AdminLayout({
   children,
@@ -96,6 +97,8 @@ export default function AdminLayout({
         </main>
         <Footer />
       </div>
+
+      <CommandPalette role="admin" />
     </div>
   );
 }

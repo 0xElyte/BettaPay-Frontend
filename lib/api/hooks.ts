@@ -117,6 +117,8 @@ interface ItemEnvelope<T> {
 interface HookShape<T> {
   data: T;
   isLoading: boolean;
+  /** True while a background refetch is in flight (does not flip on initial load). */
+  isFetching: boolean;
   error: string | null;
   refetch: () => void;
 }
@@ -128,6 +130,7 @@ function mapQuery<T>(
   return {
     data: (result.data ?? fallback) as T,
     isLoading: result.isLoading,
+    isFetching: result.isFetching && !result.isLoading,
     error: result.isError ? getErrorMessage(result.error) : null,
     refetch: () => {
       // Fire-and-forget: the underlying call is already deduped by RQ.

@@ -43,7 +43,7 @@ export default function AboutPage() {
     <div className="min-h-screen bg-background text-foreground flex flex-col selection:bg-primary/20 selection:text-primary">
       <Header />
 
-      <main className="flex-1">
+      <main id="main-content" tabIndex={-1} aria-labelledby="about-hero-heading" className="flex-1">
         {/* 1. Hero */}
         <Hero />
 

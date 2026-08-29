@@ -46,7 +46,7 @@ const openRoles: JobRole[] = [
 
 export function Careers() {
   return (
-    <section id="careers" className="py-20 md:py-28 bg-muted/30 border-b border-border/40 relative overflow-hidden">
+    <section id="careers" aria-labelledby="careers-heading" className="py-20 md:py-28 bg-muted/30 border-b border-border/40 relative overflow-hidden">
       <div className="container mx-auto px-6">
         {/* Header */}
         <div className="text-center max-w-2xl mx-auto mb-16 space-y-4">
@@ -54,7 +54,7 @@ export function Careers() {
             <Briefcase className="w-3.5 h-3.5" />
             <span>Join Our Mission</span>
           </div>
-          <h2 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+          <h2 id="careers-heading" className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
             We&apos;re Hiring
           </h2>
           <p className="text-muted-foreground leading-relaxed">
@@ -63,9 +63,9 @@ export function Careers() {
         </div>
 
         {/* Roles Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+        <ul className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
           {openRoles.map((role, idx) => (
-            <motion.div
+            <motion.li
               key={role.title}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -104,9 +104,9 @@ export function Careers() {
                   <ArrowRight className="w-4 h-4" />
                 </Button>
               </Link>
-            </motion.div>
+            </motion.li>
           ))}
-        </div>
+        </ul>
       </div>
     </section>
   );

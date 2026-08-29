@@ -43,6 +43,8 @@ const FREIGHTER_NOT_INSTALLED_MSGS = [
   'freighter does not exist',
   'window.freighter is undefined',
   'cannot read properties of undefined',
+  'not installed',
+  'freighter api is not available',
 ];
 
 const USER_CANCELLED_MSGS = [
@@ -50,6 +52,9 @@ const USER_CANCELLED_MSGS = [
   'user rejected',
   'cancelled',
   'canceled',
+  'permission denied',
+  'access denied',
+  'declined',
 ];
 
 function classifyFreighterError(error: unknown): Error {
@@ -95,19 +100,30 @@ async function checkNetworkMismatch(): Promise<void> {
 export const connectFreighter = async (): Promise<string | null> => {
   try {
     let allowedResp = await isAllowed();
-    if (!allowedResp.isAllowed) {
-      await setAllowed();
-      allowedResp = await isAllowed();
-    }
-
-    if (allowedResp.isAllowed) {
-      const accessResp = await requestAccess();
-      if (!accessResp.error && accessResp.address) {
-        await checkNetworkMismatch();
-        return accessResp.address;
+    if (!allowedResp || !allowedResp.isAllowed) {
+      try {
+        await setAllowed();
+        allowedResp = await isAllowed();
+      } catch (err) {
+        throw classifyFreighterError(err);
       }
     }
-    return null;
+
+    if (!allowedResp || !allowedResp.isAllowed) {
+      throw new FreighterCancelledError();
+    }
+
+    const accessResp = await requestAccess();
+    if (accessResp.error) {
+      throw classifyFreighterError(accessResp.error);
+    }
+
+    if (accessResp.address) {
+      await checkNetworkMismatch();
+      return accessResp.address;
+    }
+
+    throw new FreighterCancelledError();
   } catch (error) {
     console.error('Failed to connect Freighter', error);
     const classified = classifyFreighterError(error);

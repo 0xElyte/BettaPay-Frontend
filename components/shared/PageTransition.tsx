@@ -2,6 +2,12 @@ import React from 'react';
 
 interface PageTransitionProps {
   children: any;
+"use client";
+
+import React, { useEffect, useRef } from 'react';
+
+interface PageTransitionProps {
+  children: React.ReactNode;
   routingKey?: string; // The active route path (e.g., location.pathname or router.asPath)
 }
 
@@ -9,6 +15,7 @@ interface PageTransitionProps {
 const scrollCoordinateCache: Record<string, number> = {};
 
 export function PageTransition({ children, routingKey = "" }: PageTransitionProps) {
+export function PageTransition({ children, routingKey = '' }: PageTransitionProps) {
   const containerRef = React.useRef(null);
 
   // Capture scroll coordinates immediately prior to unmounting the current active route

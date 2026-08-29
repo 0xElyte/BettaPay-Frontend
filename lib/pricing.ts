@@ -4,6 +4,10 @@ export interface PricingTier {
   id: TierId;
   name: string;
   tagline: string;
+  /** Minimum monthly volume in USD for this tier. */
+  minVolumeUsd: number;
+  /** Maximum monthly volume in USD for this tier. */
+  maxVolumeUsd: number;
   /** Percentage fee on volume, e.g. 1.5 means 1.5%. Null for custom pricing. */
   percentFee: number | null;
   /** Fixed fee per transaction in USD. Null for custom pricing. */
@@ -98,6 +102,8 @@ export const PRICING_TIERS: PricingTier[] = [
     id: 'starter',
     name: 'Starter',
     tagline: 'Pay as you go for small merchants',
+    minVolumeUsd: 0,
+    maxVolumeUsd: 10_000,
     percentFee: 1.5,
     fixedFee: 0.1,
     transactionFee: '1.5% + $0.10',
@@ -128,6 +134,8 @@ export const PRICING_TIERS: PricingTier[] = [
     id: 'growth',
     name: 'Growth',
     tagline: 'Volume discounts for established businesses',
+    minVolumeUsd: 10_000,
+    maxVolumeUsd: 500_000,
     percentFee: 1.0,
     fixedFee: 0.05,
     transactionFee: '1.0% + $0.05',
@@ -158,6 +166,8 @@ export const PRICING_TIERS: PricingTier[] = [
     id: 'enterprise',
     name: 'Enterprise',
     tagline: 'Custom pricing for high-volume platforms',
+    minVolumeUsd: 500_000,
+    maxVolumeUsd: 10_000_000,
     percentFee: null,
     fixedFee: null,
     transactionFee: 'Custom',
@@ -268,10 +278,17 @@ export function estimateMonthlyCost(
   return billableVolume * (tier.percentFee / 100) + transactions * tier.fixedFee;
 }
 
-/** Starter under $10k, Growth up to $500k, Enterprise above. */
+/** Starter under Starter max, Growth up to Growth max, Enterprise above. Derived from PRICING_TIERS. */
 export function recommendTier(monthlyVolumeUsd: number): TierId {
-  if (monthlyVolumeUsd < 10_000) return 'starter';
-  if (monthlyVolumeUsd <= 500_000) return 'growth';
+  const starter = PRICING_TIERS.find((t) => t.id === 'starter');
+  const growth = PRICING_TIERS.find((t) => t.id === 'growth');
+
+  if (starter && monthlyVolumeUsd < starter.maxVolumeUsd) {
+    return 'starter';
+  }
+  if (growth && monthlyVolumeUsd <= growth.maxVolumeUsd) {
+    return 'growth';
+  }
   return 'enterprise';
 }
 
