@@ -4,33 +4,44 @@ import { useEffect, useCallback, useRef, useState } from 'react';
 
 const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'scroll', 'click', 'touchstart'] as const;
 
-interface UseSessionTimeoutOptions {
-  /** Inactivity threshold in ms before showing warning (default: 30 min) */
+export interface UseSessionTimeoutOptions {
+  /** Inactivity threshold in ms before showing warning (default: 25 min) */
   timeoutMs?: number;
   /** Grace period in ms after warning before auto-logout (default: 5 min) */
   gracePeriodMs?: number;
+  /** Optional server authoritative expiration timestamp (in ms) */
+  serverExpiresAt?: number | null;
   /** Called when the session has timed out */
   onTimeout: () => void;
 }
 
-interface UseSessionTimeoutReturn {
+export interface UseSessionTimeoutReturn {
   /** Whether the warning modal should be shown */
   showWarning: boolean;
-  /** Seconds remaining in the grace period */
+  /** Seconds remaining in the grace period / session deadline */
   secondsRemaining: number;
-  /** Dismiss the warning and reset the timer */
+  /** Whether currently in the final minute of the grace period */
+  isLastMinute: boolean;
+  /** Whether an extension request is in flight */
+  isExtending: boolean;
+  /** Dismiss the warning and reset the timer locally */
   dismissWarning: () => void;
+  /** Call the backend refresh API to update the server authoritative deadline */
+  extendSession: () => Promise<boolean>;
 }
 
 export function useSessionTimeout({
-  timeoutMs = 30 * 60 * 1000,
+  timeoutMs = 25 * 60 * 1000,
   gracePeriodMs = 5 * 60 * 1000,
+  serverExpiresAt = null,
   onTimeout,
 }: UseSessionTimeoutOptions): UseSessionTimeoutReturn {
   const [showWarning, setShowWarning] = useState(false);
   const [secondsRemaining, setSecondsRemaining] = useState(
     Math.floor(gracePeriodMs / 1000)
   );
+  const [isExtending, setIsExtending] = useState(false);
+  const [expiryDeadline, setExpiryDeadline] = useState<number | null>(serverExpiresAt);
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const graceRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -48,21 +59,25 @@ export function useSessionTimeout({
     }
   }, []);
 
-  const startGracePeriod = useCallback(() => {
-    const graceSeconds = Math.floor(gracePeriodMs / 1000);
-    setSecondsRemaining(graceSeconds);
+  const startGracePeriod = useCallback((deadlineMs?: number) => {
+    const targetExpiry = deadlineMs || Date.now() + gracePeriodMs;
+    setExpiryDeadline(targetExpiry);
 
-    graceRef.current = setInterval(() => {
-      setSecondsRemaining((prev) => {
-        if (prev <= 1) {
-          clearAllTimers();
-          setShowWarning(false);
-          onTimeoutRef.current();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    const updateCountdown = () => {
+      const now = Date.now();
+      const remainingSecs = Math.max(0, Math.ceil((targetExpiry - now) / 1000));
+      setSecondsRemaining(remainingSecs);
+
+      if (remainingSecs <= 0) {
+        clearAllTimers();
+        setShowWarning(false);
+        onTimeoutRef.current();
+      }
+    };
+
+    updateCountdown();
+    if (graceRef.current) clearInterval(graceRef.current);
+    graceRef.current = setInterval(updateCountdown, 1000);
   }, [gracePeriodMs, clearAllTimers]);
 
   const resetTimer = useCallback(() => {
@@ -80,13 +95,52 @@ export function useSessionTimeout({
     resetTimer();
   }, [resetTimer]);
 
+  const extendSession = useCallback(async (): Promise<boolean> => {
+    setIsExtending(true);
+    try {
+      const res = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to refresh session');
+      }
+
+      const data = await res.json().catch(() => ({}));
+      const newExpiresAt = typeof data.expiresAt === 'number' ? data.expiresAt : Date.now() + timeoutMs + gracePeriodMs;
+      setExpiryDeadline(newExpiresAt);
+      resetTimer();
+      return true;
+    } catch (err) {
+      console.error('[SessionTimeout] Failed to extend session:', err);
+      return false;
+    } finally {
+      setIsExtending(false);
+    }
+  }, [timeoutMs, gracePeriodMs, resetTimer]);
+
+  // Sync serverExpiresAt changes when updated externally
+  useEffect(() => {
+    if (serverExpiresAt) {
+      setExpiryDeadline(serverExpiresAt);
+    }
+  }, [serverExpiresAt]);
+
+  const showWarningRef = useRef(showWarning);
+  showWarningRef.current = showWarning;
+
   // Set up activity listeners and initial timer
   useEffect(() => {
     resetTimer();
 
     const handleActivity = () => {
-      // Reset timer on any activity, whether modal is showing or not
-      resetTimer();
+      // Only reset timer on activity if modal is NOT showing
+      // (when modal is showing, user must explicitly extend/re-auth)
+      if (!showWarningRef.current) {
+        resetTimer();
+      }
     };
 
     ACTIVITY_EVENTS.forEach((event) => {
@@ -101,5 +155,15 @@ export function useSessionTimeout({
     };
   }, [resetTimer, clearAllTimers]);
 
-  return { showWarning, secondsRemaining, dismissWarning };
+  const isLastMinute = secondsRemaining <= 60 && secondsRemaining > 0;
+
+  return {
+    showWarning,
+    secondsRemaining,
+    isLastMinute,
+    isExtending,
+    dismissWarning,
+    extendSession,
+  };
 }
+

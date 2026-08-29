@@ -25,7 +25,7 @@ export default function LandingPage() {
       <Header />
 
       {/* Hero Section */}
-      <main id="main-content" tabIndex={-1} className="pt-12 pb-12 lg:pt-36 lg:pb-32">
+      <main id="main-content" tabIndex={-1} aria-labelledby="landing-hero-heading" className="pt-12 pb-12 lg:pt-36 lg:pb-32">
         <div className="container mx-auto px-6 text-center">
 
           {/* Badge */}
@@ -35,15 +35,15 @@ export default function LandingPage() {
           </div>
 
           {/* Headline */}
-          <h1 className="text-5xl lg:text-7xl font-bold tracking-tighter max-w-4xl mx-auto leading-tight text-foreground">
+          <h1 id="landing-hero-heading" className="text-5xl lg:text-7xl font-bold tracking-tighter max-w-4xl mx-auto leading-tight text-foreground">
             {t('landing.headline')}{' '}
             <br className="hidden lg:block" />
             <span className="text-primary">{t('landing.headlineAccent')}</span>
           </h1>
 
-          <p className="mt-6 text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+          <h2 className="mt-6 text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed font-normal">
             {t('landing.description')}
-          </p>
+          </h2>
 
           {/* CTAs */}
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -66,10 +66,10 @@ export default function LandingPage() {
       <div className="border-t border-border" aria-hidden="true" />
 
       {/* Features Section */}
-      <section id="features" className="py-24 bg-muted">
+      <section id="features" aria-labelledby="features-heading" className="py-24 bg-muted">
         <div className="container mx-auto px-6">
           <div className="text-center mb-16">
-            <h2 className="text-3xl lg:text-4xl font-bold tracking-tight mb-4 text-foreground">
+            <h2 id="features-heading" className="text-3xl lg:text-4xl font-bold tracking-tight mb-4 text-foreground">
               {t('landing.featuresTitle')}
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
@@ -77,16 +77,14 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6" role="list">
+          <ul className="grid grid-cols-1 md:grid-cols-12 gap-6">
             {landingFeatures.map((feature, i) => {
               const Icon = resolveIcon(feature.iconName);
-              const card = (
+              const cardContent = (
                 <div
-                  key={feature.titleKey}
                   className={`group relative overflow-hidden p-8 rounded-3xl bg-card border border-border hover:border-primary/40 hover:shadow-lg transition-all duration-300 ${
-                    i === 0 ? "md:col-span-8 md:row-span-2 flex flex-col justify-center min-h-[400px]" : "md:col-span-4"
+                    i === 0 ? "flex flex-col justify-center min-h-[400px]" : ""
                   }`}
-                  role="listitem"
                 >
                   {/* Subtle background decoration for the primary card */}
                   {i === 0 && (
@@ -109,17 +107,24 @@ export default function LandingPage() {
               );
 
               // Wrap the card in a link if a `link` is provided.
-              if (feature.link) {
-                return (
-                  <Link key={feature.titleKey} href={feature.link} className={`block ${i === 0 ? "md:col-span-8 md:row-span-2" : "md:col-span-4"}`}>
-                    {card}
-                  </Link>
-                );
-              }
+              const innerCard = feature.link ? (
+                <Link href={feature.link} className="block h-full">
+                  {cardContent}
+                </Link>
+              ) : (
+                cardContent
+              );
 
-              return card;
+              return (
+                <li
+                  key={feature.titleKey}
+                  className={i === 0 ? "md:col-span-8 md:row-span-2" : "md:col-span-4"}
+                >
+                  {innerCard}
+                </li>
+              );
             })}
-          </div>
+          </ul>
         </div>
       </section>
 

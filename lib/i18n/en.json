@@ -63,5 +63,35 @@
       "tooManyRequests": "Too many attempts. Please wait a few minutes and try again.",
       "generic": "Something went wrong. Please try again later."
     }
+  },
+  "resetPassword": {
+    "title": "Set a new password",
+    "description": "Choose a strong password for your account.",
+    "newPasswordLabel": "New password",
+    "confirmPasswordLabel": "Confirm password",
+    "newPasswordPlaceholder": "Enter new password",
+    "confirmPasswordPlaceholder": "Re-enter new password",
+    "requirements": {
+      "minLength": "At least 8 characters",
+      "uppercase": "One uppercase letter",
+      "lowercase": "One lowercase letter",
+      "number": "One number",
+      "special": "One special character"
+    },
+    "submit": "Reset password",
+    "submitting": "Resetting…",
+    "success": {
+      "title": "Password reset successful",
+      "description": "Your password has been updated and all other sessions have been revoked. Please sign in with your new password.",
+      "loginLink": "Sign in"
+    },
+    "errors": {
+      "tokenExpired": "This reset link has expired. Please request a new one.",
+      "tokenInvalid": "This reset link is invalid. Please request a new one.",
+      "passwordMismatch": "Passwords do not match.",
+      "passwordWeak": "Password does not meet the requirements.",
+      "tooManyRequests": "Too many attempts. Please wait a few minutes and try again.",
+      "generic": "Something went wrong. Please try again later."
+    }
   }
 }

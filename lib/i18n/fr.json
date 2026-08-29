@@ -63,5 +63,35 @@
       "tooManyRequests": "Trop de tentatives. Veuillez attendre quelques minutes et réessayer.",
       "generic": "Une erreur s'est produite. Veuillez réessayer plus tard."
     }
+  },
+  "resetPassword": {
+    "title": "Définir un nouveau mot de passe",
+    "description": "Choisissez un mot de passe fort pour votre compte.",
+    "newPasswordLabel": "Nouveau mot de passe",
+    "confirmPasswordLabel": "Confirmer le mot de passe",
+    "newPasswordPlaceholder": "Entrez le nouveau mot de passe",
+    "confirmPasswordPlaceholder": "Ressaisissez le nouveau mot de passe",
+    "requirements": {
+      "minLength": "Au moins 8 caractères",
+      "uppercase": "Une lettre majuscule",
+      "lowercase": "Une lettre minuscule",
+      "number": "Un chiffre",
+      "special": "Un caractère spécial"
+    },
+    "submit": "Réinitialiser le mot de passe",
+    "submitting": "Réinitialisation…",
+    "success": {
+      "title": "Mot de passe réinitialisé",
+      "description": "Votre mot de passe a été mis à jour et toutes les autres sessions ont été révoquées. Veuillez vous connecter avec votre nouveau mot de passe.",
+      "loginLink": "Se connecter"
+    },
+    "errors": {
+      "tokenExpired": "Ce lien de réinitialisation a expiré. Veuillez en demander un nouveau.",
+      "tokenInvalid": "Ce lien de réinitialisation est invalide. Veuillez en demander un nouveau.",
+      "passwordMismatch": "Les mots de passe ne correspondent pas.",
+      "passwordWeak": "Le mot de passe ne répond pas aux exigences.",
+      "tooManyRequests": "Trop de tentatives. Veuillez attendre quelques minutes et réessayer.",
+      "generic": "Une erreur s'est produite. Veuillez réessayer plus tard."
+    }
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, Skeleton, Input } from '@/components/ui';
 import { Button } from '@/components/ui';
@@ -31,7 +31,29 @@ export default function FxRatesPage() {
   const [lastRefresh] = useState('Just now');
   const [fxError, setFxError] = useState(false);
   const notify = useNotify();
-  const { alerts, addAlert, toggleAlert, deleteAlert } = useRateAlertStore();
+  const { alerts, addAlert, toggleAlert, deleteAlert, markAlertTriggered } = useRateAlertStore();
+
+  const currentRate = primaryRate ?? 1550;
+
+  // Check rate alerts when rates update
+  useEffect(() => {
+    if (!currentRate || isNaN(currentRate)) return;
+
+    alerts.forEach((alert) => {
+      if (!alert.enabled || alert.triggered) return;
+
+      const isMet =
+        (alert.condition === 'above' && currentRate >= alert.target) ||
+        (alert.condition === 'below' && currentRate <= alert.target);
+
+      if (isMet) {
+        markAlertTriggered(alert.id);
+        notify.info(
+          `Rate alert met: ${alert.pair} is ${alert.condition} ₦${alert.target.toLocaleString()} (Current: ₦${currentRate.toLocaleString()})`
+        );
+      }
+    });
+  }, [currentRate, alerts, markAlertTriggered, notify]);
 
   // Conversion calculator state
   const [convertAmount, setConvertAmount] = useState('100');
@@ -44,7 +66,6 @@ export default function FxRatesPage() {
   const [newCondition, setNewCondition] = useState<'above' | 'below'>('above');
   const [newTarget, setNewTarget] = useState('');
 
-  const currentRate = primaryRate ?? 1550;
   const rawInput = parseFloat(convertAmount) || 0;
   const feePercent = 0.5;
   const feeUsdc = rawInput * (feePercent / 100);
@@ -320,12 +341,20 @@ export default function FxRatesPage() {
                 {alerts.map((alert) => (
                   <div key={alert.id} className={cn(
                     "flex items-center justify-between p-4 rounded-xl border transition-all",
-                    alert.enabled ? "bg-card border-border" : "bg-muted border-transparent opacity-60"
+                    alert.triggered
+                      ? "bg-amber-500/5 border-amber-500/30"
+                      : alert.enabled
+                      ? "bg-card border-border"
+                      : "bg-muted border-transparent opacity-60"
                   )}>
                     <div className="flex items-center gap-4">
                       <div className={cn(
                         "w-10 h-10 rounded-xl flex items-center justify-center",
-                        alert.enabled ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                        alert.triggered
+                          ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                          : alert.enabled
+                          ? "bg-primary/10 text-primary"
+                          : "bg-muted text-muted-foreground"
                       )}>
                         <BellRing className="w-5 h-5" />
                       </div>
@@ -333,8 +362,14 @@ export default function FxRatesPage() {
                         <p className="text-sm font-bold text-foreground">
                           {alert.pair} {alert.condition} ₦{alert.target.toLocaleString()}
                         </p>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-                          {alert.enabled ? 'Monitoring' : 'Paused'}
+                        <p className="text-[10px] uppercase tracking-wider font-semibold">
+                          {alert.triggered ? (
+                            <span className="text-amber-600 dark:text-amber-400 font-bold">Target Met</span>
+                          ) : alert.enabled ? (
+                            <span className="text-muted-foreground">Monitoring</span>
+                          ) : (
+                            <span className="text-muted-foreground">Paused</span>
+                          )}
                         </p>
                       </div>
                     </div>

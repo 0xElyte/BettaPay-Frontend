@@ -63,5 +63,35 @@
       "tooManyRequests": "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
       "generic": "Algo deu errado. Por favor, tente novamente mais tarde."
     }
+  },
+  "resetPassword": {
+    "title": "Definir uma nova senha",
+    "description": "Escolha uma senha forte para sua conta.",
+    "newPasswordLabel": "Nova senha",
+    "confirmPasswordLabel": "Confirmar senha",
+    "newPasswordPlaceholder": "Digite a nova senha",
+    "confirmPasswordPlaceholder": "Redigite a nova senha",
+    "requirements": {
+      "minLength": "Pelo menos 8 caracteres",
+      "uppercase": "Uma letra maiúscula",
+      "lowercase": "Uma letra minúscula",
+      "number": "Um número",
+      "special": "Um caractere especial"
+    },
+    "submit": "Redefinir senha",
+    "submitting": "Redefinindo…",
+    "success": {
+      "title": "Senha redefinida com sucesso",
+      "description": "Sua senha foi atualizada e todas as outras sessões foram revogadas. Por favor, entre com sua nova senha.",
+      "loginLink": "Entrar"
+    },
+    "errors": {
+      "tokenExpired": "Este link de redefinição expirou. Solicite um novo.",
+      "tokenInvalid": "Este link de redefinição é inválido. Solicite um novo.",
+      "passwordMismatch": "As senhas não coincidem.",
+      "passwordWeak": "A senha não atende aos requisitos.",
+      "tooManyRequests": "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+      "generic": "Algo deu errado. Por favor, tente novamente mais tarde."
+    }
   }
 }

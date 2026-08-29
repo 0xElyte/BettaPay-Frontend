@@ -9,6 +9,7 @@ interface WalletModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConnectWallet?: () => void;
+  onConnected?: (address: string) => void | Promise<void>;
 }
 
 function WalletConnectOptions() {
@@ -34,13 +35,101 @@ function WalletConnectOptions() {
     }
   };
 
+  const renderConnectError = () => {
+    if (!connectError) return null;
+
+    const { type, message, expectedNetwork, freighterNetwork } = connectError;
+
+    if (type === 'not_installed') {
+      return (
+        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 mb-3 space-y-2">
+          <div className="font-semibold text-amber-950 flex items-center gap-1.5">
+            <span>Freighter Not Installed</span>
+          </div>
+          <p>
+            The Freighter browser extension was not detected. Please install Freighter or ensure it is enabled in your browser extensions.
+          </p>
+          <div className="flex items-center gap-2 pt-1">
+            <a
+              href="https://www.freighter.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-2.5 py-1 bg-amber-700 hover:bg-amber-800 text-white rounded text-[11px] font-medium transition-colors inline-block"
+            >
+              Get Freighter
+            </a>
+            <button
+              type="button"
+              onClick={handleFreighterClick}
+              className="px-2.5 py-1 bg-white border border-amber-300 hover:bg-amber-100 text-amber-900 rounded text-[11px] font-medium transition-colors"
+            >
+              Freighter updated — retry
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (type === 'cancelled') {
+      return (
+        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-900 mb-3 space-y-2">
+          <div className="font-semibold text-rose-950">Freighter Access Denied or Cancelled</div>
+          <p>
+            The connection request was declined or permission was missing in Freighter. If you just enabled access in your extension popup, click retry to connect without reloading.
+          </p>
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={handleFreighterClick}
+              className="px-3 py-1.5 bg-rose-700 hover:bg-rose-800 text-white rounded text-xs font-medium transition-colors shadow-sm"
+            >
+              Freighter updated — retry
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (type === 'network_mismatch') {
+      return (
+        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 mb-3 space-y-2">
+          <div className="font-semibold text-amber-950">Network Mismatch</div>
+          <p>
+            App expects <strong className="font-semibold">{expectedNetwork || 'Testnet'}</strong>, but Freighter is set to <strong className="font-semibold">{freighterNetwork || 'Mainnet'}</strong>. Please switch network in your Freighter extension popup and retry.
+          </p>
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={handleFreighterClick}
+              className="px-3 py-1.5 bg-amber-700 hover:bg-amber-800 text-white rounded text-xs font-medium transition-colors"
+            >
+              Freighter updated — retry
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="p-3.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-900 mb-3 space-y-2">
+        <div className="font-semibold text-red-950">Freighter Connection Error</div>
+        <p>{message || 'An unexpected error occurred while connecting to Freighter.'}</p>
+        <div className="pt-1">
+          <button
+            type="button"
+            onClick={handleFreighterClick}
+            className="px-3 py-1.5 bg-red-700 hover:bg-red-800 text-white rounded text-xs font-medium transition-colors"
+          >
+            Freighter updated — retry
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-2">
-      {connectError && (
-        <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-sm text-destructive mb-3">
-          {connectError.message}
-        </div>
-      )}
+      {renderConnectError()}
       <button
         type="button"
         onClick={handleFreighterClick}
@@ -66,15 +155,22 @@ function WalletConnectOptions() {
   );
 }
 
-export function WalletModal({ isOpen, onClose }: WalletModalProps) {
+export function WalletModal({ isOpen, onClose, onConnected }: WalletModalProps) {
   const walletModalOpen = useWalletStore((s) => s.walletModalOpen);
   const setWalletModalOpen = useWalletStore((s) => s.setWalletModalOpen);
+  const address = useWalletStore((s) => s.address);
 
   useEffect(() => {
     if (isOpen !== walletModalOpen) {
       setWalletModalOpen(isOpen);
     }
   }, [isOpen, walletModalOpen, setWalletModalOpen]);
+
+  useEffect(() => {
+    if (address && isOpen && onConnected) {
+      onConnected(address);
+    }
+  }, [address, isOpen, onConnected]);
 
   const handleClose = () => {
     setWalletModalOpen(false);

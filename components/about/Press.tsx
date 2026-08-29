@@ -18,7 +18,7 @@ const publications: Publication[] = [
 
 export function Press() {
   return (
-    <section className="py-20 md:py-24 relative overflow-hidden border-b border-border/40">
+    <section aria-labelledby="press-heading" className="py-20 md:py-24 relative overflow-hidden border-b border-border/40">
       <div className="container mx-auto px-6">
         {/* Header */}
         <div className="text-center max-w-xl mx-auto mb-12 space-y-3">
@@ -26,7 +26,7 @@ export function Press() {
             <Newspaper className="w-3.5 h-3.5" />
             <span>Media Coverage</span>
           </div>
-          <h2 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
+          <h2 id="press-heading" className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
             As Seen In
           </h2>
           <p className="text-xs md:text-sm text-muted-foreground">
@@ -35,9 +35,9 @@ export function Press() {
         </div>
 
         {/* Publication Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
+        <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
           {publications.map((pub, idx) => (
-            <motion.div
+            <motion.li
               key={pub.name}
               initial={{ opacity: 0, scale: 0.95 }}
               whileInView={{ opacity: 1, scale: 1 }}
@@ -51,9 +51,9 @@ export function Press() {
               <span className="mt-2 text-[10px] text-muted-foreground font-medium line-clamp-2">
                 {pub.tagline}
               </span>
-            </motion.div>
+            </motion.li>
           ))}
-        </div>
+        </ul>
       </div>
     </section>
   );

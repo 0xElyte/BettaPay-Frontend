@@ -51,7 +51,15 @@ const WalletActivityItem = memo(function WalletActivityItem({ tx }: { tx: Wallet
 export function WalletActivityHistory({ address: explicitAddress }: { address?: string | null }) {
   const storeAddress = useWalletStore((s) => s.address);
   const activeAddress = explicitAddress || storeAddress;
-  const { transactions, loading, error, refetch } = useTransactionHistory(20, activeAddress);
+  const {
+    transactions,
+    loading,
+    error,
+    refetch,
+    loadMore,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useTransactionHistory(20, activeAddress);
   const parentRef = useRef<HTMLDivElement>(null);
 
   const virtualizer = useVirtualizer({
@@ -95,7 +103,7 @@ export function WalletActivityHistory({ address: explicitAddress }: { address?: 
             <Loader2 className="w-6 h-6 animate-spin text-primary" />
             <p className="text-xs text-muted-foreground">Fetching on-chain transactions from Horizon...</p>
           </div>
-        ) : error ? (
+        ) : error && transactions.length === 0 ? (
           <EmptyState
             icon={Inbox}
             title="Failed to load transactions"
@@ -109,32 +117,68 @@ export function WalletActivityHistory({ address: explicitAddress }: { address?: 
             description="On-chain transactions will appear here once your wallet receives or sends payments."
           />
         ) : (
-          <div
-            ref={parentRef}
-            className="h-[300px] overflow-auto"
-          >
+          <div className="space-y-3">
             <div
-              style={{
-                height: `${virtualizer.getTotalSize()}px`,
-                width: '100%',
-                position: 'relative',
-              }}
+              ref={parentRef}
+              className="h-[300px] overflow-auto"
             >
-              {virtualizer.getVirtualItems().map((virtualRow) => (
-                <div
-                  key={virtualRow.key}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: `${virtualRow.size}px`,
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
+              <div
+                style={{
+                  height: `${virtualizer.getTotalSize()}px`,
+                  width: '100%',
+                  position: 'relative',
+                }}
+              >
+                {virtualizer.getVirtualItems().map((virtualRow) => (
+                  <div
+                    key={transactions[virtualRow.index]?.id ?? virtualRow.key}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: `${virtualRow.size}px`,
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  >
+                    <WalletActivityItem tx={transactions[virtualRow.index]} />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center gap-2 pt-1">
+              {error && (
+                <p className="text-xs text-destructive text-center" role="alert">
+                  {error}
+                </p>
+              )}
+              {hasNextPage ? (
+                <Button
+                  variant="outline"
+                  className="min-h-[44px] rounded-lg"
+                  onClick={() => { void loadMore(); }}
+                  disabled={isFetchingNextPage}
+                  aria-label="Load more wallet transactions"
                 >
-                  <WalletActivityItem tx={transactions[virtualRow.index]} />
-                </div>
-              ))}
+                  {isFetchingNextPage ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                      Loading more…
+                    </>
+                  ) : (
+                    'Load more'
+                  )}
+                </Button>
+              ) : (
+                <p
+                  className="text-xs text-muted-foreground"
+                  data-testid="wallet-activity-end"
+                  role="status"
+                >
+                  End of transaction history
+                </p>
+              )}
             </div>
           </div>
         )}
