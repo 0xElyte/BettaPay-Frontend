@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckCircle2, AlertTriangle, XCircle, HelpCircle } from "lucide-react";
+import { CheckCircle2, AlertTriangle, XCircle, type LucideIcon } from "lucide-react";
 import type { ComponentStatusLevel, StatusComponent } from "@/lib/status/data";
 import { formatRelativeTime } from "@/lib/status/time";
 import { STATUS_TONE_BADGE, STATUS_TONE_DOT, type StatusTone } from "@/lib/status/palette";
@@ -13,7 +14,7 @@ interface ComponentStatusProps {
 
 const levelConfig: Record<
   ComponentStatusLevel,
-  { icon: React.ElementType; tone: StatusTone; label: string }
+  { icon: LucideIcon; tone: StatusTone; label: string }
 > = {
   operational: { icon: CheckCircle2, tone: "ok", label: "Operational" },
   degraded: { icon: AlertTriangle, tone: "warn", label: "Degraded" },
