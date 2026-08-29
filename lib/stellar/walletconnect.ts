@@ -21,15 +21,17 @@
  */
 
 import { extractValidStellarAddresses } from './utils';
+import {
+  WALLETCONNECT_RELAY_URL,
+  WALLETCONNECT_PROJECT_ID,
+  SITE_URL,
+} from '@/lib/config';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const RELAY_URL =
-  process.env.NEXT_PUBLIC_WALLETCONNECT_RELAY_URL ||
-  'wss://relay.walletconnect.com';
+const RELAY_URL = WALLETCONNECT_RELAY_URL;
 
-const PROJECT_ID =
-  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '';
+const PROJECT_ID = WALLETCONNECT_PROJECT_ID;
 
 /** CAIP-2 chain identifier for Stellar */
 const STELLAR_CHAIN = 'stellar:testnet';
@@ -403,7 +405,7 @@ export class WalletConnectClient {
           metadata: {
             name: 'BettaPay',
             description: 'Non-custodial merchant payments',
-            url: process.env.NEXT_PUBLIC_SITE_URL || 'https://betta.pay',
+            url: SITE_URL,
             icons: [],
           },
         },

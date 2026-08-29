@@ -1,8 +1,13 @@
 import { render, screen } from '@testing-library/react';
 
 import { CurrencyDisplay } from '../CurrencyDisplay';
+import { formatCurrency } from '@/lib/utils/format';
 
 describe('CurrencyDisplay', () => {
+  afterEach(() => {
+    document.documentElement.lang = '';
+  });
+
   it('renders a USDC amount with decimals by default', () => {
     render(<CurrencyDisplay amount={1250} />);
 
@@ -31,5 +36,26 @@ describe('CurrencyDisplay', () => {
     render(<CurrencyDisplay amount={42} className="custom-display" />);
 
     expect(screen.getByText('USDC 42.00')).toHaveClass('custom-display');
+  });
+
+  it('matches formatCurrency for the same amount across currencies', () => {
+    const amount = 1234.56;
+    const { rerender } = render(<CurrencyDisplay amount={amount} currency="USDC" />);
+    expect(screen.getByText(formatCurrency(amount, 'USDC'))).toBeInTheDocument();
+
+    rerender(<CurrencyDisplay amount={amount} currency="NGN" />);
+    expect(screen.getByText(formatCurrency(amount, 'NGN'))).toBeInTheDocument();
+  });
+
+  it('follows the active document locale', () => {
+    document.documentElement.lang = 'fr';
+    const expected = formatCurrency(1234.56, 'USDC', 'fr');
+    const { container } = render(<CurrencyDisplay amount={1234.56} />);
+    expect(container.querySelector('span')?.textContent).toBe(expected);
+  });
+
+  it('renders zero via the shared formatter', () => {
+    render(<CurrencyDisplay amount={0} />);
+    expect(screen.getByText(formatCurrency(0, 'USDC'))).toBeInTheDocument();
   });
 });

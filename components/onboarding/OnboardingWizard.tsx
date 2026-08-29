@@ -15,12 +15,13 @@ import {
   ArrowRight,
   X,
   ChevronRight,
+  type LucideIcon,
 } from "lucide-react";
 
 interface Step {
   title: string;
   description: string;
-  icon: React.ElementType;
+  icon: LucideIcon;
   cta: {
     label: string;
     href?: string;
@@ -71,6 +72,8 @@ const STEPS: Step[] = [
   },
 ];
 
+import { isOnboardingCompleted, setOnboardingCompleted } from "@/lib/auth/session";
+
 export const OnboardingWizard = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const { isConnected } = useWalletStore();
@@ -84,6 +87,32 @@ export const OnboardingWizard = () => {
   }, [markComplete]);
 
   const visible = hydrated && !isOnboarded;
+
+  useEffect(() => {
+    const checkStatus = () => {
+      if (isOnboardingCompleted()) {
+        setVisible(false);
+      } else {
+        setVisible(true);
+      }
+    };
+
+    checkStatus();
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "bp_onboarded" || e.key === "onboardingCompleted") {
+        checkStatus();
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
+
+  const dismiss = useCallback(() => {
+    setOnboardingCompleted(true);
+    setVisible(false);
+  }, []);
 
   const handleNext = useCallback(() => {
     if (currentStep < STEPS.length - 1) {

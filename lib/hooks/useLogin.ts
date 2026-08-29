@@ -4,6 +4,7 @@ import { useAuthStore } from '@/lib/store/authStore';
 import { useNotify } from '@/lib/hooks/useNotify';
 import { decodeJwtPayload } from '@/lib/utils/jwt';
 import { useWalletStore, WalletState } from '@/lib/store/walletStore';
+import { getApiBaseUrl } from '@/lib/config/api';
 import type { AuthLoginResponse, User } from '@/lib/types';
 
 /**
@@ -58,7 +59,10 @@ export function useLogin() {
   const setWalletModalOpen = useWalletStore((s: WalletState) => s.setWalletModalOpen);
   const { success, error, info } = useNotify();
 
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+  // Issue #488: one shared origin helper — this used to default to :3000
+  // while the axios data layer used :3001, so onboarding-vs-dashboard
+  // redirection depended on which server happened to be running.
+  const apiBase = getApiBaseUrl();
 
   const handleAuthSuccess = useCallback(async (token: string) => {
     // Structural + expiry check only. This proves nothing about authenticity —

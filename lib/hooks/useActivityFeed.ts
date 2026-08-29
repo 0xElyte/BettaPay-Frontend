@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { apiClient } from "@/lib/api/axios";
+import { getApiBaseUrl } from "@/lib/config/api";
 import { useAuthStore } from "@/lib/store/authStore";
 
 // ─── Public types ──────────────────────────────────────────────────────────────
@@ -225,8 +226,7 @@ export function useActivityFeed(limit = 20, filter = "all") {
     closeSSE();
     setConnectionStatus("connecting");
 
-    const apiBase =
-      process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+    const apiBase = getApiBaseUrl(); // issue #488: shared origin, no per-hook default
     const path = `/api/merchants/${mId}/activity/stream?limit=${limit}&filter=${filter}`;
     const url = `${apiBase}${path}`;
 

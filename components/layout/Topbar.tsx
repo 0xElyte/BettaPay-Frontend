@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Menu, LogOut, Settings, KeyRound, Moon, Sun, Monitor, Repeat } from "lucide-react";
+import { Menu, LogOut, Settings, KeyRound, Moon, Sun, Monitor, Repeat, Search } from "lucide-react";
+import { openCommandPalette } from "@/lib/command/open";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui";
@@ -104,7 +105,18 @@ export const Topbar = ({ onMenuClick, isMenuOpen, title, unreadNotificationCount
       </div>
 
       <div className="flex items-center gap-3 flex-1 justify-end">
-
+        {/* Command palette launcher (issue #459) — ⌘K also opens it globally */}
+        <button
+          type="button"
+          onClick={openCommandPalette}
+          className="hidden sm:inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-border bg-muted/50 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          aria-label="Open command palette"
+          aria-keyshortcuts="Meta+K Control+K"
+        >
+          <Search className="w-3.5 h-3.5" aria-hidden="true" />
+          <span>Search</span>
+          <kbd className="rounded border border-border px-1 py-0.5 text-[10px] leading-none">⌘K</kbd>
+        </button>
 
         {/* Network Indicator */}
         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border bg-muted/50 text-xs font-medium">

@@ -58,6 +58,7 @@ jest.mock("@/lib/api/hooks", () => ({
   usePayments: () => ({
     data: mockPayments,
     isLoading: false,
+    isFetching: false,
     error: null,
     refetch: jest.fn(),
   }),
@@ -135,6 +136,9 @@ jest.mock("lucide-react", () => {
     SearchX: icon("SearchX"),
     ExternalLink: icon("ExternalLink"),
     Loader2: icon("Loader2"),
+    ArrowUp: icon("ArrowUp"),
+    ArrowDown: icon("ArrowDown"),
+    ArrowUpDown: icon("ArrowUpDown"),
   };
 });
 

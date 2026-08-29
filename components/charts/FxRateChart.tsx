@@ -14,6 +14,7 @@ import {
 } from "recharts";
 // Imported directly (not via the barrel) to keep this lazy-loaded chunk lean.
 import { ErrorDisplay } from "@/components/shared/ErrorDisplay";
+import { formatCurrency } from "@/lib/utils/format";
 
 export interface FxRatePoint {
   date: string;
@@ -33,7 +34,7 @@ const fxHistory: FxRatePoint[] = [
   { date: "Jan 13", rate: 1550 },
 ];
 
-const formatNgn = (value: number) => `₦${value.toLocaleString()}`;
+const formatNgn = (value: number) => formatCurrency(value, 'NGN');
 
 export interface FxTooltipProps {
   active?: boolean;

@@ -21,16 +21,106 @@ export const getActiveLocale = (): Locale => {
 export const toIntlLocale = (locale?: string): string =>
   intlLocales[locale ? resolveLocale(locale) : getActiveLocale()];
 
-export const formatCurrency = (amount: number, currency: string = 'USDC', locale?: string) => {
+/** Values at or above this magnitude are compacted (T / Q suffixes). */
+const ABBREVIATION_THRESHOLD = 1e12;
+
+export interface FormatCurrencyOptions {
+  /** App locale (`en`/`fr`/`pt`/`sw`) or BCP-47 tag. Defaults to the active locale. */
+  locale?: string;
+  /**
+   * When false, omit fractional digits for non-NGN amounts that would otherwise
+   * render as whole numbers (e.g. `USDC 1,250` instead of `USDC 1,250.00`).
+   * NGN already omits forced decimals via Intl.
+   */
+  showDecimals?: boolean;
+  /**
+   * When true (default), compact extreme magnitudes (≥ 1T) with a T/Q suffix.
+   * Set false to always render the full number.
+   */
+  abbreviate?: boolean;
+}
+
+function resolveCurrencyOptions(
+  localeOrOptions?: string | FormatCurrencyOptions,
+): Required<Pick<FormatCurrencyOptions, 'showDecimals' | 'abbreviate'>> & {
+  locale?: string;
+} {
+  if (typeof localeOrOptions === 'string' || localeOrOptions === undefined) {
+    return {
+      locale: localeOrOptions,
+      showDecimals: true,
+      abbreviate: true,
+    };
+  }
+  return {
+    locale: localeOrOptions.locale,
+    showDecimals: localeOrOptions.showDecimals ?? true,
+    abbreviate: localeOrOptions.abbreviate ?? true,
+  };
+}
+
+function formatAbbreviatedAmount(
+  amount: number,
+  currency: string,
+  intlLocale: string,
+): string | null {
+  const abs = Math.abs(amount);
+  if (abs < ABBREVIATION_THRESHOLD) return null;
+
+  const sign = amount < 0 ? '-' : '';
+  let divisor = 1;
+  let suffix = '';
+
+  if (abs >= 1e15) {
+    divisor = 1e15;
+    suffix = 'Q';
+  } else if (abs >= 1e12) {
+    divisor = 1e12;
+    suffix = 'T';
+  } else {
+    return null;
+  }
+
+  const formatted = new Intl.NumberFormat(intlLocale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(abs / divisor);
+
+  if (currency === 'NGN') {
+    return `${sign}₦${formatted}${suffix}`;
+  }
+  return `${sign}USDC ${formatted}${suffix}`;
+}
+
+/**
+ * Shared locale-aware currency formatter used by `CurrencyDisplay`, charts,
+ * tables, and wallet surfaces. All money rendering should go through this
+ * (or `formatNumber`) so grouping, precision, and symbols stay consistent.
+ *
+ * The third argument accepts either a locale string (legacy) or an options
+ * object — both resolve through the same `Intl.NumberFormat` pipeline.
+ */
+export const formatCurrency = (
+  amount: number,
+  currency: string = 'USDC',
+  localeOrOptions?: string | FormatCurrencyOptions,
+) => {
   // Normalize floating-point residuals that would otherwise render as -0.00.
   if (Math.abs(amount) < 0.005) amount = 0;
 
-  const base = locale ? resolveLocale(locale) : getActiveLocale();
+  const opts = resolveCurrencyOptions(localeOrOptions);
+  const base = opts.locale ? resolveLocale(opts.locale) : getActiveLocale();
+  const intlLocale = intlLocales[base];
+
+  if (opts.abbreviate) {
+    const abbreviated = formatAbbreviatedAmount(amount, currency, intlLocale);
+    if (abbreviated) return abbreviated;
+  }
 
   if (currency === 'NGN') {
     // `en` keeps the `en-NG` tag so the ₦ symbol renders; other locales format
     // the amount using their own grouping/decimal conventions.
-    const ngnLocale = base === 'en' ? 'en-NG' : intlLocales[base];
+    const ngnLocale = base === 'en' ? 'en-NG' : intlLocale;
     return new Intl.NumberFormat(ngnLocale, {
       style: 'currency',
       currency: 'NGN',
@@ -38,15 +128,41 @@ export const formatCurrency = (amount: number, currency: string = 'USDC', locale
     }).format(amount);
   }
 
-  // USDC is a token, not an ISO currency, so format the number in the active
-  // locale and prefix the ticker. The sign stays ahead of the ticker to match
-  // established output (e.g. "-USDC 50.00").
+  // USDC (and other non-ISO tokens) format the number in the active locale and
+  // prefix the ticker. The sign stays ahead of the ticker to match established
+  // output (e.g. "-USDC 50.00").
   const sign = amount < 0 ? '-' : '';
-  const value = new Intl.NumberFormat(intlLocales[base], {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(Math.abs(amount));
+  const abs = Math.abs(amount);
+  const useDecimals = opts.showDecimals || abs % 1 !== 0;
+  const value = new Intl.NumberFormat(intlLocale, {
+    minimumFractionDigits: useDecimals ? 2 : 0,
+    maximumFractionDigits: useDecimals ? 2 : 0,
+  }).format(abs);
   return `${sign}USDC ${value}`;
+};
+
+/**
+ * Locale-aware fiat approximation (e.g. `≈ $0.00` / `≈ ₦0`) used when a
+ * conversion rounds to nothing.
+ */
+export const formatApproxFiat = (
+  amount: number,
+  currency: string = 'USDC',
+  locale?: string,
+) => {
+  const base = locale ? resolveLocale(locale) : getActiveLocale();
+  if (currency === 'NGN') {
+    const ngnLocale = base === 'en' ? 'en-NG' : intlLocales[base];
+    return `≈ ${new Intl.NumberFormat(ngnLocale, {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 0,
+    }).format(amount)}`;
+  }
+  return `≈ ${new Intl.NumberFormat(intlLocales[base], {
+    style: 'currency',
+    currency: 'USD',
+  }).format(amount)}`;
 };
 
 export const truncateAddress = (address: string) => {
