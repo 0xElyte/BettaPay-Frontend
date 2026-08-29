@@ -266,6 +266,9 @@ export default function OnboardingPage() {
   };
 
   const skip = () => {
+    // Skipping is not "not onboarded" — it just defers the flow. Don't touch
+    // the shared completion flag (issue #495): writing it here is what made
+    // the dismissible wizard reappear after the 5-step page had been done.
     clearSavedProgress();
     setOnboardingCompleted(false);
     localStorage.removeItem("onboardingDraft");
